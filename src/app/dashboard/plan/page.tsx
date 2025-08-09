@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -12,77 +13,78 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getMissedMealAdvice } from '@/ai/flows/get-missed-meal-advice';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { getPexelsImage } from '@/ai/flows/get-pexels-image';
 
 const initialDietPlan = {
     'Day 1': {
-        'Breakfast': { meal: 'Oatmeal with berries and nuts', image: 'https://source.unsplash.com/300x200/?oatmeal,berries', hint: 'oatmeal berries' },
-        'Morning Snack': { meal: 'Apple slices with almond butter', image: 'https://source.unsplash.com/300x200/?apple,slices', hint: 'apple slices' },
-        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', image: 'https://source.unsplash.com/300x200/?chicken,salad', hint: 'chicken salad' },
-        'Afternoon Snack': { meal: 'Greek yogurt', image: 'https://source.unsplash.com/300x200/?greek,yogurt', hint: 'greek yogurt' },
-        'Dinner': { meal: 'Salmon with roasted vegetables', image: 'https://source.unsplash.com/300x200/?salmon,vegetables', hint: 'salmon vegetables' },
-        'Evening Snack': { meal: 'Handful of mixed nuts', image: 'https://source.unsplash.com/300x200/?mixed,nuts', hint: 'mixed nuts' },
-        'Before Bed': { meal: 'Chamomile tea', image: 'https://source.unsplash.com/300x200/?chamomile,tea', hint: 'chamomile tea' },
+        'Breakfast': { meal: 'Oatmeal with berries and nuts', hint: 'oatmeal berries' },
+        'Morning Snack': { meal: 'Apple slices with almond butter', hint: 'apple slices' },
+        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', hint: 'chicken salad' },
+        'Afternoon Snack': { meal: 'Greek yogurt', hint: 'greek yogurt' },
+        'Dinner': { meal: 'Salmon with roasted vegetables', hint: 'salmon vegetables' },
+        'Evening Snack': { meal: 'Handful of mixed nuts', hint: 'mixed nuts' },
+        'Before Bed': { meal: 'Chamomile tea', hint: 'chamomile tea' },
     },
     'Day 2': {
-        'Breakfast': { meal: 'Greek yogurt with honey and fruits', image: 'https://source.unsplash.com/300x200/?yogurt,fruit', hint: 'yogurt fruit' },
-        'Morning Snack': { meal: 'Banana', image: 'https://source.unsplash.com/300x200/?banana', hint: 'banana' },
-        'Lunch': { meal: 'Quinoa bowl with black beans and corn', image: 'https://source.unsplash.com/300x200/?quinoa,bowl', hint: 'quinoa bowl' },
-        'Afternoon Snack': { meal: 'Carrot sticks with hummus', image: 'https://source.unsplash.com/300x200/?carrots,hummus', hint: 'carrots hummus' },
-        'Dinner': { meal: 'Lean beef stir-fry with brown rice', image: 'https://source.unsplash.com/300x200/?beef,stir-fry', hint: 'beef stir-fry' },
-        'Evening Snack': { meal: 'Rice cakes', image: 'https://source.unsplash.com/300x200/?rice,cakes', hint: 'rice cakes' },
-        'Before Bed': { meal: 'Warm milk', image: 'https://source.unsplash.com/300x200/?warm,milk', hint: 'warm milk' },
+        'Breakfast': { meal: 'Greek yogurt with honey and fruits', hint: 'yogurt fruit' },
+        'Morning Snack': { meal: 'Banana', hint: 'banana' },
+        'Lunch': { meal: 'Quinoa bowl with black beans and corn', hint: 'quinoa bowl' },
+        'Afternoon Snack': { meal: 'Carrot sticks with hummus', hint: 'carrots hummus' },
+        'Dinner': { meal: 'Lean beef stir-fry with brown rice', hint: 'beef stir-fry' },
+        'Evening Snack': { meal: 'Rice cakes', hint: 'rice cakes' },
+        'Before Bed': { meal: 'Warm milk', hint: 'warm milk' },
     },
     'Day 3': {
-        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', image: 'https://source.unsplash.com/300x200/?scrambled,eggs', hint: 'scrambled eggs' },
-        'Morning Snack': { meal: 'Orange', image: 'https://source.unsplash.com/300x200/?orange', hint: 'orange' },
-        'Lunch': { meal: 'Lentil soup with a side of mixed greens', image: 'https://source.unsplash.com/300x200/?lentil,soup', hint: 'lentil soup' },
-        'Afternoon Snack': { meal: 'Cottage cheese with pineapple', image: 'https://source.unsplash.com/300x200/?cottage,cheese', hint: 'cottage cheese' },
-        'Dinner': { meal: 'Baked cod with asparagus and lemon', image: 'https://source.unsplash.com/300x200/?baked,cod', hint: 'baked cod' },
-        'Evening Snack': { meal: 'Dark chocolate square', image: 'https://source.unsplash.com/300x200/?dark,chocolate', hint: 'dark chocolate' },
-        'Before Bed': { meal: 'Herbal tea', image: 'https://source.unsplash.com/300x200/?herbal,tea', hint: 'herbal tea' },
+        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', hint: 'scrambled eggs' },
+        'Morning Snack': { meal: 'Orange', hint: 'orange' },
+        'Lunch': { meal: 'Lentil soup with a side of mixed greens', hint: 'lentil soup' },
+        'Afternoon Snack': { meal: 'Cottage cheese with pineapple', hint: 'cottage cheese' },
+        'Dinner': { meal: 'Baked cod with asparagus and lemon', hint: 'baked cod' },
+        'Evening Snack': { meal: 'Dark chocolate square', hint: 'dark chocolate' },
+        'Before Bed': { meal: 'Herbal tea', hint: 'herbal tea' },
     },
     'Day 4': {
-        'Breakfast': { meal: 'Smoothie with spinach, banana, and protein powder', image: 'https://source.unsplash.com/300x200/?green,smoothie', hint: 'green smoothie' },
-        'Morning Snack': { meal: 'Handful of almonds', image: 'https://source.unsplash.com/300x200/?almonds', hint: 'almonds' },
-        'Lunch': { meal: 'Turkey and avocado wrap on whole-wheat tortilla', image: 'https://source.unsplash.com/300x200/?turkey,wrap', hint: 'turkey wrap' },
-        'Afternoon Snack': { meal: 'Hard-boiled egg', image: 'https://source.unsplash.com/300x200/?hard-boiled,egg', hint: 'hard-boiled egg' },
-        'Dinner': { meal: 'Chicken cacciatore with whole-wheat pasta', image: 'https://source.unsplash.com/300x200/?chicken,pasta', hint: 'chicken pasta' },
-        'Evening Snack': { meal: 'Popcorn', image: 'https://source.unsplash.com/300x200/?popcorn', hint: 'popcorn' },
-        'Before Bed': { meal: 'Peppermint tea', image: 'https://source.unsplash.com/300x200/?peppermint,tea', hint: 'peppermint tea' },
+        'Breakfast': { meal: 'Smoothie with spinach, banana, and protein powder', hint: 'green smoothie' },
+        'Morning Snack': { meal: 'Handful of almonds', hint: 'almonds' },
+        'Lunch': { meal: 'Turkey and avocado wrap on whole-wheat tortilla', hint: 'turkey wrap' },
+        'Afternoon Snack': { meal: 'Hard-boiled egg', hint: 'hard-boiled egg' },
+        'Dinner': { meal: 'Chicken cacciatore with whole-wheat pasta', hint: 'chicken pasta' },
+        'Evening Snack': { meal: 'Popcorn', hint: 'popcorn' },
+        'Before Bed': { meal: 'Peppermint tea', hint: 'peppermint tea' },
     },
     'Day 5': {
-        'Breakfast': { meal: 'Oatmeal with berries and nuts', image: 'https://source.unsplash.com/300x200/?oatmeal,berries', hint: 'oatmeal berries' },
-        'Morning Snack': { meal: 'Pear', image: 'https://source.unsplash.com/300x200/?pear', hint: 'pear' },
-        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', image: 'https://source.unsplash.com/300x200/?chicken,salad', hint: 'chicken salad' },
-        'Afternoon Snack': { meal: 'Edamame', image: 'https://source.unsplash.com/300x200/?edamame', hint: 'edamame' },
-        'Dinner': { meal: 'Salmon with roasted vegetables', image: 'https://source.unsplash.com/300x200/?salmon,vegetables', hint: 'salmon vegetables' },
-        'Evening Snack': { meal: 'Berries', image: 'https://source.unsplash.com/300x200/?berries', hint: 'berries' },
-        'Before Bed': { meal: 'Ginger tea', image: 'https://source.unsplash.com/300x200/?ginger,tea', hint: 'ginger tea' },
+        'Breakfast': { meal: 'Oatmeal with berries and nuts', hint: 'oatmeal berries' },
+        'Morning Snack': { meal: 'Pear', hint: 'pear' },
+        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', hint: 'chicken salad' },
+        'Afternoon Snack': { meal: 'Edamame', hint: 'edamame' },
+        'Dinner': { meal: 'Salmon with roasted vegetables', hint: 'salmon vegetables' },
+        'Evening Snack': { meal: 'Berries', hint: 'berries' },
+        'Before Bed': { meal: 'Ginger tea', hint: 'ginger tea' },
     },
     'Day 6': {
-        'Breakfast': { meal: 'Greek yogurt with honey and fruits', image: 'https://source.unsplash.com/300x200/?yogurt,fruit', hint: 'yogurt fruit' },
-        'Morning Snack': { meal: 'Grapes', image: 'https://source.unsplash.com/300x200/?grapes', hint: 'grapes' },
-        'Lunch': { meal: 'Quinoa bowl with black beans and corn', image: 'https://source.unsplash.com/300x200/?quinoa,bowl', hint: 'quinoa bowl' },
-        'Afternoon Snack': { meal: 'Beef jerky', image: 'https://source.unsplash.com/300x200/?beef,jerky', hint: 'beef jerky' },
-        'Dinner': { meal: 'Lean beef stir-fry with brown rice', image: 'https://source.unsplash.com/300x200/?beef,stir-fry', hint: 'beef stir-fry' },
-        'Evening Snack': { meal: 'Yogurt', image: 'https://source.unsplash.com/300x200/?yogurt', hint: 'yogurt' },
-        'Before Bed': { meal: 'Warm water with lemon', image: 'https://source.unsplash.com/300x200/?lemon,water', hint: 'lemon water' },
+        'Breakfast': { meal: 'Greek yogurt with honey and fruits', hint: 'yogurt fruit' },
+        'Morning Snack': { meal: 'Grapes', hint: 'grapes' },
+        'Lunch': { meal: 'Quinoa bowl with black beans and corn', hint: 'quinoa bowl' },
+        'Afternoon Snack': { meal: 'Beef jerky', hint: 'beef jerky' },
+        'Dinner': { meal: 'Lean beef stir-fry with brown rice', hint: 'beef stir-fry' },
+        'Evening Snack': { meal: 'Yogurt', hint: 'yogurt' },
+        'Before Bed': { meal: 'Warm water with lemon', hint: 'lemon water' },
     },
     'Day 7': {
-        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', image: 'https://source.unsplash.com/300x200/?scrambled,eggs', hint: 'scrambled eggs' },
-        'Morning Snack': { meal: 'Peach', image: 'https://source.unsplash.com/300x200/?peach', hint: 'peach' },
-        'Lunch': { meal: 'Lentil soup with a side of mixed greens', image: 'https://source.unsplash.com/300x200/?lentil,soup', hint: 'lentil soup' },
-        'Afternoon Snack': { meal: 'Cucumber slices', image: 'https://source.unsplash.com/300x200/?cucumber,slices', hint: 'cucumber slices' },
-        'Dinner': { meal: 'Baked cod with asparagus and lemon', image: 'https://source.unsplash.com/300x200/?baked,cod', hint: 'baked cod' },
-        'Evening Snack': { meal: 'Celery sticks with cream cheese', image: 'https://source.unsplash.com/300x200/?celery,sticks', hint: 'celery sticks' },
-        'Before Bed': { meal: 'Decaf green tea', image: 'https://source.unsplash.com/300x200/?green,tea', hint: 'green tea' },
+        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', hint: 'scrambled eggs' },
+        'Morning Snack': { meal: 'Peach', hint: 'peach' },
+        'Lunch': { meal: 'Lentil soup with a side of mixed greens', hint: 'lentil soup' },
+        'Afternoon Snack': { meal: 'Cucumber slices', hint: 'cucumber slices' },
+        'Dinner': { meal: 'Baked cod with asparagus and lemon', hint: 'baked cod' },
+        'Evening Snack': { meal: 'Celery sticks with cream cheese', hint: 'celery sticks' },
+        'Before Bed': { meal: 'Decaf green tea', hint: 'green tea' },
     },
 };
 
 type Meal = {
     meal: string;
-    image: string;
     hint: string;
+    image?: string;
 };
 
 type DayPlan = {
@@ -98,6 +100,51 @@ type MealStatus = {
         [mealTime: string]: boolean;
     };
 };
+
+const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isCancelled = false;
+        const fetchImage = async () => {
+            try {
+                const response = await getPexelsImage({ query: hint });
+                if (!isCancelled) {
+                    setImageUrl(response.imageUrl);
+                }
+            } catch (error) {
+                console.error("Failed to fetch image from Pexels", error);
+                if (!isCancelled) {
+                    // Fallback to Unsplash if Pexels fails
+                    setImageUrl(`https://source.unsplash.com/300x200/?${hint}`);
+                }
+            }
+        };
+
+        fetchImage();
+        
+        return () => {
+            isCancelled = true;
+        };
+    }, [hint]);
+
+    if (!imageUrl) {
+        return <div className="rounded-t-lg bg-muted aspect-[3/2] w-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    }
+
+    return (
+        <Image
+            src={imageUrl}
+            alt={alt}
+            width={300}
+            height={200}
+            className="rounded-t-lg object-cover w-full aspect-[3/2]"
+            data-ai-hint={hint}
+            unoptimized // Necessary for external providers like Pexels/Unsplash
+        />
+    );
+};
+
 
 export default function DietPlanPage() {
     const { toast } = useToast();
@@ -161,14 +208,7 @@ export default function DietPlanPage() {
                             {Object.entries(meals as DayPlan).map(([mealTime, mealDetails]) => (
                                 <Card key={mealTime} className="overflow-hidden flex flex-col">
                                     <CardHeader className="p-0">
-                                        <Image
-                                            src={mealDetails.image}
-                                            alt={mealDetails.meal}
-                                            width={300}
-                                            height={200}
-                                            className="rounded-t-lg object-cover w-full aspect-[3/2]"
-                                            data-ai-hint={mealDetails.hint}
-                                        />
+                                        <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
                                     </CardHeader>
                                     <CardContent className="p-4 flex-grow">
                                         <h3 className="text-lg font-semibold font-headline">{mealTime}</h3>
