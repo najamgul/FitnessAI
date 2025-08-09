@@ -27,6 +27,7 @@ import {
   Users,
 } from 'lucide-react';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
 
 const allNavItems = [
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
@@ -36,26 +37,7 @@ const allNavItems = [
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
 ];
 
-// In a real app, this would come from an authentication provider and be stored in a global state/context.
-// For now, we simulate it based on a hardcoded email.
 const adminEmail = 'care@aziaf.com';
-
-// We'll use localStorage to persist the logged-in user's email for this simulation.
-const getLoggedInUser = () => {
-    if (typeof window !== 'undefined') {
-        const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
-        if (loggedInEmail === adminEmail) {
-            return { name: 'Admin User', email: adminEmail };
-        }
-        // When not admin, show a mock user
-        if (loggedInEmail) {
-             return { name: 'John Doe', email: loggedInEmail };
-        }
-    }
-    // Default for server-side rendering or if not logged in
-    return { name: 'John Doe', email: 'john.doe@example.com' };
-};
-
 
 export default function DashboardLayout({
   children,
@@ -64,9 +46,25 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mockUser, setMockUser] = useState({ name: '', email: '' });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
-  const mockUser = getLoggedInUser();
-  const isAdmin = mockUser.email === adminEmail;
+  useEffect(() => {
+    setIsClient(true);
+    const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
+    const userIsAdmin = loggedInEmail === adminEmail;
+    
+    setIsAdmin(userIsAdmin);
+    
+    if (userIsAdmin) {
+        setMockUser({ name: 'Admin User', email: adminEmail });
+    } else if (loggedInEmail) {
+        setMockUser({ name: 'John Doe', email: loggedInEmail });
+    } else {
+        setMockUser({ name: 'John Doe', email: 'john.doe@example.com' });
+    }
+  }, []);
   
   const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
 
@@ -75,6 +73,18 @@ export default function DashboardLayout({
         localStorage.removeItem('loggedInEmail');
     }
     router.push('/login');
+  }
+
+  if (!isClient) {
+    // Render a skeleton or loading state on the server to avoid hydration mismatch
+    return (
+        <div className="flex min-h-screen">
+            <div className="w-16 md:w-64 bg-muted/40 animate-pulse"></div>
+            <div className="flex-1 p-8 animate-pulse">
+                <div className="h-10 w-1/3 bg-muted/40 rounded"></div>
+            </div>
+        </div>
+    );
   }
 
   return (
