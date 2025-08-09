@@ -23,9 +23,9 @@ export async function getPexelsImage(input: GetPexelsImageInput): Promise<GetPex
     const apiKey = process.env.PEXELS_API_KEY;
 
     if (!apiKey) {
-        console.error('Pexels API key is not set.');
+        console.warn('Pexels API key is not set. Using placeholder images.');
         // Return a placeholder if the key is missing
-        return { imageUrl: `https://source.unsplash.com/300x200/?${input.query}` };
+        return { imageUrl: `https://placehold.co/300x200.png` };
     }
 
     const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(input.query)}&per_page=1`;
@@ -39,16 +39,16 @@ export async function getPexelsImage(input: GetPexelsImageInput): Promise<GetPex
 
         if (!response.ok) {
             console.error('Pexels API request failed:', response.statusText);
-            return { imageUrl: `https://source.unsplash.com/300x200/?${input.query}` };
+            return { imageUrl: `https://placehold.co/300x200.png` };
         }
 
         const data = await response.json();
-        const imageUrl = data.photos?.[0]?.src?.medium || `https://source.unsplash.com/300x200/?${input.query}`;
+        const imageUrl = data.photos?.[0]?.src?.medium || `https://placehold.co/300x200.png`;
         
         return { imageUrl };
 
     } catch (error) {
         console.error('Error fetching from Pexels API:', error);
-        return { imageUrl: `https://source.unsplash.com/300x200/?${input.query}` };
+        return { imageUrl: `https://placehold.co/300x200.png` };
     }
 }
