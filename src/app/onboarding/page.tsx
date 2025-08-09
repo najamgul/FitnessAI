@@ -17,6 +17,7 @@ import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, T
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const onboardingSteps = [
     { id: 1, title: 'About You' },
@@ -24,6 +25,15 @@ const onboardingSteps = [
     { id: 3, title: 'Health Profile' },
     { id: 4, title: 'Your Goals' },
 ];
+
+const healthConditions = [
+  { id: 'pcod_pcos', label: 'PCOD / PCOS' },
+  { id: 'diabetes', label: 'Diabetes / Blood Sugar Management' },
+  { id: 'hypertension', label: 'High Blood Pressure' },
+  { id: 'cholesterol', label: 'High Cholesterol' },
+  { id: 'thyroid', label: 'Thyroid Imbalance' },
+];
+
 
 export default function OnboardingPage() {
     const router = useRouter();
@@ -53,6 +63,7 @@ export default function OnboardingPage() {
         goalAction: 'maintain', // 'lose', 'gain', 'maintain'
         goalWeightKg: '',
         otherGoal: '',
+        healthGoals: [] as string[],
     });
 
     const [healthProfile, setHealthProfile] = useState({
@@ -156,16 +167,34 @@ export default function OnboardingPage() {
     const handleRadioChange = (value: string) => {
         setFormData(prev => ({ ...prev, goalAction: value }));
     };
+
+    const handleCheckboxChange = (id: string, checked: boolean) => {
+      setFormData(prev => {
+        const newHealthGoals = checked 
+          ? [...prev.healthGoals, id]
+          : prev.healthGoals.filter(goalId => goalId !== id);
+        return { ...prev, healthGoals: newHealthGoals };
+      });
+    };
     
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
             const heightInCm = Math.round(((parseInt(formData.heightFt) || 0) * 12 + (parseInt(formData.heightIn) || 0)) * 2.54);
 
-            let goalDescription = "Maintain current weight and general well-being.";
+            let goalDescription = `Primary goal: ${formData.goalAction} weight.`;
             if (formData.goalAction === 'lose' || formData.goalAction === 'gain') {
-                goalDescription = `Achieve a target weight of ${formData.goalWeightKg} kg.`;
-            } else if (formData.goalAction === 'other') {
+                goalDescription += ` Target weight: ${formData.goalWeightKg} kg.`;
+            }
+
+            if (formData.healthGoals.length > 0) {
+              const selectedGoals = healthConditions
+                .filter(condition => formData.healthGoals.includes(condition.id))
+                .map(condition => condition.label);
+                goalDescription += ` Secondary goals: Manage ${selectedGoals.join(', ')}.`;
+            }
+            
+            if (formData.goalAction === 'other') {
                 goalDescription = formData.otherGoal;
             }
 
@@ -419,28 +448,27 @@ export default function OnboardingPage() {
                     {step === 4 && (
                          <>
                             <CardHeader>
-                                <CardTitle className="font-headline">What is your primary goal?</CardTitle>
-                                <CardDescription>Let us know what you want to achieve. This will help us create the perfect plan for you.</CardDescription>
+                                <CardTitle className="font-headline">What are your goals?</CardTitle>
+                                <CardDescription>Select your primary goal and any other health conditions you'd like to manage.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="lose" id="lose" />
-                                        <Label htmlFor="lose" className="cursor-pointer">Lose Weight</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="gain" id="gain" />
-                                        <Label htmlFor="gain" className="cursor-pointer">Gain Weight</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="maintain" id="maintain" />
-                                        <Label htmlFor="maintain" className="cursor-pointer">Maintain Current Weight</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="other" id="other" />
-                                        <Label htmlFor="other" className="cursor-pointer">Other</Label>
-                                    </div>
-                                </RadioGroup>
+                                <div>
+                                    <Label className="font-semibold">Primary Goal: Weight Management</Label>
+                                    <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="lose" id="lose" />
+                                            <Label htmlFor="lose" className="cursor-pointer">Lose Weight</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="gain" id="gain" />
+                                            <Label htmlFor="gain" className="cursor-pointer">Gain Weight</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="maintain" id="maintain" />
+                                            <Label htmlFor="maintain" className="cursor-pointer">Maintain Weight</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </div>
 
                                 {(formData.goalAction === 'lose' || formData.goalAction === 'gain') && (
                                     <div className="space-y-2 animate-in fade-in-50">
@@ -454,17 +482,33 @@ export default function OnboardingPage() {
                                         />
                                     </div>
                                 )}
-                                {formData.goalAction === 'other' && (
-                                    <div className="space-y-2 animate-in fade-in-50">
-                                        <Label htmlFor="otherGoal">Please specify your goal</Label>
-                                        <Textarea
-                                            id="otherGoal"
-                                            placeholder="e.g., Improve energy levels, build muscle, manage a health condition."
-                                            value={formData.otherGoal}
-                                            onChange={handleChange}
+
+                                <div className="space-y-4">
+                                  <Label className="font-semibold">Other Health Goals (Optional)</Label>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {healthConditions.map((item) => (
+                                      <div key={item.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={item.id}
+                                          checked={formData.healthGoals.includes(item.id)}
+                                          onCheckedChange={(checked) => handleCheckboxChange(item.id, !!checked)}
                                         />
-                                    </div>
-                                )}
+                                        <Label htmlFor={item.id} className="font-normal cursor-pointer">
+                                          {item.label}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="otherGoal">Any other specific goals or notes?</Label>
+                                    <Textarea
+                                        id="otherGoal"
+                                        placeholder="e.g., Improve energy levels, build muscle, prepare for a marathon..."
+                                        value={formData.otherGoal}
+                                        onChange={handleChange}
+                                    />
+                                </div>
                             </CardContent>
                         </>
                     )}
