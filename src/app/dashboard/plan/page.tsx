@@ -210,21 +210,24 @@ export default function DietPlanPage() {
             doc.setFontSize(11);
             doc.text(`This list is generated based on your ${dietPlan.length}-day diet plan.`, 14, 30);
 
+            const tableBody = shoppingList.flatMap(category => 
+                category.items.map((item, index) => {
+                    const categoryCell = {
+                        content: category.category,
+                        rowSpan: category.items.length,
+                    };
+                    return [
+                        index === 0 ? categoryCell : '',
+                        item.name,
+                        item.quantity,
+                    ];
+                })
+            );
+
             (doc as any).autoTable({
                 startY: 40,
                 head: [['Category', 'Item', 'Quantity']],
-                body: shoppingList.flatMap(category => 
-                    category.items.map((item, index) => [
-                        index === 0 ? category.category : '',
-                        item.name,
-                        item.quantity
-                    ])
-                ),
-                didDrawCell: (data: any) => {
-                    if (data.section === 'body' && data.cell.raw !== '' && data.column.index === 0) {
-                        (doc as any).autoTable.previous.finalY = data.cell.y + data.cell.height;
-                    }
-                },
+                body: tableBody,
                 theme: 'striped',
                 headStyles: { fillColor: [66, 133, 244] },
             });
@@ -452,5 +455,3 @@ export default function DietPlanPage() {
         </div>
     );
 }
-
-    
