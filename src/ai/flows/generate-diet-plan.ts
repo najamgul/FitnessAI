@@ -24,7 +24,9 @@ export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const MealSchema = z.object({
     meal: z.string().describe("The name of the meal to be eaten."),
-    hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'.")
+    hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
+    calories: z.number().describe("The approximate calorie count for this meal."),
+    description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences).")
 });
 
 const MealsSchema = z.object({
@@ -61,7 +63,7 @@ const prompt = ai.definePrompt({
 
   It is critical that each day's 'meals' object includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
 
-  For each meal, provide the meal name and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
+  For each meal, provide the meal name and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'). You must also include the approximate calorie count for the meal, and a brief 1-2 sentence description of the meal's benefits and importance within the diet plan.
 
   User Details:
   - Health Information: {{{healthInformation}}}

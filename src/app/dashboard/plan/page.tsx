@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Lightbulb, RefreshCw, ShoppingCart } from 'lucide-react';
+import { Download, Lightbulb, RefreshCw, ShoppingCart, Flame } from 'lucide-react';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,8 @@ import 'jspdf-autotable';
 type Meal = {
     meal: string;
     hint: string;
+    calories: number;
+    description: string;
     image?: string;
 };
 
@@ -303,12 +305,17 @@ export default function DietPlanPage() {
                             <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => (
                                     <Card key={mealTime} className="overflow-hidden flex flex-col">
-                                        <CardHeader className="p-0">
+                                        <CardHeader className="p-0 relative">
                                             <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
+                                            <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-xs font-semibold text-white">
+                                                <Flame className="h-3 w-3" />
+                                                {mealDetails.calories} kcal
+                                            </div>
                                         </CardHeader>
                                         <CardContent className="p-4 flex-grow">
                                             <h3 className="text-lg font-semibold font-headline">{mealTime}</h3>
-                                            <p className="text-muted-foreground">{mealDetails.meal}</p>
+                                            <p className="text-muted-foreground font-semibold">{mealDetails.meal}</p>
+                                            <p className="text-sm text-muted-foreground mt-2">{mealDetails.description}</p>
                                         </CardContent>
                                         <CardFooter className="p-4 pt-0 mt-auto">
                                             <div className="w-full space-y-4">
