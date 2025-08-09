@@ -3,7 +3,7 @@
 /**
  * @fileOverview AI-powered diet plan generator.
  *
- * - generateDietPlan - A function that generates a personalized 7-day diet plan.
+ * - generateDietPlan - A function that generates a personalized diet plan for a specified duration.
  * - GenerateDietPlanInput - The input type for the generateDietPlan function.
  * - GenerateDietPlanOutput - The return type for the generateDietPlan function.
  */
@@ -18,11 +18,12 @@ const GenerateDietPlanInputSchema = z.object({
   healthInformation: z.string().describe('Health information like age, gender, weight, height, activity level, medical conditions, etc.'),
   goals: z.string().describe('Goals such as weight loss, muscle gain, etc.'),
   geographicLocation: z.string().describe('The geographic location of the user.'),
+  planDuration: z.number().describe('The number of days the diet plan should cover.'),
 });
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const GenerateDietPlanOutputSchema = z.object({
-  dietPlan: z.string().describe('A personalized 7-day diet plan. Each day must include 7 meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed. The plan should be formatted as a JSON string within the string field. For example: \'{"Day 1": {"Breakfast": "Oatmeal", ...}, "Day 2": ...}\''),
+  dietPlan: z.string().describe('A personalized diet plan for the specified number of days. The plan should be formatted as a JSON string within the string field. For example: \'{"Day 1": {"Breakfast": "Oatmeal", ...}, "Day 2": ...}\''),
 });
 export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema>;
 
@@ -36,9 +37,9 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateDietPlanOutputSchema},
   prompt: `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of Kashmiri cuisine.
 
-  Based on the user's detailed information, generate a personalized 7-day diet plan. It is critical that each day includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
+  Based on the user's detailed information, generate a personalized diet plan for {{{planDuration}}} days. It is critical that each day includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
 
-  The final output for the 'dietPlan' field must be a single JSON string. The JSON object should have keys for "Day 1" through "Day 7". Each day's value should be an object with keys for each of the 7 meals.
+  The final output for the 'dietPlan' field must be a single JSON string. The JSON object should have keys for "Day 1" through "Day {{{planDuration}}}". Each day's value should be an object with keys for each of the 7 meals.
 
   User Details:
   - Health Information: {{{healthInformation}}}

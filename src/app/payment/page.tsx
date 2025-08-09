@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, IndianRupee } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
 
 export default function PaymentPage() {
@@ -17,6 +17,23 @@ export default function PaymentPage() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState(0);
+
+    useEffect(() => {
+        const onboardingDataString = localStorage.getItem('onboardingData');
+        if (onboardingDataString) {
+            const onboardingData = JSON.parse(onboardingDataString);
+            const duration = parseInt(onboardingData.planDuration, 10);
+            if (!isNaN(duration)) {
+                if (duration >= 7 && duration <= 30) setPaymentAmount(1500);
+                else if (duration >= 31 && duration <= 60) setPaymentAmount(2800);
+                else if (duration >= 61 && duration <= 90) setPaymentAmount(4000);
+            }
+        } else {
+            // fallback or redirect if no data
+            router.push('/onboarding');
+        }
+    }, [router]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -39,6 +56,9 @@ export default function PaymentPage() {
 
         // Simulate upload and admin notification
         setTimeout(() => {
+            // Clean up local storage
+            localStorage.removeItem('onboardingData');
+            
             toast({
                 title: 'Screenshot Submitted!',
                 description: "Your payment is being verified. We'll notify you once access is granted.",
@@ -52,9 +72,17 @@ export default function PaymentPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-2xl font-headline">Complete Your Payment</CardTitle>
-                    <CardDescription>Scan the QR code to pay, then upload the screenshot to get your plan.</CardDescription>
+                    <CardDescription>
+                        Please pay the amount below by scanning the QR code, then upload the screenshot to get your plan.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    {paymentAmount > 0 && (
+                         <div className="p-4 bg-primary rounded-md text-center text-primary-foreground">
+                            <p className="text-sm">Total Amount Due</p>
+                            <p className="text-3xl font-bold flex items-center justify-center gap-1"><IndianRupee size={24}/> {paymentAmount}</p>
+                        </div>
+                    )}
                     <div className="flex justify-center p-4 border rounded-lg bg-white">
                         <Image
                             src="/qr-code.png"

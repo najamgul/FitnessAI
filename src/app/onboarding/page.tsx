@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -13,8 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target, Clock } from 'lucide-react';
-import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
+import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target, Clock, IndianRupee } from 'lucide-react';
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -64,6 +63,7 @@ export default function OnboardingPage() {
         goalWeightKg: '',
         otherGoal: '',
         healthGoals: [] as string[],
+        planDuration: '30',
     });
 
     const [healthProfile, setHealthProfile] = useState({
@@ -177,13 +177,36 @@ export default function OnboardingPage() {
       });
     };
     
+    const handlePlanDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const duration = e.target.value;
+        setFormData(prev => ({ ...prev, planDuration: duration }));
+    };
+
+    const validatePlanDuration = () => {
+        const duration = parseInt(formData.planDuration, 10);
+        if (isNaN(duration) || duration < 7) {
+            setFormData(prev => ({ ...prev, planDuration: '7' }));
+        } else if (duration > 90) {
+            setFormData(prev => ({ ...prev, planDuration: '90' }));
+        }
+    };
+    
+    const getPaymentAmount = (durationStr: string): number => {
+        const duration = parseInt(durationStr, 10);
+        if (isNaN(duration)) return 0;
+        if (duration >= 7 && duration <= 30) return 1500;
+        if (duration >= 31 && duration <= 60) return 2800;
+        if (duration >= 61 && duration <= 90) return 4000;
+        return 0;
+    };
+
+    const paymentAmount = getPaymentAmount(formData.planDuration);
+
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
-            // We don't need to generate the plan here anymore,
-            // but we can save the user's data to local storage or a state management solution
-            // to be retrieved on the payment page if needed.
-            // For now, we'll just redirect to the payment page.
+            // Store data to be used on the payment page
+            localStorage.setItem('onboardingData', JSON.stringify(formData));
             
             toast({
                 title: 'Onboarding Complete!',
@@ -216,15 +239,15 @@ export default function OnboardingPage() {
 
     const isSubmitDisabled = useMemo(() => {
         if (isLoading) return true;
+        const duration = parseInt(formData.planDuration, 10);
+        if (isNaN(duration) || duration < 7 || duration > 90) return true;
+
         if (formData.goalAction === 'maintain') return false;
         if (formData.goalAction === 'lose' || formData.goalAction === 'gain') {
             return !formData.goalWeightKg || parseFloat(formData.goalWeightKg) <= 0;
         }
-        if (formData.goalAction === 'other') {
-            return !formData.otherGoal.trim();
-        }
         return false;
-    }, [isLoading, formData.goalAction, formData.goalWeightKg, formData.otherGoal]);
+    }, [isLoading, formData.goalAction, formData.goalWeightKg, formData.planDuration]);
 
 
     return (
@@ -271,11 +294,11 @@ export default function OnboardingPage() {
                                     <Input id="weight" type="number" placeholder="e.g., 70" value={formData.weight} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="waist">Waist (in)</Label>
+                                    <Label htmlFor="waist">Waist (inches)</Label>
                                     <Input id="waist" type="number" placeholder="e.g., 32" value={formData.waist} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="hip">Hip (in)</Label>
+                                    <Label htmlFor="hip">Hip (inches)</Label>
                                     <Input id="hip" type="number" placeholder="e.g., 38" value={formData.hip} onChange={handleChange} />
                                 </div>
 
@@ -446,6 +469,32 @@ export default function OnboardingPage() {
                                         />
                                     </div>
                                 )}
+                                
+                                <div className="space-y-2">
+                                    <Label htmlFor="planDuration">For how many days do you want a diet plan? (7-90)</Label>
+                                    <Input 
+                                        id="planDuration" 
+                                        type="number" 
+                                        min="7"
+                                        max="90"
+                                        value={formData.planDuration}
+                                        onChange={handlePlanDurationChange}
+                                        onBlur={validatePlanDuration}
+                                    />
+                                    {paymentAmount > 0 && (
+                                        <div className="p-3 bg-secondary rounded-md text-center text-secondary-foreground animate-in fade-in-50">
+                                            <p className="text-sm">Plan Cost</p>
+                                            <p className="text-2xl font-bold flex items-center justify-center gap-1"><IndianRupee size={20}/> {paymentAmount}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {formData.planDuration} days: {
+                                                    getPaymentAmount(formData.planDuration) === 1500 ? '₹1500 (1-30 days)' :
+                                                    getPaymentAmount(formData.planDuration) === 2800 ? '₹2800 (31-60 days)' :
+                                                    '₹4000 (61-90 days)'
+                                                }
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div className="space-y-4">
                                   <Label className="font-semibold">Other Health Goals (Optional)</Label>
