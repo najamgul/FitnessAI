@@ -23,13 +23,16 @@ type Meal = {
     image?: string;
 };
 
-type DayPlan = {
+type DayMeals = {
     [key: string]: Meal;
 };
 
-type DietPlan = {
-    [key: string]: DayPlan;
+type DayPlan = {
+    day: number;
+    meals: DayMeals;
 };
+
+type DietPlan = DayPlan[];
 
 type MealStatus = {
     [day: string]: {
@@ -210,17 +213,17 @@ export default function DietPlanPage() {
                 </div>
             </div>
             
-            {dietPlan && Object.keys(dietPlan).length > 0 ? (
+            {dietPlan && dietPlan.length > 0 ? (
                 <Tabs defaultValue="Day 1" className="w-full">
                     <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
-                        {Object.keys(dietPlan).map((day) => (
-                            <TabsTrigger key={day} value={day}>{day.replace(' ', '\n')}</TabsTrigger>
+                        {dietPlan.map((dayPlan) => (
+                            <TabsTrigger key={`trigger-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>{`Day\n${dayPlan.day}`}</TabsTrigger>
                         ))}
                     </TabsList>
-                    {Object.entries(dietPlan).map(([day, meals]) => (
-                        <TabsContent key={day} value={day}>
+                    {dietPlan.map((dayPlan) => (
+                        <TabsContent key={`content-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>
                             <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {Object.entries(meals as DayPlan).map(([mealTime, mealDetails]) => (
+                                {Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => (
                                     <Card key={mealTime} className="overflow-hidden flex flex-col">
                                         <CardHeader className="p-0">
                                             <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
@@ -233,27 +236,27 @@ export default function DietPlanPage() {
                                             <div className="w-full space-y-4">
                                                 <div className="flex items-center space-x-2">
                                                     <Checkbox
-                                                        id={`${day}-${mealTime}-checkbox`}
-                                                        checked={mealStatus[day]?.[mealTime] || false}
-                                                        onCheckedChange={() => handleCheckboxChange(day, mealTime)}
+                                                        id={`Day ${dayPlan.day}-${mealTime}-checkbox`}
+                                                        checked={mealStatus[`Day ${dayPlan.day}`]?.[mealTime] || false}
+                                                        onCheckedChange={() => handleCheckboxChange(`Day ${dayPlan.day}`, mealTime)}
                                                     />
-                                                    <Label htmlFor={`${day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                    <Label htmlFor={`Day ${dayPlan.day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                                         Mark as Eaten
                                                     </Label>
                                                 </div>
-                                                {!mealStatus[day]?.[mealTime] && (
+                                                {!mealStatus[`Day ${dayPlan.day}`]?.[mealTime] && (
                                                     <div className="space-y-2">
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
                                                             className="w-full"
-                                                            onClick={() => handleGetAdvice(day, mealTime, mealDetails.meal)}
+                                                            onClick={() => handleGetAdvice(`Day ${dayPlan.day}`, mealTime, mealDetails.meal)}
                                                             disabled={isLoadingAdvice && advice?.mealTime === mealTime}
                                                         >
                                                             {isLoadingAdvice && advice?.mealTime === mealTime ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lightbulb className="mr-2 h-4 w-4" />}
                                                             Missed this meal?
                                                         </Button>
-                                                        {advice?.day === day && advice?.mealTime === mealTime && (
+                                                        {advice?.day === `Day ${dayPlan.day}` && advice?.mealTime === mealTime && (
                                                             <Alert className="mt-2">
                                                                 <Lightbulb className="h-4 w-4" />
                                                                 <AlertTitle>Suggestion</AlertTitle>
