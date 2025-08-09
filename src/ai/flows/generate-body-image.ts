@@ -11,13 +11,13 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const GenerateBodyImageInputSchema = z.object({
+const GenerateBodyImageInputSchema = z.object({
   gender: z.string().describe('The gender of the person (e.g., male, female).'),
   bmi: z.number().describe('The Body Mass Index (BMI) of the person.'),
 });
 export type GenerateBodyImageInput = z.infer<typeof GenerateBodyImageInputSchema>;
 
-export const GenerateBodyImageOutputSchema = z.object({
+const GenerateBodyImageOutputSchema = z.object({
   imageUrl: z.string().url().describe('The URL of the generated image.'),
 });
 export type GenerateBodyImageOutput = z.infer<typeof GenerateBodyImageOutputSchema>;
@@ -29,18 +29,27 @@ function getBmiDescription(bmi: number): string {
     return 'an obese';
 }
 
+const generateBodyImageFlow = ai.defineFlow({
+    name: 'generateBodyImageFlow',
+    inputSchema: GenerateBodyImageInputSchema,
+    outputSchema: GenerateBodyImageOutputSchema,
+}, async (input) => {
+    const { media } = await ai.generate({
+        model: 'googleai/gemini-2.0-flash-preview-image-generation',
+        prompt: `Generate a simple, minimalist, abstract, faceless graphic of ${getBmiDescription(input.bmi)} ${input.gender} person's body silhouette. Use a plain, neutral background. The style should be clean and representational, not overly detailed or realistic.`,
+        config: {
+            responseModalities: ['TEXT', 'IMAGE'],
+        },
+    });
+
+    if (!media?.url) {
+        throw new Error('Image generation failed to return a valid URL.');
+    }
+
+    return { imageUrl: media.url };
+});
+
+
 export async function generateBodyImage(input: GenerateBodyImageInput): Promise<GenerateBodyImageOutput> {
-  const { media } = await ai.generate({
-    model: 'googleai/gemini-2.0-flash-preview-image-generation',
-    prompt: `Generate a simple, minimalist, abstract, faceless graphic of ${getBmiDescription(input.bmi)} ${input.gender} person's body silhouette. Use a plain, neutral background. The style should be clean and representational, not overly detailed or realistic.`,
-    config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-    },
-  });
-
-  if (!media?.url) {
-      throw new Error('Image generation failed to return a valid URL.');
-  }
-
-  return { imageUrl: media.url };
+  return await generateBodyImageFlow(input);
 }
