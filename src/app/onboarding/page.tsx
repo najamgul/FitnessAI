@@ -97,7 +97,7 @@ export default function OnboardingPage() {
                 <div className="mb-8 flex flex-col items-center gap-4">
                     <div className="flex items-center gap-2">
                         <Leaf className="h-8 w-8 text-primary" />
-                        <h1 className="text-3xl font-bold font-headline text-primary">Welcome to NutriGenius AI</h1>
+                        <h1 className="text-3xl font-bold font-headline text-primary">Welcome to Aziaf</h1>
                     </div>
                     <p className="text-muted-foreground">Let's get some details to personalize your experience.</p>
                     <Progress value={progress} className="w-full" />

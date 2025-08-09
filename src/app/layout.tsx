@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'NutriGenius AI',
+  title: 'Aziaf',
   description: 'Your personal AI-powered nutrition assistant',
 };
 

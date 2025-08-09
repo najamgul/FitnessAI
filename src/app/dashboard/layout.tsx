@@ -49,7 +49,7 @@ export default function DashboardLayout({
               <Leaf className="h-6 w-6 text-primary" />
             </Button>
             <h1 className="font-headline text-2xl font-bold text-primary group-data-[collapsible=icon]:hidden">
-              NutriGenius
+              Aziaf
             </h1>
           </div>
         </SidebarHeader>
