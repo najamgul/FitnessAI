@@ -19,8 +19,8 @@ export default function AwaitingApprovalPage() {
                         You will be notified via email once your account is activated. This usually takes a few hours.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="pb-8">
-                   <p className="text-sm text-muted-foreground">
+                <CardContent className="pb-8 pt-4">
+                   <p className="text-sm text-muted-foreground pt-4">
                         If you have any questions, you can contact our support team at <span className="font-semibold text-foreground">+91 60065 24788</span>.
                    </p>
                 </CardContent>
