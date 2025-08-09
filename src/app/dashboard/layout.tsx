@@ -28,13 +28,21 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed },
-  { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart },
-  { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote },
-  { href: '/admin/users', label: 'User Management', icon: Users },
+const allNavItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
+  { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
+  { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
+  { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote, admin: false },
+  { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
 ];
+
+// In a real app, this would come from an authentication provider (e.g., Firebase Auth, NextAuth)
+const mockUser = {
+  name: 'Admin User',
+  email: 'admin@example.com', // Change to a non-admin email to test normal user view
+};
+const isAdmin = mockUser.email === 'admin@example.com';
+
 
 export default function DashboardLayout({
   children,
@@ -43,6 +51,8 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
 
   return (
     <SidebarProvider>
@@ -75,11 +85,11 @@ export default function DashboardLayout({
           <div className="flex items-center gap-3 p-2 group-data-[collapsible=icon]:justify-center">
             <Avatar className="h-9 w-9">
               <AvatarImage src="https://placehold.co/100x100.png" alt="User" data-ai-hint="person avatar"/>
-              <AvatarFallback>U</AvatarFallback>
+              <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold">User Name</span>
-              <span className="text-xs text-muted-foreground">user@email.com</span>
+              <span className="text-sm font-semibold">{mockUser.name}</span>
+              <span className="text-xs text-muted-foreground">{mockUser.email}</span>
             </div>
           </div>
           <SidebarMenu>
