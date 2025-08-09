@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Lightbulb } from 'lucide-react';
+import { Download, Lightbulb, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -14,72 +14,8 @@ import { getMissedMealAdvice } from '@/ai/flows/get-missed-meal-advice';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { getPexelsImage } from '@/ai/flows/get-pexels-image';
-
-const initialDietPlan = {
-    'Day 1': {
-        'Breakfast': { meal: 'Oatmeal with berries and nuts', hint: 'oatmeal berries' },
-        'Morning Snack': { meal: 'Apple slices with almond butter', hint: 'apple slices' },
-        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', hint: 'chicken salad' },
-        'Afternoon Snack': { meal: 'Greek yogurt', hint: 'greek yogurt' },
-        'Dinner': { meal: 'Salmon with roasted vegetables', hint: 'salmon vegetables' },
-        'Evening Snack': { meal: 'Handful of mixed nuts', hint: 'mixed nuts' },
-        'Before Bed': { meal: 'Chamomile tea', hint: 'chamomile tea' },
-    },
-    'Day 2': {
-        'Breakfast': { meal: 'Greek yogurt with honey and fruits', hint: 'yogurt fruit' },
-        'Morning Snack': { meal: 'Banana', hint: 'banana' },
-        'Lunch': { meal: 'Quinoa bowl with black beans and corn', hint: 'quinoa bowl' },
-        'Afternoon Snack': { meal: 'Carrot sticks with hummus', hint: 'carrots hummus' },
-        'Dinner': { meal: 'Lean beef stir-fry with brown rice', hint: 'beef stir-fry' },
-        'Evening Snack': { meal: 'Rice cakes', hint: 'rice cakes' },
-        'Before Bed': { meal: 'Warm milk', hint: 'warm milk' },
-    },
-    'Day 3': {
-        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', hint: 'scrambled eggs' },
-        'Morning Snack': { meal: 'Orange', hint: 'orange' },
-        'Lunch': { meal: 'Lentil soup with a side of mixed greens', hint: 'lentil soup' },
-        'Afternoon Snack': { meal: 'Cottage cheese with pineapple', hint: 'cottage cheese' },
-        'Dinner': { meal: 'Baked cod with asparagus and lemon', hint: 'baked cod' },
-        'Evening Snack': { meal: 'Dark chocolate square', hint: 'dark chocolate' },
-        'Before Bed': { meal: 'Herbal tea', hint: 'herbal tea' },
-    },
-    'Day 4': {
-        'Breakfast': { meal: 'Smoothie with spinach, banana, and protein powder', hint: 'green smoothie' },
-        'Morning Snack': { meal: 'Handful of almonds', hint: 'almonds' },
-        'Lunch': { meal: 'Turkey and avocado wrap on whole-wheat tortilla', hint: 'turkey wrap' },
-        'Afternoon Snack': { meal: 'Hard-boiled egg', hint: 'hard-boiled egg' },
-        'Dinner': { meal: 'Chicken cacciatore with whole-wheat pasta', hint: 'chicken pasta' },
-        'Evening Snack': { meal: 'Popcorn', hint: 'popcorn' },
-        'Before Bed': { meal: 'Peppermint tea', hint: 'peppermint tea' },
-    },
-    'Day 5': {
-        'Breakfast': { meal: 'Oatmeal with berries and nuts', hint: 'oatmeal berries' },
-        'Morning Snack': { meal: 'Pear', hint: 'pear' },
-        'Lunch': { meal: 'Grilled chicken salad with vinaigrette', hint: 'chicken salad' },
-        'Afternoon Snack': { meal: 'Edamame', hint: 'edamame' },
-        'Dinner': { meal: 'Salmon with roasted vegetables', hint: 'salmon vegetables' },
-        'Evening Snack': { meal: 'Berries', hint: 'berries' },
-        'Before Bed': { meal: 'Ginger tea', hint: 'ginger tea' },
-    },
-    'Day 6': {
-        'Breakfast': { meal: 'Greek yogurt with honey and fruits', hint: 'yogurt fruit' },
-        'Morning Snack': { meal: 'Grapes', hint: 'grapes' },
-        'Lunch': { meal: 'Quinoa bowl with black beans and corn', hint: 'quinoa bowl' },
-        'Afternoon Snack': { meal: 'Beef jerky', hint: 'beef jerky' },
-        'Dinner': { meal: 'Lean beef stir-fry with brown rice', hint: 'beef stir-fry' },
-        'Evening Snack': { meal: 'Yogurt', hint: 'yogurt' },
-        'Before Bed': { meal: 'Warm water with lemon', hint: 'lemon water' },
-    },
-    'Day 7': {
-        'Breakfast': { meal: 'Scrambled eggs with spinach and whole-wheat toast', hint: 'scrambled eggs' },
-        'Morning Snack': { meal: 'Peach', hint: 'peach' },
-        'Lunch': { meal: 'Lentil soup with a side of mixed greens', hint: 'lentil soup' },
-        'Afternoon Snack': { meal: 'Cucumber slices', hint: 'cucumber slices' },
-        'Dinner': { meal: 'Baked cod with asparagus and lemon', hint: 'baked cod' },
-        'Evening Snack': { meal: 'Celery sticks with cream cheese', hint: 'celery sticks' },
-        'Before Bed': { meal: 'Decaf green tea', hint: 'green tea' },
-    },
-};
+import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type Meal = {
     meal: string;
@@ -103,9 +39,11 @@ type MealStatus = {
 
 const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         let isCancelled = false;
+        setIsLoading(true);
         const fetchImage = async () => {
             try {
                 const response = await getPexelsImage({ query: hint });
@@ -118,6 +56,10 @@ const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => 
                     // Fallback to Unsplash if Pexels fails
                     setImageUrl(`https://source.unsplash.com/300x200/?${hint}`);
                 }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
             }
         };
 
@@ -128,8 +70,8 @@ const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => 
         };
     }, [hint]);
 
-    if (!imageUrl) {
-        return <div className="rounded-t-lg bg-muted aspect-[3/2] w-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (isLoading || !imageUrl) {
+        return <Skeleton className="rounded-t-lg aspect-[3/2] w-full" />;
     }
 
     return (
@@ -145,12 +87,48 @@ const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => 
     );
 };
 
-
 export default function DietPlanPage() {
     const { toast } = useToast();
+    const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
+    const [isLoadingPlan, setIsLoadingPlan] = useState(true);
     const [mealStatus, setMealStatus] = useState<MealStatus>({});
     const [advice, setAdvice] = useState<{ day: string; mealTime: string; text: string } | null>(null);
     const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
+
+    const fetchDietPlan = async () => {
+        setIsLoadingPlan(true);
+        setDietPlan(null);
+        try {
+            // In a real app, this data would come from the authenticated user's profile.
+            // For this prototype, we'll retrieve it from localStorage.
+            const onboardingDataString = localStorage.getItem('onboardingData');
+            const userData = onboardingDataString ? JSON.parse(onboardingDataString) : {};
+
+            const response = await generateDietPlan({
+                healthInformation: `Age: ${userData.age}, Gender: ${userData.gender}, Weight: ${userData.weight}kg, Height: ${userData.heightFt}'${userData.heightIn}", Activity: ${userData.activityLevel}`,
+                dietaryPreferences: `Health goals: ${userData.healthGoals?.join(', ')}. Other notes: ${userData.otherGoal}`,
+                goals: `${userData.goalAction} weight. Target: ${userData.goalWeightKg || 'N/A'}`,
+                geographicLocation: 'Kashmir, India',
+                planDuration: parseInt(userData.planDuration, 10) || 7,
+            });
+            
+            setDietPlan(response.dietPlan);
+
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: 'Error Generating Plan',
+                description: 'Could not generate your personalized diet plan. Please try regenerating.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsLoadingPlan(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDietPlan();
+    }, []);
 
     const handleCheckboxChange = (day: string, mealTime: string) => {
         setMealStatus(prev => ({
@@ -160,7 +138,6 @@ export default function DietPlanPage() {
                 [mealTime]: !prev[day]?.[mealTime],
             },
         }));
-        // If advice for this meal was shown, hide it when checked
         if (advice?.day === day && advice?.mealTime === mealTime) {
             setAdvice(null);
         }
@@ -182,81 +159,135 @@ export default function DietPlanPage() {
             setIsLoadingAdvice(false);
         }
     };
+    
+    if (isLoadingPlan) {
+        return (
+            <div className="space-y-6">
+                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <Skeleton className="h-9 w-72 mb-2" />
+                        <Skeleton className="h-5 w-96" />
+                    </div>
+                    <Skeleton className="h-10 w-36" />
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-1">
+                    {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
+                <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                     {Array.from({length: 4}).map((_, i) => (
+                        <Card key={i} className="overflow-hidden flex flex-col">
+                            <Skeleton className="aspect-[3/2] w-full rounded-b-none" />
+                            <CardContent className="p-4 flex-grow">
+                                <Skeleton className="h-6 w-32 mb-2" />
+                                <Skeleton className="h-5 w-48" />
+                            </CardContent>
+                            <CardFooter className="p-4 pt-0 mt-auto">
+                                <Skeleton className="h-10 w-full" />
+                            </CardFooter>
+                        </Card>
+                     ))}
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight font-headline">Your 7-Day Diet Plan</h2>
+                    <h2 className="text-3xl font-bold tracking-tight font-headline">Your Personalized Diet Plan</h2>
                     <p className="text-muted-foreground">Generated by Aziaf AI to help you reach your goals.</p>
                 </div>
-                <Button>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Plan
-                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={fetchDietPlan} variant="outline" disabled={isLoadingPlan}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingPlan ? 'animate-spin' : ''}`} />
+                        Regenerate
+                    </Button>
+                    <Button>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Plan
+                    </Button>
+                </div>
             </div>
             
-            <Tabs defaultValue="Day 1" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
-                    {Object.keys(initialDietPlan).map((day) => (
-                        <TabsTrigger key={day} value={day}>{day.replace(' ', '\n')}</TabsTrigger>
-                    ))}
-                </TabsList>
-                {Object.entries(initialDietPlan).map(([day, meals]) => (
-                    <TabsContent key={day} value={day}>
-                        <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {Object.entries(meals as DayPlan).map(([mealTime, mealDetails]) => (
-                                <Card key={mealTime} className="overflow-hidden flex flex-col">
-                                    <CardHeader className="p-0">
-                                        <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
-                                    </CardHeader>
-                                    <CardContent className="p-4 flex-grow">
-                                        <h3 className="text-lg font-semibold font-headline">{mealTime}</h3>
-                                        <p className="text-muted-foreground">{mealDetails.meal}</p>
-                                    </CardContent>
-                                    <CardFooter className="p-4 pt-0 mt-auto">
-                                        <div className="w-full space-y-4">
-                                            <div className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`${day}-${mealTime}-checkbox`}
-                                                    checked={mealStatus[day]?.[mealTime] || false}
-                                                    onCheckedChange={() => handleCheckboxChange(day, mealTime)}
-                                                />
-                                                <Label htmlFor={`${day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                    Mark as Eaten
-                                                </Label>
-                                            </div>
-                                            {!mealStatus[day]?.[mealTime] && (
-                                                <div className="space-y-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="w-full"
-                                                        onClick={() => handleGetAdvice(day, mealTime, mealDetails.meal)}
-                                                        disabled={isLoadingAdvice}
-                                                    >
-                                                        {isLoadingAdvice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lightbulb className="mr-2 h-4 w-4" />}
-                                                        Missed this meal?
-                                                    </Button>
-                                                    {advice?.day === day && advice?.mealTime === mealTime && (
-                                                        <Alert>
-                                                            <Lightbulb className="h-4 w-4" />
-                                                            <AlertTitle>Suggestion</AlertTitle>
-                                                            <AlertDescription>
-                                                                {advice.text}
-                                                            </AlertDescription>
-                                                        </Alert>
-                                                    )}
+            {dietPlan && Object.keys(dietPlan).length > 0 ? (
+                <Tabs defaultValue="Day 1" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
+                        {Object.keys(dietPlan).map((day) => (
+                            <TabsTrigger key={day} value={day}>{day.replace(' ', '\n')}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                    {Object.entries(dietPlan).map(([day, meals]) => (
+                        <TabsContent key={day} value={day}>
+                            <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {Object.entries(meals as DayPlan).map(([mealTime, mealDetails]) => (
+                                    <Card key={mealTime} className="overflow-hidden flex flex-col">
+                                        <CardHeader className="p-0">
+                                            <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
+                                        </CardHeader>
+                                        <CardContent className="p-4 flex-grow">
+                                            <h3 className="text-lg font-semibold font-headline">{mealTime}</h3>
+                                            <p className="text-muted-foreground">{mealDetails.meal}</p>
+                                        </CardContent>
+                                        <CardFooter className="p-4 pt-0 mt-auto">
+                                            <div className="w-full space-y-4">
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`${day}-${mealTime}-checkbox`}
+                                                        checked={mealStatus[day]?.[mealTime] || false}
+                                                        onCheckedChange={() => handleCheckboxChange(day, mealTime)}
+                                                    />
+                                                    <Label htmlFor={`${day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                        Mark as Eaten
+                                                    </Label>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </CardFooter>
-                                </Card>
-                            ))}
-                        </div>
-                    </TabsContent>
-                ))}
-            </Tabs>
+                                                {!mealStatus[day]?.[mealTime] && (
+                                                    <div className="space-y-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full"
+                                                            onClick={() => handleGetAdvice(day, mealTime, mealDetails.meal)}
+                                                            disabled={isLoadingAdvice && advice?.mealTime === mealTime}
+                                                        >
+                                                            {isLoadingAdvice && advice?.mealTime === mealTime ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lightbulb className="mr-2 h-4 w-4" />}
+                                                            Missed this meal?
+                                                        </Button>
+                                                        {advice?.day === day && advice?.mealTime === mealTime && (
+                                                            <Alert className="mt-2">
+                                                                <Lightbulb className="h-4 w-4" />
+                                                                <AlertTitle>Suggestion</AlertTitle>
+                                                                <AlertDescription>
+                                                                    {advice.text}
+                                                                </AlertDescription>
+                                                            </Alert>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardFooter>
+                                    </Card>
+                                ))}
+                            </div>
+                        </TabsContent>
+                    ))}
+                </Tabs>
+            ) : (
+                 <Card className="flex flex-col items-center justify-center p-8 text-center">
+                    <CardHeader>
+                        <CardTitle>No Plan Generated</CardTitle>
+                        <CardDescription>
+                            We couldn't generate a diet plan. This might be because the onboarding data is missing.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={fetchDietPlan}>
+                             <RefreshCw className="mr-2 h-4 w-4" />
+                            Try Again
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

@@ -22,8 +22,26 @@ const GenerateDietPlanInputSchema = z.object({
 });
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
+const MealSchema = z.object({
+    meal: z.string().describe("The name of the meal to be eaten."),
+    hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'.")
+});
+
+const DayPlanSchema = z.object({
+    "Breakfast": MealSchema,
+    "Morning Snack": MealSchema,
+    "Lunch": MealSchema,
+    "Afternoon Snack": MealSchema,
+    "Dinner": MealSchema,
+    "Evening Snack": MealSchema,
+    "Before Bed": MealSchema,
+});
+
+// Using z.record for a dynamic number of days
+const DietPlanSchema = z.record(z.string().regex(/^Day \d+$/), DayPlanSchema);
+
 const GenerateDietPlanOutputSchema = z.object({
-  dietPlan: z.string().describe('A personalized diet plan for the specified number of days. The plan should be formatted as a JSON string within the string field. For example: \'{"Day 1": {"Breakfast": "Oatmeal", ...}, "Day 2": ...}\''),
+  dietPlan: DietPlanSchema.describe('A personalized diet plan object where each key is "Day X" and the value contains the 7 meals for that day.'),
 });
 export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema>;
 
@@ -39,7 +57,9 @@ const prompt = ai.definePrompt({
 
   Based on the user's detailed information, generate a personalized diet plan for {{{planDuration}}} days. It is critical that each day includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
 
-  The final output for the 'dietPlan' field must be a single JSON string. The JSON object should have keys for "Day 1" through "Day {{{planDuration}}}". Each day's value should be an object with keys for each of the 7 meals.
+  For each meal, provide the meal name and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
+
+  The final output for the 'dietPlan' field must be a JSON object. The JSON object should have keys for "Day 1" through "Day {{{planDuration}}}". Each day's value should be an object with keys for each of the 7 meals, and each meal should have a 'meal' and 'hint' property.
 
   User Details:
   - Health Information: {{{healthInformation}}}
@@ -47,7 +67,7 @@ const prompt = ai.definePrompt({
   - Primary Goal: {{{goals}}}
   - Geographic Location: {{{geographicLocation}}}
 
-  Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the response for dietPlan is only the JSON string and nothing else.
+  Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the response for dietPlan is only the JSON object and nothing else.
   `,
 });
 
