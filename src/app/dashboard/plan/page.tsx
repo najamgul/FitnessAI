@@ -183,8 +183,8 @@ export default function DietPlanPage() {
                     </div>
                     <Skeleton className="h-10 w-36" />
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-1">
-                    {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                <div className="flex flex-wrap gap-1">
+                    {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-10 w-20" />)}
                 </div>
                 <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                      {Array.from({length: 4}).map((_, i) => (
@@ -225,7 +225,7 @@ export default function DietPlanPage() {
             
             {dietPlan && dietPlan.length > 0 ? (
                 <Tabs defaultValue="Day 1" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
+                    <TabsList className="flex flex-wrap h-auto">
                         {dietPlan.map((dayPlan) => (
                             <TabsTrigger key={`trigger-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>{`Day\n${dayPlan.day}`}</TabsTrigger>
                         ))}
@@ -304,3 +304,5 @@ export default function DietPlanPage() {
         </div>
     );
 }
+
+    
