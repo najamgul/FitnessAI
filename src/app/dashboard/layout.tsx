@@ -93,7 +93,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href="/dashboard">
-                <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} />
+                <Image src="/logo.png" alt="Aziaf Logo" width={40} height={40} />
             </Link>
           </div>
         </SidebarHeader>
