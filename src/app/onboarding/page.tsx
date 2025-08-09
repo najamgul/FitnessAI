@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp } from 'lucide-react';
+import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target } from 'lucide-react';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const onboardingSteps = [
     { id: 1, title: 'About You' },
@@ -47,13 +48,10 @@ export default function OnboardingPage() {
         occupation: '',
         sleepHours: '',
         stressLevel: 'low',
-        includeTraditional: [],
-        spiceTolerance: 'medium',
         
         // Step 4
-        primaryGoal: '',
-        favoriteFoods: '',
-        hatedFoods: '',
+        goalAction: 'maintain', // 'lose', 'gain', 'maintain'
+        goalWeightKg: '',
     });
 
     const [healthProfile, setHealthProfile] = useState({
@@ -62,13 +60,16 @@ export default function OnboardingPage() {
         whr: 0,
         whrCategory: '',
         bodyImageUrl: '',
+        idealWeightMin: 0,
+        idealWeightMax: 0,
     });
 
     const calculateHealthProfile = () => {
         const weightKg = parseFloat(formData.weight) || 0;
         const feet = parseInt(formData.heightFt) || 0;
         const inches = parseInt(formData.heightIn) || 0;
-        const heightM = (feet * 12 + inches) * 0.0254;
+        const totalInches = (feet * 12) + inches;
+        const heightM = totalInches * 0.0254;
         const waistIn = parseFloat(formData.waist) || 0;
         const hipIn = parseFloat(formData.hip) || 0;
 
@@ -95,12 +96,19 @@ export default function OnboardingPage() {
             if (whr > 0.85) whrCategory = 'High Health Risk'; else whrCategory = 'Low Health Risk';
         }
 
+        // Ideal weight calculation using a simple formula (based on height)
+        // Using BMI range of 18.5 to 24.9
+        const idealWeightMin = 18.5 * (heightM * heightM);
+        const idealWeightMax = 24.9 * (heightM * heightM);
+
         setHealthProfile(prev => ({
             ...prev,
             bmi: parseFloat(bmi.toFixed(2)),
             bmiCategory,
             whr: parseFloat(whr.toFixed(2)),
-            whrCategory
+            whrCategory,
+            idealWeightMin: parseFloat(idealWeightMin.toFixed(1)),
+            idealWeightMax: parseFloat(idealWeightMax.toFixed(1)),
         }));
     }
 
@@ -145,11 +153,22 @@ export default function OnboardingPage() {
     const handleSelectChange = (id: string, value: string) => {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
+
+    const handleRadioChange = (value: string) => {
+        setFormData(prev => ({ ...prev, goalAction: value }));
+    };
     
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
             const heightInCm = Math.round(((parseInt(formData.heightFt) || 0) * 12 + (parseInt(formData.heightIn) || 0)) * 2.54);
+
+            let goalDescription = "Maintain current weight and general well-being.";
+            if (formData.goalAction === 'lose') {
+                goalDescription = `Lose ${formData.goalWeightKg} kg.`;
+            } else if (formData.goalAction === 'gain') {
+                goalDescription = `Gain ${formData.goalWeightKg} kg.`;
+            }
 
             const healthInformation = `
                 Age: ${formData.age}, Gender: ${formData.gender}, Weight: ${formData.weight}kg, Height: ${heightInCm}cm.
@@ -161,14 +180,14 @@ export default function OnboardingPage() {
             `;
 
             const dietaryPreferences = `
-                Spice Tolerance: ${formData.spiceTolerance}.
-                Favorite Foods: ${formData.favoriteFoods || 'None'}. Hated Foods: ${formData.hatedFoods || 'None'}.
+                Spice Tolerance: medium.
+                Favorite Foods: None. Hated Foods: None.
             `;
 
             const dietPlanInput = {
                 dietaryPreferences: dietaryPreferences,
                 healthInformation: healthInformation,
-                goals: formData.primaryGoal || 'General well-being',
+                goals: goalDescription,
                 geographicLocation: 'Kashmir',
             };
             
@@ -202,6 +221,13 @@ export default function OnboardingPage() {
         }
         return false;
     }, [formData, step]);
+
+    const isSubmitDisabled = useMemo(() => {
+        if (isLoading) return true;
+        if (formData.goalAction === 'maintain') return false;
+        return !formData.goalWeightKg || parseFloat(formData.goalWeightKg) <= 0;
+    }, [isLoading, formData.goalAction, formData.goalWeightKg]);
+
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -301,21 +327,10 @@ export default function OnboardingPage() {
                                     <Label htmlFor="sleepHours">Average Sleep (hours per night)</Label>
                                     <Input id="sleepHours" type="number" placeholder="e.g., 7" value={formData.sleepHours} onChange={handleChange} />
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 md:col-span-2">
                                     <Label>Stress Levels</Label>
                                      <Select value={formData.stressLevel} onValueChange={(v) => handleSelectChange('stressLevel', v)}>
                                         <SelectTrigger><SelectValue placeholder="Select stress level" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="low">Low</SelectItem>
-                                            <SelectItem value="medium">Medium</SelectItem>
-                                            <SelectItem value="high">High</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Spice Tolerance</Label>
-                                    <Select value={formData.spiceTolerance} onValueChange={(v) => handleSelectChange('spiceTolerance', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="low">Low</SelectItem>
                                             <SelectItem value="medium">Medium</SelectItem>
@@ -330,7 +345,7 @@ export default function OnboardingPage() {
                         <>
                             <CardHeader>
                                 <CardTitle className="font-headline">Your Health Profile</CardTitle>
-                                <CardDescription>Here's a summary based on the information you provided.</CardDescription>
+                                <CardDescription>Here's a summary based on your info, and your ideal health targets.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 { isLoading ? (
@@ -355,7 +370,7 @@ export default function OnboardingPage() {
                                                     <User className="h-6 w-6 text-accent-foreground" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-semibold">Body Mass Index (BMI)</h4>
+                                                    <h4 className="font-semibold">Your Body Mass Index (BMI)</h4>
                                                     <p className="text-2xl font-bold text-primary">{healthProfile.bmi}</p>
                                                     <p className="text-sm text-muted-foreground">{healthProfile.bmiCategory}</p>
                                                 </div>
@@ -365,9 +380,20 @@ export default function OnboardingPage() {
                                                     <TrendingUp className="h-6 w-6 text-accent-foreground" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-semibold">Waist-to-Hip Ratio (WHR)</h4>
+                                                    <h4 className="font-semibold">Your Waist-to-Hip Ratio (WHR)</h4>
                                                     <p className="text-2xl font-bold text-primary">{healthProfile.whr}</p>
                                                     <p className="text-sm text-muted-foreground">{healthProfile.whrCategory}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-4">
+                                                <div className="flex-shrink-0 bg-primary rounded-full h-10 w-10 flex items-center justify-center">
+                                                    <Target className="h-6 w-6 text-primary-foreground" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">Your Ideal Metrics</h4>
+                                                    <p className="text-sm">Ideal Weight: <span className="font-bold">{healthProfile.idealWeightMin} - {healthProfile.idealWeightMax} kg</span></p>
+                                                    <p className="text-sm">Healthy BMI Range: <span className="font-bold">18.5 - 24.9</span></p>
+                                                    <p className="text-sm">Target WHR: <span className="font-bold">{formData.gender === 'male' ? '< 0.90' : '< 0.85'}</span></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -379,22 +405,37 @@ export default function OnboardingPage() {
                     {step === 4 && (
                          <>
                             <CardHeader>
-                                <CardTitle className="font-headline">Goals & Preferences</CardTitle>
-                                <CardDescription>What do you want to achieve? What do you love to eat?</CardDescription>
+                                <CardTitle className="font-headline">What is your primary goal?</CardTitle>
+                                <CardDescription>Let us know what you want to achieve. This will help us create the perfect plan for you.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="primaryGoal">What is your primary health goal?</Label>
-                                    <Input id="primaryGoal" placeholder="e.g., Lose 5kg, increase energy, build muscle" value={formData.primaryGoal} onChange={handleChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="favoriteFoods">Foods you love?</Label>
-                                    <Textarea id="favoriteFoods" placeholder="List a few of your favorite foods" value={formData.favoriteFoods} onChange={handleChange} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label htmlFor="hatedFoods">Foods you dislike?</Label>
-                                    <Textarea id="hatedFoods" placeholder="List foods you prefer to avoid" value={formData.hatedFoods} onChange={handleChange} />
-                                </div>
+                            <CardContent className="space-y-6">
+                                <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="flex flex-col space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="lose" id="lose" />
+                                        <Label htmlFor="lose">Lose Weight</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="gain" id="gain" />
+                                        <Label htmlFor="gain">Gain Weight</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="maintain" id="maintain" />
+                                        <Label htmlFor="maintain">Maintain Current Weight</Label>
+                                    </div>
+                                </RadioGroup>
+
+                                {(formData.goalAction === 'lose' || formData.goalAction === 'gain') && (
+                                    <div className="space-y-2 animate-in fade-in-50">
+                                        <Label htmlFor="goalWeightKg">How many kilograms (kg)?</Label>
+                                        <Input 
+                                            id="goalWeightKg" 
+                                            type="number" 
+                                            placeholder="e.g., 5" 
+                                            value={formData.goalWeightKg}
+                                            onChange={handleChange} 
+                                        />
+                                    </div>
+                                )}
                             </CardContent>
                         </>
                     )}
@@ -407,7 +448,7 @@ export default function OnboardingPage() {
                                 {isLoading && step === 2 ? (<><Loader2 className="animate-spin mr-2" /> Analyzing...</>) : (<>Next <ChevronRight className="ml-2 h-4 w-4" /></>)}
                             </Button>
                         ) : (
-                            <Button onClick={handleSubmit} disabled={isLoading || !formData.primaryGoal}>
+                            <Button onClick={handleSubmit} disabled={isSubmitDisabled}>
                                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 {isLoading ? "Generating Plan..." : "Complete & Start Journey"}
                             </Button>
@@ -418,3 +459,5 @@ export default function OnboardingPage() {
         </div>
     );
 }
+
+    
