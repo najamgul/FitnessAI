@@ -180,52 +180,16 @@ export default function OnboardingPage() {
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
-            const heightInCm = Math.round(((parseInt(formData.heightFt) || 0) * 12 + (parseInt(formData.heightIn) || 0)) * 2.54);
-
-            let goalDescription = `Primary goal: ${formData.goalAction} weight.`;
-            if (formData.goalAction === 'lose' || formData.goalAction === 'gain') {
-                goalDescription += ` Target weight: ${formData.goalWeightKg} kg.`;
-            }
-
-            if (formData.healthGoals.length > 0) {
-              const selectedGoals = healthConditions
-                .filter(condition => formData.healthGoals.includes(condition.id))
-                .map(condition => condition.label);
-                goalDescription += ` Secondary goals: Manage ${selectedGoals.join(', ')}.`;
-            }
-            
-            if (formData.goalAction === 'other') {
-                goalDescription = formData.otherGoal;
-            }
-
-            const healthInformation = `
-                Age: ${formData.age}, Gender: ${formData.gender}, Weight: ${formData.weight}kg, Height: ${heightInCm}cm.
-                Health Profile: BMI of ${healthProfile.bmi} (${healthProfile.bmiCategory}), Waist-to-Hip Ratio of ${healthProfile.whr} (${healthProfile.whrCategory}).
-                Activity Level: ${formData.activityLevel}. Occupation: ${formData.occupation || 'Not specified'}.
-                Sleep: ${formData.sleepHours} hours/night. Stress: ${formData.stressLevel}.
-                ${formData.gender === 'female' ? `Pregnancy/Breastfeeding: ${formData.isPregnant}.` : ''}
-                ${formData.gender === 'female' ? `Menstrual Cycle: ${formData.menstrualCycle || 'Not specified'}.` : ''}
-            `;
-
-            const dietaryPreferences = `
-                Spice Tolerance: medium.
-                Favorite Foods: None. Hated Foods: None.
-            `;
-
-            const dietPlanInput = {
-                dietaryPreferences: dietaryPreferences,
-                healthInformation: healthInformation,
-                goals: goalDescription,
-                geographicLocation: 'Kashmir',
-            };
-            
-            await generateDietPlan(dietPlanInput);
+            // We don't need to generate the plan here anymore,
+            // but we can save the user's data to local storage or a state management solution
+            // to be retrieved on the payment page if needed.
+            // For now, we'll just redirect to the payment page.
             
             toast({
                 title: 'Onboarding Complete!',
-                description: "We're now generating your personalized diet plan.",
+                description: "Please proceed to the payment step.",
             });
-            router.push('/dashboard');
+            router.push('/payment');
 
         } catch (error) {
              toast({
@@ -523,7 +487,7 @@ export default function OnboardingPage() {
                         ) : (
                             <Button onClick={handleSubmit} disabled={isSubmitDisabled}>
                                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                {isLoading ? "Generating Plan..." : "Complete & Start Journey"}
+                                {isLoading ? "Processing..." : "Complete & Proceed to Payment"}
                             </Button>
                         )}
                     </CardFooter>
@@ -532,9 +496,3 @@ export default function OnboardingPage() {
         </div>
     );
 }
-
-    
-
-    
-
-    
