@@ -1,16 +1,41 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download, BarChart, FileText } from 'lucide-react';
 import { providePersonalizedTips } from '@/ai/flows/provide-personalized-tips';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Sparkles } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { toPng } from 'html-to-image';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+type ProgressEntry = {
+    date: string;
+    weight: number;
+    energy: number;
+    completion: number;
+};
+
+// Helper function to load an image and return its base64 representation
+async function imageToBase64(src: string): Promise<string> {
+    const response = await fetch(src);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
 
 export default function ProgressPage() {
     const { toast } = useToast();
@@ -18,7 +43,21 @@ export default function ProgressPage() {
     const [energy, setEnergy] = useState([5]);
     const [completion, setCompletion] = useState([80]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     const [tips, setTips] = useState('');
+    const [progressHistory, setProgressHistory] = useState<ProgressEntry[]>([]);
+    const chartRef = useRef<HTMLDivElement>(null);
+
+     useEffect(() => {
+        try {
+            const savedHistory = localStorage.getItem('progressHistory');
+            if (savedHistory) {
+                setProgressHistory(JSON.parse(savedHistory));
+            }
+        } catch (error) {
+            console.error("Could not load progress history from localStorage", error);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +75,18 @@ export default function ProgressPage() {
                 return;
             }
 
+            const newEntry: ProgressEntry = {
+                date: new Date().toLocaleDateString('en-GB'),
+                weight: parseFloat(weight),
+                energy: energy[0],
+                completion: completion[0],
+            };
+            
+            const updatedHistory = [...progressHistory, newEntry];
+            setProgressHistory(updatedHistory);
+            localStorage.setItem('progressHistory', JSON.stringify(updatedHistory));
+
+
             const response = await providePersonalizedTips({
                 weight: parseFloat(weight),
                 energyLevels: energy[0],
@@ -49,6 +100,8 @@ export default function ProgressPage() {
                 title: 'Progress Logged',
                 description: "We've saved your progress for today.",
             });
+            setWeight('');
+
         } catch (error) {
             toast({
                 title: 'Error',
@@ -59,9 +112,69 @@ export default function ProgressPage() {
             setIsLoading(false);
         }
     };
+    
+    const handleDownloadReport = async () => {
+        if (progressHistory.length === 0) {
+            toast({ title: 'No progress data to report.', variant: 'destructive'});
+            return;
+        }
+        setIsDownloading(true);
+
+        try {
+            const chartElement = chartRef.current;
+            if (!chartElement) {
+                throw new Error("Chart element not found");
+            }
+            
+            // Generate chart image
+            const chartImage = await toPng(chartElement, { quality: 1.0, pixelRatio: 2 });
+            const brandImage = await imageToBase64('/aziaf-brand.jpg');
+            
+            const doc = new jsPDF();
+
+            // Header
+            doc.addImage(brandImage, 'JPEG', 15, 15, 40, 40);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.text('Your Progress Report', 70, 35);
+            
+            // Chart
+            doc.setFontSize(16);
+            doc.text('Weight Fluctuation Chart', 15, 70);
+            doc.addImage(chartImage, 'PNG', 15, 80, 180, 80);
+
+            // History Table
+            doc.addPage();
+            doc.setFontSize(16);
+            doc.text('Detailed Progress Log', 15, 20);
+
+            const tableBody = progressHistory.map(entry => [
+                entry.date,
+                `${entry.weight} kg`,
+                `${entry.energy}/10`,
+                `${entry.completion}%`,
+            ]);
+
+            (doc as any).autoTable({
+                startY: 30,
+                head: [['Date', 'Weight', 'Energy Level', 'Meal Completion']],
+                body: tableBody,
+                theme: 'striped',
+                headStyles: { fillColor: [66, 133, 244] }, // Primary color
+            });
+
+            doc.save('Aziaf_Progress_Report.pdf');
+
+        } catch (error) {
+            console.error("Failed to generate PDF", error);
+            toast({ title: 'Error Generating Report', description: 'Could not generate the progress report PDF.', variant: 'destructive'});
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="space-y-8">
             <Card>
                 <CardHeader>
                     <CardTitle className="text-3xl font-bold font-headline">Track Your Daily Progress</CardTitle>
@@ -115,6 +228,7 @@ export default function ProgressPage() {
                     </form>
                 </CardContent>
             </Card>
+
             {tips && (
                 <Alert className="animate-in fade-in-50">
                     <Sparkles className="h-4 w-4" />
@@ -124,6 +238,84 @@ export default function ProgressPage() {
                     </AlertDescription>
                 </Alert>
             )}
+
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="font-headline">Progress History</CardTitle>
+                        <CardDescription>Review your past entries and visualize your journey.</CardDescription>
+                    </div>
+                    <Button onClick={handleDownloadReport} disabled={isDownloading || progressHistory.length === 0}>
+                        {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                        Download Report
+                    </Button>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {progressHistory.length > 0 ? (
+                        <>
+                            {/* Hidden chart for PDF generation */}
+                            <div className="absolute -left-[9999px] top-0 w-[800px] h-[400px] bg-white p-4" ref={chartRef}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={progressHistory} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="date" />
+                                            <YAxis domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow/>
+                                            <Tooltip />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                        </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Visible Chart */}
+                            <div className="h-[250px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={progressHistory} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                            
+                            <div className="max-h-[300px] overflow-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Weight</TableHead>
+                                            <TableHead>Energy</TableHead>
+                                            <TableHead>Completion</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {progressHistory.slice().reverse().map((entry, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{entry.date}</TableCell>
+                                                <TableCell>{entry.weight} kg</TableCell>
+                                                <TableCell>{entry.energy}/10</TableCell>
+                                                <TableCell>{entry.completion}%</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg">
+                           <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                            <h3 className="font-semibold">No Progress Logged Yet</h3>
+                            <p className="text-muted-foreground text-sm">Start by logging your progress above to see your history here.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
         </div>
     );
 }
+
