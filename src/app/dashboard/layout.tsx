@@ -36,12 +36,22 @@ const allNavItems = [
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
 ];
 
-// In a real app, this would come from an authentication provider (e.g., Firebase Auth, NextAuth)
-const mockUser = {
-  name: 'Admin User',
-  email: 'care@aziaf.com', // This is now the admin user
+// In a real app, this would come from an authentication provider and be stored in a global state/context.
+// For now, we simulate it based on a hardcoded email.
+const adminEmail = 'care@aziaf.com';
+
+// We'll use localStorage to persist the logged-in user's email for this simulation.
+const getLoggedInUser = () => {
+    if (typeof window !== 'undefined') {
+        const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
+        if (loggedInEmail === adminEmail) {
+            return { name: 'Admin User', email: adminEmail };
+        }
+        return { name: 'John Doe', email: 'john.doe@example.com' };
+    }
+    // Default for server-side rendering
+    return { name: 'John Doe', email: 'john.doe@example.com' };
 };
-const isAdmin = mockUser.email === 'care@aziaf.com';
 
 
 export default function DashboardLayout({
@@ -52,7 +62,17 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
 
+  const mockUser = getLoggedInUser();
+  const isAdmin = mockUser.email === adminEmail;
+  
   const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('loggedInEmail');
+    }
+    router.push('/login');
+  }
 
   return (
     <SidebarProvider>
@@ -94,7 +114,7 @@ export default function DashboardLayout({
           </div>
           <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => router.push('/login')}>
+                <SidebarMenuButton onClick={handleLogout}>
                     <LogOut />
                     <span>Logout</span>
                 </SidebarMenuButton>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -25,6 +26,12 @@ export default function LoginPage() {
 
         setTimeout(() => {
             if (email && password) {
+                // In a real app, you'd get user data from an API.
+                // Here, we just store the email to simulate a logged-in state.
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('loggedInEmail', email);
+                }
+
                 toast({
                     title: 'Login Successful',
                     description: "Welcome back!",
