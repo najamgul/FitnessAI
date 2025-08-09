@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target, Clock, IndianRupee } from 'lucide-react';
+import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target, Clock, IndianRupee, Camera, FileCheck } from 'lucide-react';
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -51,6 +51,7 @@ export default function OnboardingPage() {
         hip: '',
         isPregnant: 'not_applicable',
         menstrualCycle: '',
+        photo: null as File | null,
 
         // Step 2
         activityLevel: 'sedentary',
@@ -182,6 +183,21 @@ export default function OnboardingPage() {
         setFormData(prev => ({ ...prev, planDuration: duration }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (!file.type.startsWith('image/')) {
+                toast({ title: 'Invalid File Type', description: 'Please upload an image.', variant: 'destructive' });
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                 toast({ title: 'File Too Large', description: 'Please upload an image smaller than 5MB.', variant: 'destructive' });
+                return;
+            }
+            setFormData(prev => ({ ...prev, photo: file }));
+        }
+    };
+
     const validatePlanDuration = () => {
         const duration = parseInt(formData.planDuration, 10);
         if (isNaN(duration) || duration < 7) {
@@ -206,7 +222,10 @@ export default function OnboardingPage() {
         setIsLoading(true);
         try {
             // Store data to be used on the payment page
-            localStorage.setItem('onboardingData', JSON.stringify(formData));
+            // We can't store the file object in localStorage, but we can proceed
+            // In a real app, this file would be uploaded to a server here.
+            const { photo, ...serializableFormData } = formData;
+            localStorage.setItem('onboardingData', JSON.stringify(serializableFormData));
             
             toast({
                 title: 'Onboarding Complete!',
@@ -304,7 +323,7 @@ export default function OnboardingPage() {
 
                                 {formData.gender === 'female' && (
                                     <>
-                                        <div className="space-y-2 md:col-span-2">
+                                        <div className="space-y-2">
                                             <Label>Pregnancy or breastfeeding?</Label>
                                             <Select value={formData.isPregnant} onValueChange={(v) => handleSelectChange('isPregnant', v)}>
                                                 <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
@@ -315,12 +334,31 @@ export default function OnboardingPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="space-y-2 md:col-span-2">
+                                        <div className="space-y-2">
                                             <Label htmlFor="menstrualCycle">Menstrual cycle regularity?</Label>
                                             <Input id="menstrualCycle" placeholder="e.g., Regular, irregular" value={formData.menstrualCycle} onChange={handleChange} />
                                         </div>
                                     </>
                                 )}
+                                 <div className="space-y-2 md:col-span-2">
+                                    <Label htmlFor="photo-upload">Full Body Photo (Optional)</Label>
+                                    <p className="text-xs text-muted-foreground -mt-1">
+                                        This helps us track progress visually. You can wear a mask for privacy.
+                                    </p>
+                                    <Label htmlFor="photo-upload" className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 p-6 text-center transition-colors hover:border-primary ${formData.photo ? 'border-green-500 bg-green-500/10' : ''}`}>
+                                        {formData.photo ? <FileCheck className="text-green-500" /> : <Camera />}
+                                        <span className={formData.photo ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
+                                            {formData.photo ? formData.photo.name : 'Click to upload photo'}
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="photo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="hidden"
+                                    />
+                                </div>
                             </CardContent>
                         </>
                     )}

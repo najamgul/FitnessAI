@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Camera, FileCheck } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
 
 export default function SignupPage() {
@@ -20,30 +20,11 @@ export default function SignupPage() {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
-    const [photo, setPhoto] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            if (!file.type.startsWith('image/')) {
-                toast({ title: 'Invalid File Type', description: 'Please upload an image.', variant: 'destructive' });
-                return;
-            }
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                 toast({ title: 'File Too Large', description: 'Please upload an image smaller than 5MB.', variant: 'destructive' });
-                return;
-            }
-            setPhoto(file);
-        }
-    };
 
     const handleSignup = (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-
-        // In a real app, you would upload the photo to a storage service
-        // and handle the rest of the user data.
 
         setTimeout(() => {
             if (name && email && password && phone) {
@@ -117,26 +98,6 @@ export default function SignupPage() {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="photo">Full Body Photo (Optional)</Label>
-                            <p className="text-xs text-muted-foreground -mt-1">
-                                This helps us track progress visually. You can wear a mask for privacy.
-                            </p>
-                            <Label htmlFor="photo-upload" className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 p-6 text-center transition-colors hover:border-primary ${photo ? 'border-green-500 bg-green-500/10' : ''}`}>
-                                {photo ? <FileCheck className="text-green-500" /> : <Camera />}
-                                <span className={photo ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
-                                    {photo ? photo.name : 'Click to upload photo'}
-                                </span>
-                            </Label>
-                            <Input
-                                id="photo-upload"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                className="hidden"
                                 disabled={isLoading}
                             />
                         </div>
