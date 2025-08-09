@@ -13,7 +13,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getMissedMealAdvice } from '@/ai/flows/get-missed-meal-advice';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { getPexelsImage } from '@/ai/flows/get-pexels-image';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -47,67 +46,7 @@ type MealStatus = {
     };
 };
 
-// Helper function to load an image and return its base64 representation
-async function imageToBase64(src: string): Promise<string> {
-    const response = await fetch(src);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-const PexelsImage: React.FC<{ hint: string, alt: string }> = ({ hint, alt }) => {
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setIsLoading(true);
-        const fetchImage = async () => {
-            try {
-                const response = await getPexelsImage({ query: hint });
-                if (!isCancelled) {
-                    setImageUrl(response.imageUrl);
-                }
-            } catch (error) {
-                console.error("Failed to fetch image from Pexels", error);
-                if (!isCancelled) {
-                    // Fallback to Unsplash if Pexels fails
-                    setImageUrl(`https://source.unsplash.com/300x200/?${hint}`);
-                }
-            } finally {
-                if (!isCancelled) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        fetchImage();
-        
-        return () => {
-            isCancelled = true;
-        };
-    }, [hint]);
-
-    if (isLoading || !imageUrl) {
-        return <Skeleton className="rounded-t-lg aspect-[3/2] w-full" />;
-    }
-
-    return (
-        <Image
-            src={imageUrl}
-            alt={alt}
-            width={300}
-            height={200}
-            className="rounded-t-lg object-cover w-full aspect-[3/2]"
-            data-ai-hint={hint}
-            unoptimized // Necessary for external providers like Pexels/Unsplash
-        />
-    );
-};
+const aziafBrandImageBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAD2APYDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1VZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9k=";
 
 export default function DietPlanPage() {
     const { toast } = useToast();
@@ -134,10 +73,8 @@ export default function DietPlanPage() {
             const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
             
             if (approvedUsers[loggedInEmail]?.approved && approvedUsers[loggedInEmail]?.days) {
-                // Use admin-approved duration if available
                 planDuration = parseInt(approvedUsers[loggedInEmail].days, 10);
             } else if (userData.planDuration) {
-                // Otherwise, use duration from onboarding
                 planDuration = parseInt(userData.planDuration, 10);
             }
 
@@ -213,9 +150,8 @@ export default function DietPlanPage() {
             const { shoppingList } = await generateShoppingList({ dietPlan });
             
             const doc = new jsPDF();
-            const brandImageBase64 = await imageToBase64('/aziaf-brand.jpg');
             
-            doc.addImage(brandImageBase64, 'JPEG', 15, 15, 50, 50);
+            doc.addImage(aziafBrandImageBase64, 'JPEG', 15, 15, 50, 50);
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(20);
@@ -266,9 +202,8 @@ export default function DietPlanPage() {
         setIsDownloadingPlan(true);
         try {
             const doc = new jsPDF();
-            const brandImageBase64 = await imageToBase64('/aziaf-brand.jpg');
             
-            doc.addImage(brandImageBase64, 'JPEG', 15, 15, 50, 50);
+            doc.addImage(aziafBrandImageBase64, 'JPEG', 15, 15, 50, 50);
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(20);
@@ -402,7 +337,15 @@ export default function DietPlanPage() {
                                 {Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => (
                                     <Card key={mealTime} className="overflow-hidden flex flex-col">
                                         <CardHeader className="p-0 relative">
-                                            <PexelsImage hint={mealDetails.hint} alt={mealDetails.meal} />
+                                            <Image
+                                                src={`https://source.unsplash.com/300x200/?${mealDetails.hint}`}
+                                                alt={mealDetails.meal}
+                                                width={300}
+                                                height={200}
+                                                className="rounded-t-lg object-cover w-full aspect-[3/2]"
+                                                data-ai-hint={mealDetails.hint}
+                                                unoptimized
+                                            />
                                             <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 text-xs font-semibold text-white">
                                                 <Flame className="h-3 w-3" />
                                                 {mealDetails.calories} kcal
@@ -475,5 +418,3 @@ export default function DietPlanPage() {
         </div>
     );
 }
-
-    
