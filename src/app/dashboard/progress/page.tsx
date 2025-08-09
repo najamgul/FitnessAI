@@ -85,6 +85,8 @@ export default function ProgressPage() {
             });
 
             setTips(response.tips);
+            localStorage.setItem('personalizedTips', response.tips);
+
 
             toast({
                 title: 'Progress Logged',
