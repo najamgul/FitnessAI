@@ -17,6 +17,7 @@ export default function SignupPage() {
     const { toast } = useToast();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export default function SignupPage() {
         setIsLoading(true);
 
         setTimeout(() => {
-            if (name && email && password) {
+            if (name && email && password && phone) {
                 toast({
                     title: 'Account Created',
                     description: "We've created your account for you.",
@@ -72,6 +73,18 @@ export default function SignupPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Phone Number</Label>
+                            <Input
+                                id="phone"
+                                type="tel"
+                                placeholder="+1 234 567 890"
+                                required
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
                                 disabled={isLoading}
                             />
                         </div>
