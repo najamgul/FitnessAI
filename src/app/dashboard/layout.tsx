@@ -22,8 +22,8 @@ import {
   LineChart,
   MessageSquareQuote,
   LogOut,
-  Leaf,
 } from 'lucide-react';
+import Image from 'next/image';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -45,12 +45,15 @@ export default function DashboardLayout({
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
-            <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:hidden">
-              <Leaf className="h-6 w-6 text-primary" />
-            </Button>
-            <h1 className="font-headline text-2xl font-bold text-primary group-data-[collapsible=icon]:hidden">
-              Aziaf
-            </h1>
+            <Link href="/dashboard" className="group-data-[collapsible=icon]:hidden flex items-center gap-2">
+              <Image src="/logo.png" alt="Aziaf Logo" width={24} height={24} className="h-6 w-6" />
+              <h1 className="font-headline text-2xl font-bold text-primary">
+                Aziaf
+              </h1>
+            </Link>
+             <Link href="/dashboard" className="hidden group-data-[collapsible=icon]:flex">
+                 <Image src="/logo.png" alt="Aziaf Logo" width={24} height={24} className="h-6 w-6" />
+            </Link>
           </div>
         </SidebarHeader>
         <SidebarContent>
