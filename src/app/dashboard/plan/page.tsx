@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { getPexelsImage } from '@/ai/flows/get-pexels-image';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 type Meal = {
     meal: string;
@@ -225,11 +226,14 @@ export default function DietPlanPage() {
             
             {dietPlan && dietPlan.length > 0 ? (
                 <Tabs defaultValue="Day 1" className="w-full">
-                    <TabsList className="flex flex-wrap h-auto">
-                        {dietPlan.map((dayPlan) => (
-                            <TabsTrigger key={`trigger-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>{`Day\n${dayPlan.day}`}</TabsTrigger>
-                        ))}
-                    </TabsList>
+                    <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                        <TabsList>
+                            {dietPlan.map((dayPlan) => (
+                                <TabsTrigger key={`trigger-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>{`Day ${dayPlan.day}`}</TabsTrigger>
+                            ))}
+                        </TabsList>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                     {dietPlan.map((dayPlan) => (
                         <TabsContent key={`content-${dayPlan.day}`} value={`Day ${dayPlan.day}`}>
                             <div className="grid gap-6 mt-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -304,5 +308,7 @@ export default function DietPlanPage() {
         </div>
     );
 }
+
+    
 
     
