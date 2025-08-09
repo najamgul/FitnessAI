@@ -21,7 +21,7 @@ export default function AwaitingApprovalPage() {
                 </CardHeader>
                 <CardContent>
                    <p className="text-sm text-muted-foreground">
-                        If you have any questions, please contact our support team.
+                        If you have any questions, please contact our support team at <span className="font-semibold">+91 60065 24788</span>.
                    </p>
                 </CardContent>
             </Card>

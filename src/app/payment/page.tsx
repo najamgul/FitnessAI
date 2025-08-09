@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, IndianRupee } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
+import Link from 'next/link';
 
 export default function PaymentPage() {
     const router = useRouter();
@@ -91,6 +92,11 @@ export default function PaymentPage() {
                             height={250}
                         />
                     </div>
+
+                    <div className="text-center text-sm text-muted-foreground">
+                        Or WhatsApp your screenshot to <a href="https://wa.me/916006524788?text=Here%20is%20my%20payment%20screenshot%20for%20the%20Aziaf%20diet%20plan." target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline"> +91 60065 24788</a>.
+                    </div>
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="screenshot">Upload Payment Screenshot</Label>
