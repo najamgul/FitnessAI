@@ -92,9 +92,8 @@ export default function DashboardLayout({
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
-            <Link href="/dashboard" className="flex items-center gap-2 text-2xl font-bold font-headline text-primary">
+            <Link href="/dashboard">
                 <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} />
-                <span className="group-data-[collapsible=icon]:hidden">Aziaf</span>
             </Link>
           </div>
         </SidebarHeader>
