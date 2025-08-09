@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -23,6 +24,7 @@ import {
   MessageSquareQuote,
   LogOut,
   Leaf,
+  Users,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -31,6 +33,7 @@ const navItems = [
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart },
   { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote },
+  { href: '/admin/users', label: 'User Management', icon: Users },
 ];
 
 export default function DashboardLayout({
