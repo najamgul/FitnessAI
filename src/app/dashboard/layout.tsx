@@ -93,7 +93,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href="/dashboard" className="flex items-center gap-2 text-2xl font-bold font-headline text-primary">
-                <Leaf />
+                <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} />
                 <span className="group-data-[collapsible=icon]:hidden">Aziaf</span>
             </Link>
           </div>
@@ -136,7 +136,7 @@ export default function DashboardLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm lg:justify-end">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm lg:hidden">
           <SidebarTrigger className="lg:hidden" />
           <h2 className="text-xl font-semibold font-headline lg:hidden">
             {navItems.find(item => pathname.startsWith(item.href))?.label}
