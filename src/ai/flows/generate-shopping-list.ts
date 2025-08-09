@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -68,7 +69,7 @@ const prompt = ai.definePrompt({
   Group the items into logical categories like "Vegetables", "Fruits", "Grains", "Protein", "Dairy", "Spices", "Oils & Fats", and "Other".
 
   Diet Plan:
-  {{{jsonStringify dietPlan}}}
+  {{{dietPlan}}}
 
   Generate the shopping list with categories and items with their quantities.
   `,
