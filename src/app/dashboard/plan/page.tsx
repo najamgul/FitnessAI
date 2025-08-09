@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, Lightbulb, RefreshCw } from 'lucide-react';
@@ -17,6 +17,7 @@ import { getPexelsImage } from '@/ai/flows/get-pexels-image';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { CardDescription } from '@/components/ui/card';
 
 type Meal = {
     meal: string;
@@ -107,16 +108,23 @@ export default function DietPlanPage() {
             const userData = onboardingDataString ? JSON.parse(onboardingDataString) : {};
             const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
             
-            let planDuration = parseInt(userData.planDuration, 10) || 7;
+            let planDuration = 7; // Default duration
 
-            // Check if admin has approved a specific duration for this user
             const approvedUsersString = localStorage.getItem('approvedUsers');
-            if (approvedUsersString) {
-                const approvedUsers = JSON.parse(approvedUsersString);
-                if (approvedUsers[loggedInEmail]?.approved) {
-                    planDuration = parseInt(approvedUsers[loggedInEmail].days, 10) || planDuration;
-                }
+            const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+            
+            if (approvedUsers[loggedInEmail]?.approved && approvedUsers[loggedInEmail]?.days) {
+                // Use admin-approved duration if available
+                planDuration = parseInt(approvedUsers[loggedInEmail].days, 10);
+            } else if (userData.planDuration) {
+                // Otherwise, use duration from onboarding
+                planDuration = parseInt(userData.planDuration, 10);
             }
+
+            if (isNaN(planDuration) || planDuration <= 0) {
+                planDuration = 7; // Fallback to 7 days if value is invalid
+            }
+
 
             const response = await generateDietPlan({
                 healthInformation: `Age: ${userData.age}, Gender: ${userData.gender}, Weight: ${userData.weight}kg, Height: ${userData.heightFt}'${userData.heightIn}", Activity: ${userData.activityLevel}`,
@@ -308,7 +316,5 @@ export default function DietPlanPage() {
         </div>
     );
 }
-
-    
 
     
