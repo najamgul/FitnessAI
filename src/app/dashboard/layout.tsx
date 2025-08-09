@@ -39,9 +39,9 @@ const allNavItems = [
 // In a real app, this would come from an authentication provider (e.g., Firebase Auth, NextAuth)
 const mockUser = {
   name: 'Admin User',
-  email: 'admin@example.com', // Change to a non-admin email to test normal user view
+  email: 'care@aziaf.com', // This is now the admin user
 };
-const isAdmin = mockUser.email === 'admin@example.com';
+const isAdmin = mockUser.email === 'care@aziaf.com';
 
 
 export default function DashboardLayout({
