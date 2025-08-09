@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Download, Lightbulb, RefreshCw } from 'lucide-react';
+import { Download, Lightbulb, RefreshCw, ShoppingCart } from 'lucide-react';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,9 @@ import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CardDescription } from '@/components/ui/card';
+import { generateShoppingList } from '@/ai/flows/generate-shopping-list';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 type Meal = {
     meal: string;
@@ -99,6 +102,7 @@ export default function DietPlanPage() {
     const [mealStatus, setMealStatus] = useState<MealStatus>({});
     const [advice, setAdvice] = useState<{ day: string; mealTime: string; text: string } | null>(null);
     const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const fetchDietPlan = async () => {
         setIsLoadingPlan(true);
@@ -181,6 +185,55 @@ export default function DietPlanPage() {
             setIsLoadingAdvice(false);
         }
     };
+
+    const handleDownloadShoppingList = async () => {
+        if (!dietPlan) {
+            toast({ title: 'No diet plan available', variant: 'destructive' });
+            return;
+        }
+
+        setIsDownloading(true);
+        try {
+            const { shoppingList } = await generateShoppingList({ dietPlan });
+            
+            const doc = new jsPDF();
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(20);
+            doc.text('Your Shopping List', 14, 22);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            doc.text(`This list is generated based on your ${dietPlan.length}-day diet plan.`, 14, 30);
+
+            (doc as any).autoTable({
+                startY: 40,
+                head: [['Category', 'Item', 'Quantity']],
+                body: shoppingList.flatMap(category => 
+                    category.items.map((item, index) => [
+                        index === 0 ? category.category : '',
+                        item.name,
+                        item.quantity
+                    ])
+                ),
+                didDrawCell: (data: any) => {
+                    if (data.section === 'body' && data.cell.raw !== '' && data.column.index === 0) {
+                        (doc as any).autoTable.previous.finalY = data.cell.y + data.cell.height;
+                    }
+                },
+                theme: 'striped',
+                headStyles: { fillColor: [66, 133, 244] },
+            });
+
+            doc.save('Aziaf_Shopping_List.pdf');
+
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error generating shopping list', variant: 'destructive' });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
     
     if (isLoadingPlan) {
         return (
@@ -190,7 +243,10 @@ export default function DietPlanPage() {
                         <Skeleton className="h-9 w-72 mb-2" />
                         <Skeleton className="h-5 w-96" />
                     </div>
-                    <Skeleton className="h-10 w-36" />
+                    <div className="flex gap-2">
+                        <Skeleton className="h-10 w-36" />
+                        <Skeleton className="h-10 w-48" />
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                     {Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-10 w-20" />)}
@@ -225,9 +281,9 @@ export default function DietPlanPage() {
                         <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingPlan ? 'animate-spin' : ''}`} />
                         Regenerate
                     </Button>
-                    <Button>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Plan
+                    <Button onClick={handleDownloadShoppingList} disabled={isDownloading || !dietPlan}>
+                        {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
+                        Shopping List
                     </Button>
                 </div>
             </div>
@@ -316,5 +372,3 @@ export default function DietPlanPage() {
         </div>
     );
 }
-
-    
