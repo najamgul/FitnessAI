@@ -34,7 +34,8 @@ export default function OnboardingPage() {
         age: '',
         gender: '',
         weight: '',
-        height: '',
+        heightFt: '',
+        heightIn: '',
         waist: '',
         hip: '',
         targetWeight: '',
@@ -95,8 +96,12 @@ export default function OnboardingPage() {
         setIsLoading(true);
         try {
             // Consolidate all form data into a comprehensive prompt for the AI
+            const feet = parseInt(formData.heightFt) || 0;
+            const inches = parseInt(formData.heightIn) || 0;
+            const heightInCm = Math.round((feet * 12 + inches) * 2.54);
+
             const healthInformation = `
-                Age: ${formData.age}, Gender: ${formData.gender}, Weight: ${formData.weight}kg, Height: ${formData.height}cm, Waist: ${formData.waist}cm, Hip: ${formData.hip}cm.
+                Age: ${formData.age}, Gender: ${formData.gender}, Weight: ${formData.weight}kg, Height: ${heightInCm}cm.
                 Target Weight: ${formData.targetWeight || 'Not specified'}. Weight History: ${formData.weightHistory || 'Not specified'}.
                 Health Conditions: ${formData.healthConditions || 'None'}. Medications: ${formData.medications || 'None'}. Allergies: ${formData.allergies || 'None'}.
                 Digestive Issues: ${formData.digestiveIssues || 'None'}. Family History: ${formData.familyHistory || 'None'}.
@@ -145,10 +150,9 @@ export default function OnboardingPage() {
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="w-full max-w-2xl">
                  <div className="mb-8 flex flex-col items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <Leaf className="h-8 w-8 text-primary" />
-                        <h1 className="text-3xl font-bold font-headline text-primary">Welcome to Aziaf</h1>
-                    </div>
+                    <Link href="/" className="flex items-center gap-2 text-3xl font-bold font-headline text-primary">
+                        <Leaf className="h-8 w-8" />
+                    </Link>
                     <p className="text-muted-foreground">Let's get some details to personalize your experience.</p>
                     <Progress value={progress} className="w-full" />
                     <p className="text-sm font-semibold mt-2">{`Step ${step} of ${onboardingSteps.length}: ${currentStepInfo?.title}`}</p>
@@ -175,8 +179,11 @@ export default function OnboardingPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="height">Height (cm)</Label>
-                                    <Input id="height" type="number" placeholder="e.g., 175" value={formData.height} onChange={handleChange} />
+                                    <Label>Height</Label>
+                                    <div className="flex gap-2">
+                                        <Input id="heightFt" type="number" placeholder="Feet" value={formData.heightFt} onChange={handleChange} />
+                                        <Input id="heightIn" type="number" placeholder="Inches" value={formData.heightIn} onChange={handleChange} />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="weight">Weight (kg)</Label>
@@ -281,7 +288,7 @@ export default function OnboardingPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Alcohol Consumption</Label>
-                                    <Select value={formData.alcohol} onValueChange={(v) => handleSelectChange('alcohol', v)}>
+                                    <Select value={formData.alcohol} onValuechange={(v) => handleSelectChange('alcohol', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="no">No</SelectItem>
