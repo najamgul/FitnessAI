@@ -5,8 +5,17 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { UtensilsCrossed, LineChart, MessageSquareQuote, ArrowRight, Sparkles, Weight, Zap, Target } from 'lucide-react';
+import { UtensilsCrossed, LineChart, MessageSquareQuote, Sparkles, Weight, Zap, Target } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     ChartContainer,
     ChartTooltip,
@@ -44,6 +53,7 @@ export default function DashboardPage() {
     const [progressHistory, setProgressHistory] = useState<ProgressEntry[]>([]);
     const [name, setName] = useState('User');
     const [tips, setTips] = useState('');
+    const [showMotivationalDialog, setShowMotivationalDialog] = useState(false);
 
     useEffect(() => {
         try {
@@ -54,6 +64,11 @@ export default function DashboardPage() {
             const savedTips = localStorage.getItem('personalizedTips');
             if (savedTips) {
                 setTips(savedTips);
+                 const hasSeenPopup = sessionStorage.getItem('seenMotivationalPopup');
+                if (!hasSeenPopup) {
+                    setShowMotivationalDialog(true);
+                    sessionStorage.setItem('seenMotivationalPopup', 'true');
+                }
             }
 
             const loggedInEmail = localStorage.getItem('loggedInEmail');
@@ -82,6 +97,22 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-8">
+            <AlertDialog open={showMotivationalDialog} onOpenChange={setShowMotivationalDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 font-headline">
+                           <Sparkles className="text-primary"/> A Quick Note on Your Progress!
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="pt-2">
+                           {tips || "Keep tracking your progress to get personalized tips and stay on the path to success!"}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div>
                 <h1 className="text-3xl font-bold font-headline">Welcome back, {name}!</h1>
                 <p className="text-muted-foreground">Here's your high-level health and progress analysis.</p>
