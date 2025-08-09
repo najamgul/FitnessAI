@@ -62,8 +62,8 @@ export default function AskExpertPage() {
         <div className="max-w-2xl mx-auto space-y-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-3xl font-bold font-headline">Ask Azia</CardTitle>
-                    <CardDescription>Have a specific dietary question? Our AI assistant, Azia, is here to help.</CardDescription>
+                    <CardTitle className="text-3xl font-bold font-headline">Ask Azai</CardTitle>
+                    <CardDescription>Have a specific dietary question? Our AI assistant, Azai, is here to help.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -79,7 +79,7 @@ export default function AskExpertPage() {
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin" /> : 'Submit to Azia'}
+                            {isLoading ? <Loader2 className="animate-spin" /> : 'Submit to Azai'}
                         </Button>
                     </form>
                 </CardContent>
