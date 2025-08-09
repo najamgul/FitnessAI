@@ -69,8 +69,8 @@ export default function OnboardingPage() {
         const feet = parseInt(formData.heightFt) || 0;
         const inches = parseInt(formData.heightIn) || 0;
         const heightM = (feet * 12 + inches) * 0.0254;
-        const waistCm = parseFloat(formData.waist) || 0;
-        const hipCm = parseFloat(formData.hip) || 0;
+        const waistIn = parseFloat(formData.waist) || 0;
+        const hipIn = parseFloat(formData.hip) || 0;
 
         let bmi = 0;
         if (weightKg > 0 && heightM > 0) {
@@ -84,8 +84,8 @@ export default function OnboardingPage() {
         else if (bmi >= 30) bmiCategory = 'Obesity';
 
         let whr = 0;
-        if (waistCm > 0 && hipCm > 0) {
-            whr = waistCm / hipCm;
+        if (waistIn > 0 && hipIn > 0) {
+            whr = waistIn / hipIn;
         }
 
         let whrCategory = 'N/A';
@@ -247,12 +247,12 @@ export default function OnboardingPage() {
                                     <Input id="weight" type="number" placeholder="e.g., 70" value={formData.weight} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="waist">Waist (cm)</Label>
-                                    <Input id="waist" type="number" placeholder="e.g., 80" value={formData.waist} onChange={handleChange} />
+                                    <Label htmlFor="waist">Waist (in)</Label>
+                                    <Input id="waist" type="number" placeholder="e.g., 32" value={formData.waist} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="hip">Hip (cm)</Label>
-                                    <Input id="hip" type="number" placeholder="e.g., 95" value={formData.hip} onChange={handleChange} />
+                                    <Label htmlFor="hip">Hip (in)</Label>
+                                    <Input id="hip" type="number" placeholder="e.g., 38" value={formData.hip} onChange={handleChange} />
                                 </div>
 
                                 {formData.gender === 'female' && (
