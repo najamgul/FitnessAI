@@ -39,7 +39,12 @@ export default function ChatWithAzaiPage() {
         try {
             sessionStorage.setItem('chatHistory', JSON.stringify(messages));
             if (scrollAreaRef.current) {
-                scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+                // A slight delay to allow the new message to render before scrolling
+                setTimeout(() => {
+                    if (scrollAreaRef.current) {
+                        scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+                    }
+                }, 100);
             }
         } catch (error) {
             console.error("Could not save chat history to sessionStorage", error);
@@ -72,72 +77,70 @@ export default function ChatWithAzaiPage() {
     };
 
     return (
-        <Card className="h-[calc(100vh-6rem)] flex flex-col">
+        <div className="flex flex-col h-[calc(100vh-5rem)] bg-card rounded-xl border">
             <CardHeader>
-                <CardTitle className="text-3xl font-bold font-headline">Chat with Azai</CardTitle>
-                <CardDescription>Your AI nutrition assistant. Ask me anything about your diet or health!</CardDescription>
+                <CardTitle className="text-xl font-bold font-headline">Chat with Azai</CardTitle>
+                <CardDescription>Your AI nutrition assistant. Ask me anything!</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0">
-                <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
-                    <div className="space-y-6">
-                        {messages.map((message, index) => (
-                            <div
-                                key={index}
-                                className={cn(
-                                    'flex items-end gap-2',
-                                    message.sender === 'user' ? 'justify-end' : 'justify-start'
-                                )}
-                            >
-                                {message.sender === 'ai' && (
-                                    <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
-                                        <AvatarFallback><Sparkles size={16} /></AvatarFallback>
-                                    </Avatar>
-                                )}
-                                <div
-                                    className={cn(
-                                        'max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 whitespace-pre-wrap',
-                                        message.sender === 'user'
-                                            ? 'bg-primary text-primary-foreground rounded-br-none'
-                                            : 'bg-muted rounded-bl-none'
-                                    )}
-                                >
-                                    {message.text}
-                                </div>
-                                 {message.sender === 'user' && (
-                                    <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground">
-                                        <AvatarFallback><User size={16}/></AvatarFallback>
-                                    </Avatar>
-                                )}
-                            </div>
-                        ))}
-                         {isLoading && (
-                            <div className="flex items-end gap-2 justify-start">
-                               <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
+            <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
+                <div className="space-y-6">
+                    {messages.map((message, index) => (
+                        <div
+                            key={index}
+                            className={cn(
+                                'flex items-end gap-2',
+                                message.sender === 'user' ? 'justify-end' : 'justify-start'
+                            )}
+                        >
+                            {message.sender === 'ai' && (
+                                <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
                                     <AvatarFallback><Sparkles size={16} /></AvatarFallback>
                                 </Avatar>
-                                <div className="bg-muted rounded-lg px-4 py-3 rounded-bl-none flex items-center justify-center">
-                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                </div>
+                            )}
+                            <div
+                                className={cn(
+                                    'max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 whitespace-pre-wrap shadow-sm',
+                                    message.sender === 'user'
+                                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                                        : 'bg-muted rounded-bl-none'
+                                )}
+                            >
+                                {message.text}
                             </div>
-                        )}
-                    </div>
-                </ScrollArea>
-                <div className="p-4 border-t bg-background">
-                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
-                        <Input
-                            id="message"
-                            placeholder="Type your message..."
-                            autoComplete="off"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            disabled={isLoading}
-                        />
-                        <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-                            {isLoading ? <Loader2 className="animate-spin" /> : <Send />}
-                        </Button>
-                    </form>
+                             {message.sender === 'user' && (
+                                <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground">
+                                    <AvatarFallback><User size={16}/></AvatarFallback>
+                                </Avatar>
+                            )}
+                        </div>
+                    ))}
+                     {isLoading && (
+                        <div className="flex items-end gap-2 justify-start">
+                           <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
+                                <AvatarFallback><Sparkles size={16} /></AvatarFallback>
+                            </Avatar>
+                            <div className="bg-muted rounded-lg px-4 py-3 rounded-bl-none flex items-center justify-center">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </CardContent>
-        </Card>
+            </ScrollArea>
+            <div className="p-4 border-t bg-background rounded-b-xl">
+                <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                    <Input
+                        id="message"
+                        placeholder="Type your message..."
+                        autoComplete="off"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        disabled={isLoading}
+                    />
+                    <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                        {isLoading ? <Loader2 className="animate-spin" /> : <Send />}
+                    </Button>
+                </form>
+            </div>
+        </div>
     );
 }

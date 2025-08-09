@@ -139,7 +139,7 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm lg:justify-end">
           <SidebarTrigger className="lg:hidden" />
           <h2 className="text-xl font-semibold font-headline lg:hidden">
-            {navItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard'}
+            {navItems.find(item => pathname.startsWith(item.href))?.label}
           </h2>
           <div></div>
         </header>
