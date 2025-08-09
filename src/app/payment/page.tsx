@@ -94,7 +94,7 @@ export default function PaymentPage() {
                     </div>
 
                     <div className="text-center text-sm text-muted-foreground">
-                        Or WhatsApp your screenshot to <a href="https://wa.me/916006524788?text=Here%20is%20my%20payment%20screenshot%20for%20the%20Aziaf%20diet%20plan." target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline"> +91 60065 24788</a>.
+                        and WhatsApp your screenshot to +91 60065 24788. <a href="https://wa.me/916006524788?text=Here%20is%20my%20payment%20screenshot%20for%20the%20Aziaf%20diet%20plan." target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">Click here to open chat with us</a>.
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
