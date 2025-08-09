@@ -30,9 +30,9 @@ import Image from 'next/image';
 
 const allNavItems = [
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
-  { href: ' /dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
+  { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
-  { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote, admin: false },
+  { href: '/dashboard/ask', label: 'Ask Azia', icon: MessageSquareQuote, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
 ];
 
