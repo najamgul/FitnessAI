@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -288,7 +289,7 @@ export default function OnboardingPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Alcohol Consumption</Label>
-                                    <Select value={formData.alcohol} onValuechange={(v) => handleSelectChange('alcohol', v)}>
+                                    <Select value={formData.alcohol} onValueChange={(v) => handleSelectChange('alcohol', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="no">No</SelectItem>
