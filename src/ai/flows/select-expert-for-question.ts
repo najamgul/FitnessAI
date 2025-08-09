@@ -6,49 +6,97 @@
  * - SelectExpertForQuestionInput - The input type for the selectExpertForQuestion function.
  * - SelectExpertForQuestionOutput - The return type for the selectExpertForQuestion function.
  */
-
+import {promises as fs} from 'fs';
+import path from 'path';
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SelectExpertForQuestionInputSchema = z.object({
-  question: z.string().describe('The user\'s question.'),
+  question: z.string().describe("The user's question."),
 });
 export type SelectExpertForQuestionInput = z.infer<typeof SelectExpertForQuestionInputSchema>;
 
 const SelectExpertForQuestionOutputSchema = z.object({
-  expertNames: z.array(z.string()).describe('An array of the names of the most suitable experts to answer the question.'),
+  answer: z
+    .string()
+    .describe(
+      'The answer to the user question, based on the provided knowledge base. If the knowledge base does not contain relevant information, this should state that an answer could not be found.'
+    ),
 });
 export type SelectExpertForQuestionOutput = z.infer<typeof SelectExpertForQuestionOutputSchema>;
 
-export async function selectExpertForQuestion(input: SelectExpertForQuestionInput): Promise<SelectExpertForQuestionOutput> {
-  return selectExpertForQuestionFlow(input);
+async function searchKnowledgeBase(question: string): Promise<string> {
+  try {
+    const knowledgeBase = await fs.readFile(
+      path.join(process.cwd(), 'src', 'ai', 'knowledge-base.txt'),
+      'utf-8'
+    );
+    const paragraphs = knowledgeBase.split('\n\n');
+    const lowerCaseQuestion = question.toLowerCase();
+
+    // Simple keyword matching. For a real app, a vector DB would be better.
+    const relevantParagraphs = paragraphs.filter(p =>
+      p.toLowerCase().includes(lowerCaseQuestion.substring(0, 20)) || 
+      lowerCaseQuestion.split(' ').some(word => p.toLowerCase().includes(word) && word.length > 3)
+    );
+
+    return relevantParagraphs.join('\n\n');
+  } catch (error) {
+    console.error('Could not read knowledge base:', error);
+    return '';
+  }
+}
+
+export async function selectExpertForQuestion(
+  input: SelectExpertForQuestionInput
+): Promise<SelectExpertForQuestionOutput> {
+  const knowledgeContext = await searchKnowledgeBase(input.question);
+  
+  return selectExpertForQuestionFlow({
+    question: input.question,
+    knowledgeContext: knowledgeContext,
+  });
 }
 
 const prompt = ai.definePrompt({
   name: 'selectExpertForQuestionPrompt',
-  input: {schema: SelectExpertForQuestionInputSchema},
+  input: {
+    schema: z.object({
+      question: z.string(),
+      knowledgeContext: z.string(),
+    }),
+  },
   output: {schema: SelectExpertForQuestionOutputSchema},
-  prompt: `You are an expert system for routing questions to the most appropriate expert.  You will be given a user's question, and you will return a list of the names of the experts who are most qualified to answer the question.
+  prompt: `You are Azai, a helpful AI nutrition assistant. Your goal is to answer the user's question based *only* on the provided "Knowledge Base Context".
 
-Question: {{{question}}}
+User's Question:
+"{{{question}}}"
 
-Experts:
-- Dr. Anya Sharma (General Nutrition)
-- Dr. Ben Carter (Sports Nutrition)
-- Dr. Chloe Davis (Pediatric Nutrition)
-- Dr. David Evans (Geriatric Nutrition)
+Knowledge Base Context:
+"""
+{{{knowledgeContext}}}
+"""
 
-Return ONLY the array of expert names.  If no expert is appropriate, return an empty array. Do not explain your reasoning.
-`, 
+Carefully analyze the "Knowledge Base Context".
+- If the context contains information relevant to the user's question, formulate a clear and concise answer based *exclusively* on that information. Do not add any information that is not present in the context.
+- If the context is empty or does not contain information relevant to the question, you MUST respond with: "I'm sorry, but I couldn't find a relevant answer in my knowledge base for your question. Please try rephrasing it or ask something else."
+- Do not use any external knowledge. Stick strictly to the provided text.
+`,
 });
 
 const selectExpertForQuestionFlow = ai.defineFlow(
   {
     name: 'selectExpertForQuestionFlow',
-    inputSchema: SelectExpertForQuestionInputSchema,
+    inputSchema: z.object({
+      question: z.string(),
+      knowledgeContext: z.string(),
+    }),
     outputSchema: SelectExpertForQuestionOutputSchema,
   },
   async input => {
+    if (!input.knowledgeContext) {
+      return { answer: "I'm sorry, but I couldn't find a relevant answer in my knowledge base for your question. Please try rephrasing it or ask something else." };
+    }
     const {output} = await prompt(input);
     return output!;
   }
