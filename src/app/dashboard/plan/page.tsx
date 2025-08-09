@@ -102,17 +102,27 @@ export default function DietPlanPage() {
         setIsLoadingPlan(true);
         setDietPlan(null);
         try {
-            // In a real app, this data would come from the authenticated user's profile.
-            // For this prototype, we'll retrieve it from localStorage.
             const onboardingDataString = localStorage.getItem('onboardingData');
             const userData = onboardingDataString ? JSON.parse(onboardingDataString) : {};
+            const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
+            
+            let planDuration = parseInt(userData.planDuration, 10) || 7;
+
+            // Check if admin has approved a specific duration for this user
+            const approvedUsersString = localStorage.getItem('approvedUsers');
+            if (approvedUsersString) {
+                const approvedUsers = JSON.parse(approvedUsersString);
+                if (approvedUsers[loggedInEmail]?.approved) {
+                    planDuration = parseInt(approvedUsers[loggedInEmail].days, 10) || planDuration;
+                }
+            }
 
             const response = await generateDietPlan({
                 healthInformation: `Age: ${userData.age}, Gender: ${userData.gender}, Weight: ${userData.weight}kg, Height: ${userData.heightFt}'${userData.heightIn}", Activity: ${userData.activityLevel}`,
                 dietaryPreferences: `Health goals: ${userData.healthGoals?.join(', ')}. Other notes: ${userData.otherGoal}`,
                 goals: `${userData.goalAction} weight. Target: ${userData.goalWeightKg || 'N/A'}`,
                 geographicLocation: 'Kashmir, India',
-                planDuration: parseInt(userData.planDuration, 10) || 7,
+                planDuration: planDuration,
             });
             
             setDietPlan(response.dietPlan);
@@ -280,7 +290,7 @@ export default function DietPlanPage() {
                     <CardHeader>
                         <CardTitle>No Plan Generated</CardTitle>
                         <CardDescription>
-                            We couldn't generate a diet plan. This might be because the onboarding data is missing.
+                            We couldn't generate a diet plan. This might be because the onboarding data is missing or your account is not yet approved.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

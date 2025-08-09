@@ -21,7 +21,7 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState(mockUsers);
     const [accessDays, setAccessDays] = useState<{ [key: number]: string }>({});
 
-    const handleApprove = (userId: number) => {
+    const handleApprove = (userId: number, userEmail: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
         if (isNaN(days) || days <= 0) {
             toast({
@@ -36,10 +36,24 @@ export default function AdminUsersPage() {
             user.id === userId ? { ...user, status: 'Approved', days } : user
         ));
 
-        toast({
-            title: 'User Approved',
-            description: `Access granted for ${days} days.`
-        });
+        // In a real app, this would be a database call. Here we use localStorage.
+        try {
+            const approvedUsersString = localStorage.getItem('approvedUsers');
+            const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+            approvedUsers[userEmail] = { approved: true, days };
+            localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
+
+            toast({
+                title: 'User Approved',
+                description: `Access granted to ${userEmail} for ${days} days.`
+            });
+        } catch (error) {
+             toast({
+                title: 'Failed to update storage',
+                description: 'Could not save approval status locally.',
+                variant: 'destructive'
+            });
+        }
     };
 
     const handleDaysChange = (userId: number, value: string) => {
@@ -90,7 +104,7 @@ export default function AdminUsersPage() {
                                                     value={accessDays[user.id] || ''}
                                                     onChange={(e) => handleDaysChange(user.id, e.target.value)}
                                                 />
-                                                <Button size="sm" onClick={() => handleApprove(user.id)}>Approve</Button>
+                                                <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
                                             </div>
                                         )}
                                     </TableCell>
@@ -103,4 +117,3 @@ export default function AdminUsersPage() {
         </div>
     );
 }
-
