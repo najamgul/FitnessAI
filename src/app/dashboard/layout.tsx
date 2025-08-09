@@ -46,13 +46,10 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Link href="/dashboard" className="group-data-[collapsible=icon]:hidden flex items-center gap-2">
-              <Image src="/logo.png" alt="Aziaf Logo" width={24} height={24} className="h-6 w-6" />
-              <h1 className="font-headline text-2xl font-bold text-primary">
-                Aziaf
-              </h1>
+              <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} className="h-8 w-8" />
             </Link>
              <Link href="/dashboard" className="hidden group-data-[collapsible=icon]:flex">
-                 <Image src="/logo.png" alt="Aziaf Logo" width={24} height={24} className="h-6 w-6" />
+                 <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} className="h-8 w-8" />
             </Link>
           </div>
         </SidebarHeader>
