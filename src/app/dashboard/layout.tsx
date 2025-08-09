@@ -46,10 +46,10 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href="/dashboard" className="group-data-[collapsible=icon]:hidden flex items-center gap-2">
-              <Image src="/logo.png" alt="Aziaf Logo" width={160} height={160} className="h-40 w-40" />
+              <Image src="/logo.png" alt="Aziaf Logo" width={320} height={320} className="h-80 w-80" />
             </Link>
              <Link href="/dashboard" className="hidden group-data-[collapsible=icon]:flex">
-                 <Image src="/logo.png" alt="Aziaf Logo" width={32} height={32} className="h-8 w-8" />
+                 <Image src="/logo.png" alt="Aziaf Logo" width={64} height={64} className="h-16 w-16" />
             </Link>
           </div>
         </SidebarHeader>
@@ -57,7 +57,7 @@ export default function DashboardLayout({
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref>
+                <Link href={item.href}>
                   <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
                     <div>
                       <item.icon />

@@ -7,7 +7,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             <div className="w-full max-w-md">
                 <div className="mb-8 flex justify-center">
                     <div className="flex items-center gap-2">
-                        <Image src="/logo.png" alt="Aziaf Logo" width={160} height={160} className="h-40 w-40" />
+                        <Image src="/logo.png" alt="Aziaf Logo" width={320} height={320} className="h-80 w-80" />
                     </div>
                 </div>
                 {children}
