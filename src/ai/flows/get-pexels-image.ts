@@ -5,22 +5,17 @@
  * @fileOverview A flow to fetch an image from Pexels based on a query.
  *
  * - getPexelsImage - A function that fetches an image URL from Pexels.
- * - GetPexelsImageInput - The input type for the getPexelsImage function.
- * - GetPexelsImageOutput - The return type for the getPexelsImage function.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const GetPexelsImageInputSchema = z.object({
-    query: z.string().describe('The search query for the image.'),
-});
-export type GetPexelsImageInput = z.infer<typeof GetPexelsImageInputSchema>;
+type GetPexelsImageInput = {
+    query: string;
+};
 
-export const GetPexelsImageOutputSchema = z.object({
-    imageUrl: z.string().describe('The URL of the fetched image.'),
-});
-export type GetPexelsImageOutput = z.infer<typeof GetPexelsImageOutputSchema>;
+type GetPexelsImageOutput = {
+    imageUrl: string;
+};
 
 // This flow is not defined with ai.defineFlow because it does not use an LLM.
 // It's a standard server-side function that securely calls the Pexels API.
