@@ -8,7 +8,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             <div className="w-full max-w-md">
                 <div className="mb-8 flex justify-center">
                     <Link href="/dashboard">
-                        <Image src="/logo.png" alt="Aziaf Logo" width={64} height={64} />
+                        <Image src="/logo.png" alt="Aziaf Logo" width={128} height={128} />
                     </Link>
                 </div>
                 {children}
