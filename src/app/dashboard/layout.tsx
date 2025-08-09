@@ -20,7 +20,7 @@ import {
   LayoutDashboard,
   UtensilsCrossed,
   LineChart,
-  MessageSquareQuestion,
+  MessageSquareQuote,
   LogOut,
   Leaf,
 } from 'lucide-react';
@@ -29,7 +29,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart },
-  { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuestion },
+  { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote },
 ];
 
 export default function DashboardLayout({
