@@ -18,8 +18,6 @@ export default function SignupPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [country, setCountry] = useState('');
-    const [address, setAddress] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSignup = (e: React.FormEvent) => {
@@ -27,8 +25,7 @@ export default function SignupPage() {
         setIsLoading(true);
 
         setTimeout(() => {
-            // Added country and address to the validation check.
-            if (name && email && password && country && address) {
+            if (name && email && password) {
                 toast({
                     title: 'Account Created',
                     description: "We've created your account for you.",
@@ -75,30 +72,6 @@ export default function SignupPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
-                            <Input
-                                id="country"
-                                type="text"
-                                placeholder="e.g., United States"
-                                required
-                                value={country}
-                                onChange={(e) => setCountry(e.target.value)}
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="address">Address</Label>
-                            <Input
-                                id="address"
-                                type="text"
-                                placeholder="e.g., 123 Main St"
-                                required
-                                value={address}
-                                onChange={(e) => setAddress(e.target.value)}
                                 disabled={isLoading}
                             />
                         </div>
