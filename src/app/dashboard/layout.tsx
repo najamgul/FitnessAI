@@ -29,9 +29,9 @@ import {
 import Image from 'next/image';
 
 const allNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
-  { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
+  { href: ' /dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
   { href: '/dashboard/ask', label: 'Ask an Expert', icon: MessageSquareQuote, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
 ];
@@ -47,9 +47,12 @@ const getLoggedInUser = () => {
         if (loggedInEmail === adminEmail) {
             return { name: 'Admin User', email: adminEmail };
         }
-        return { name: 'John Doe', email: 'john.doe@example.com' };
+        // When not admin, show a mock user
+        if (loggedInEmail) {
+             return { name: 'John Doe', email: loggedInEmail };
+        }
     }
-    // Default for server-side rendering
+    // Default for server-side rendering or if not logged in
     return { name: 'John Doe', email: 'john.doe@example.com' };
 };
 
