@@ -163,10 +163,8 @@ export default function OnboardingPage() {
             const heightInCm = Math.round(((parseInt(formData.heightFt) || 0) * 12 + (parseInt(formData.heightIn) || 0)) * 2.54);
 
             let goalDescription = "Maintain current weight and general well-being.";
-            if (formData.goalAction === 'lose') {
-                goalDescription = `Lose ${formData.goalWeightKg} kg.`;
-            } else if (formData.goalAction === 'gain') {
-                goalDescription = `Gain ${formData.goalWeightKg} kg.`;
+            if (formData.goalAction === 'lose' || formData.goalAction === 'gain') {
+                goalDescription = `Achieve a target weight of ${formData.goalWeightKg} kg.`;
             } else if (formData.goalAction === 'other') {
                 goalDescription = formData.otherGoal;
             }
@@ -446,11 +444,11 @@ export default function OnboardingPage() {
 
                                 {(formData.goalAction === 'lose' || formData.goalAction === 'gain') && (
                                     <div className="space-y-2 animate-in fade-in-50">
-                                        <Label htmlFor="goalWeightKg">How many kilograms (kg)?</Label>
+                                        <Label htmlFor="goalWeightKg">What is your target weight (kg)?</Label>
                                         <Input 
                                             id="goalWeightKg" 
                                             type="number" 
-                                            placeholder="e.g., 5" 
+                                            placeholder="e.g., 65" 
                                             value={formData.goalWeightKg}
                                             onChange={handleChange} 
                                         />
@@ -490,6 +488,8 @@ export default function OnboardingPage() {
         </div>
     );
 }
+
+    
 
     
 
