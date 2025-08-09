@@ -1,26 +1,27 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Leaf, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp } from 'lucide-react';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
+import { generateBodyImage } from '@/ai/flows/generate-body-image';
 
 const onboardingSteps = [
-    { id: 1, title: 'Basic Demographics' },
-    { id: 2, title: 'Metabolic & Health Status' },
-    { id: 3, title: 'Lifestyle & Activity' },
-    { id: 4, title: 'Kashmiri & Cultural Considerations' },
-    { id: 5, title: 'Goals & Preferences' },
+    { id: 1, title: 'About You' },
+    { id: 2, title: 'Your Lifestyle' },
+    { id: 3, title: 'Health Profile' },
+    { id: 4, title: 'Your Goals' },
 ];
 
 export default function OnboardingPage() {
@@ -29,9 +30,8 @@ export default function OnboardingPage() {
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     
-    // A single state object to hold all form data
     const [formData, setFormData] = useState({
-        // Step 1: Basic Demographics
+        // Step 1
         age: '',
         gender: '',
         weight: '',
@@ -39,39 +39,102 @@ export default function OnboardingPage() {
         heightIn: '',
         waist: '',
         hip: '',
-        targetWeight: '',
-        weightHistory: '',
-
-        // Step 2: Health
-        healthConditions: '',
-        medications: '',
-        allergies: '',
-        digestiveIssues: '',
-        familyHistory: '',
-        isPregnant: '',
+        isPregnant: 'not_applicable',
         menstrualCycle: '',
 
-        // Step 3: Lifestyle
+        // Step 2
         activityLevel: 'sedentary',
         occupation: '',
         sleepHours: '',
-        stressLevel: '',
-        alcohol: 'no',
-        smoking: 'no',
-        
-        // Step 4: Kashmiri Context
+        stressLevel: 'low',
         includeTraditional: [],
-        religiousRestrictions: 'none',
-        handleWinters: '',
+        spiceTolerance: 'medium',
         
-        // Step 5: Preferences
+        // Step 4
         primaryGoal: '',
         favoriteFoods: '',
         hatedFoods: '',
-        spiceTolerance: 'medium',
     });
 
-    const handleNext = () => setStep((prev) => Math.min(prev + 1, onboardingSteps.length));
+    const [healthProfile, setHealthProfile] = useState({
+        bmi: 0,
+        bmiCategory: '',
+        whr: 0,
+        whrCategory: '',
+        bodyImageUrl: '',
+    });
+
+    const calculateHealthProfile = () => {
+        const weightKg = parseFloat(formData.weight) || 0;
+        const feet = parseInt(formData.heightFt) || 0;
+        const inches = parseInt(formData.heightIn) || 0;
+        const heightM = (feet * 12 + inches) * 0.0254;
+        const waistCm = parseFloat(formData.waist) || 0;
+        const hipCm = parseFloat(formData.hip) || 0;
+
+        let bmi = 0;
+        if (weightKg > 0 && heightM > 0) {
+            bmi = weightKg / (heightM * heightM);
+        }
+
+        let bmiCategory = 'N/A';
+        if (bmi < 18.5) bmiCategory = 'Underweight';
+        else if (bmi < 24.9) bmiCategory = 'Normal weight';
+        else if (bmi < 29.9) bmiCategory = 'Overweight';
+        else if (bmi >= 30) bmiCategory = 'Obesity';
+
+        let whr = 0;
+        if (waistCm > 0 && hipCm > 0) {
+            whr = waistCm / hipCm;
+        }
+
+        let whrCategory = 'N/A';
+        if (formData.gender === 'male') {
+            if (whr > 0.9) whrCategory = 'High Health Risk'; else whrCategory = 'Low Health Risk';
+        } else if (formData.gender === 'female') {
+            if (whr > 0.85) whrCategory = 'High Health Risk'; else whrCategory = 'Low Health Risk';
+        }
+
+        setHealthProfile(prev => ({
+            ...prev,
+            bmi: parseFloat(bmi.toFixed(2)),
+            bmiCategory,
+            whr: parseFloat(whr.toFixed(2)),
+            whrCategory
+        }));
+    }
+
+    const handleNext = async () => {
+        if (step === 2) {
+            setIsLoading(true);
+            calculateHealthProfile();
+            try {
+                const weightKg = parseFloat(formData.weight) || 0;
+                const feet = parseInt(formData.heightFt) || 0;
+                const inches = parseInt(formData.heightIn) || 0;
+                const heightM = (feet * 12 + inches) * 0.0254;
+                const bmi = weightKg > 0 && heightM > 0 ? weightKg / (heightM * heightM) : 0;
+                
+                const response = await generateBodyImage({
+                    gender: formData.gender,
+                    bmi: parseFloat(bmi.toFixed(2))
+                });
+
+                setHealthProfile(prev => ({...prev, bodyImageUrl: response.imageUrl}));
+
+            } catch (error) {
+                toast({
+                    title: 'Could not generate body image',
+                    description: 'Using a default placeholder.',
+                    variant: 'destructive',
+                });
+                // Use a placeholder if generation fails
+                setHealthProfile(prev => ({...prev, bodyImageUrl: `https://placehold.co/400x600.png`}));
+            }
+            setIsLoading(false);
+        }
+        setStep((prev) => Math.min(prev + 1, onboardingSteps.length));
+    };
     const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -82,39 +145,22 @@ export default function OnboardingPage() {
     const handleSelectChange = (id: string, value: string) => {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
-
-    const handleCheckboxChange = (id: string, value: string) => {
-        setFormData(prev => {
-            const list = (prev[id as keyof typeof prev] as string[]) || [];
-            if (list.includes(value)) {
-                return { ...prev, [id]: list.filter((item) => item !== value) };
-            }
-            return { ...prev, [id]: [...list, value] };
-        });
-    };
     
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
-            // Consolidate all form data into a comprehensive prompt for the AI
-            const feet = parseInt(formData.heightFt) || 0;
-            const inches = parseInt(formData.heightIn) || 0;
-            const heightInCm = Math.round((feet * 12 + inches) * 2.54);
+            const heightInCm = Math.round(((parseInt(formData.heightFt) || 0) * 12 + (parseInt(formData.heightIn) || 0)) * 2.54);
 
             const healthInformation = `
                 Age: ${formData.age}, Gender: ${formData.gender}, Weight: ${formData.weight}kg, Height: ${heightInCm}cm.
-                Target Weight: ${formData.targetWeight || 'Not specified'}. Weight History: ${formData.weightHistory || 'Not specified'}.
-                Health Conditions: ${formData.healthConditions || 'None'}. Medications: ${formData.medications || 'None'}. Allergies: ${formData.allergies || 'None'}.
-                Digestive Issues: ${formData.digestiveIssues || 'None'}. Family History: ${formData.familyHistory || 'None'}.
-                Pregnant/Breastfeeding: ${formData.isPregnant || 'N/A'}. Menstrual Cycle: ${formData.menstrualCycle || 'N/A'}.
+                Health Profile: BMI of ${healthProfile.bmi} (${healthProfile.bmiCategory}), Waist-to-Hip Ratio of ${healthProfile.whr} (${healthProfile.whrCategory}).
                 Activity Level: ${formData.activityLevel}. Occupation: ${formData.occupation || 'Not specified'}.
-                Sleep: ${formData.sleepHours} hours. Stress: ${formData.stressLevel}. Alcohol: ${formData.alcohol}. Smoking: ${formData.smoking}.
-                How they handle winters: ${formData.handleWinters || 'Not specified'}.
+                Sleep: ${formData.sleepHours} hours/night. Stress: ${formData.stressLevel}.
+                ${formData.gender === 'female' ? `Pregnancy/Breastfeeding: ${formData.isPregnant}.` : ''}
+                ${formData.gender === 'female' ? `Menstrual Cycle: ${formData.menstrualCycle || 'Not specified'}.` : ''}
             `;
 
             const dietaryPreferences = `
-                Religious Restrictions: ${formData.religiousRestrictions}.
-                Traditional Kashmiri foods to include: ${formData.includeTraditional.join(', ') || 'None'}.
                 Spice Tolerance: ${formData.spiceTolerance}.
                 Favorite Foods: ${formData.favoriteFoods || 'None'}. Hated Foods: ${formData.hatedFoods || 'None'}.
             `;
@@ -123,7 +169,7 @@ export default function OnboardingPage() {
                 dietaryPreferences: dietaryPreferences,
                 healthInformation: healthInformation,
                 goals: formData.primaryGoal || 'General well-being',
-                geographicLocation: 'Kashmir', // Hardcoded as per the context
+                geographicLocation: 'Kashmir',
             };
             
             await generateDietPlan(dietPlanInput);
@@ -147,6 +193,16 @@ export default function OnboardingPage() {
     const progress = (step / onboardingSteps.length) * 100;
     const currentStepInfo = onboardingSteps.find(s => s.id === step);
 
+    const isNextDisabled = useMemo(() => {
+        if (step === 1) {
+            return !formData.age || !formData.gender || !formData.weight || !formData.heightFt || !formData.heightIn || !formData.waist || !formData.hip;
+        }
+        if (step === 2) {
+            return !formData.activityLevel || !formData.sleepHours;
+        }
+        return false;
+    }, [formData, step]);
+
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <div className="w-full max-w-2xl">
@@ -162,7 +218,7 @@ export default function OnboardingPage() {
                 <Card>
                     {step === 1 && (
                         <>
-                            <CardHeader><CardTitle className="font-headline">Basic Demographics</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">About You</CardTitle><CardDescription>This helps us calculate your basic health metrics.</CardDescription></CardHeader>
                             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="age">Age</Label>
@@ -198,66 +254,35 @@ export default function OnboardingPage() {
                                     <Label htmlFor="hip">Hip (cm)</Label>
                                     <Input id="hip" type="number" placeholder="e.g., 95" value={formData.hip} onChange={handleChange} />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="targetWeight">Target Weight (kg)</Label>
-                                    <Input id="targetWeight" type="number" placeholder="Optional" value={formData.targetWeight} onChange={handleChange} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label htmlFor="weightHistory">Weight History</Label>
-                                    <Input id="weightHistory" placeholder="e.g., Stable, fluctuating" value={formData.weightHistory} onChange={handleChange} />
-                                </div>
+
+                                {formData.gender === 'female' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label>Pregnancy or breastfeeding?</Label>
+                                            <Select value={formData.isPregnant} onValueChange={(v) => handleSelectChange('isPregnant', v)}>
+                                                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="not_applicable">Not Applicable</SelectItem>
+                                                    <SelectItem value="pregnant">Pregnant</SelectItem>
+                                                    <SelectItem value="breastfeeding">Breastfeeding</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="menstrualCycle">Menstrual cycle regularity?</Label>
+                                            <Input id="menstrualCycle" placeholder="e.g., Regular, irregular" value={formData.menstrualCycle} onChange={handleChange} />
+                                        </div>
+                                    </>
+                                )}
                             </CardContent>
                         </>
                     )}
                     {step === 2 && (
                          <>
-                            <CardHeader><CardTitle className="font-headline">Metabolic & Health Status</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="font-headline">Your Lifestyle</CardTitle><CardDescription>Your daily habits affect your nutritional needs.</CardDescription></CardHeader>
                             <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2 md:col-span-2">
-                                    <Label htmlFor="healthConditions">Existing health conditions?</Label>
-                                    <Input id="healthConditions" placeholder="e.g., Diabetes, hypertension, thyroid" value={formData.healthConditions} onChange={handleChange} />
-                                </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <Label htmlFor="medications">Current medications or supplements?</Label>
-                                    <Input id="medications" placeholder="e.g., Metformin, Vitamin D" value={formData.medications} onChange={handleChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="allergies">Food allergies or intolerances?</Label>
-                                    <Input id="allergies" placeholder="e.g., Peanuts, lactose" value={formData.allergies} onChange={handleChange} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label htmlFor="digestiveIssues">Digestive issues?</Label>
-                                    <Input id="digestiveIssues" placeholder="e.g., Acid reflux, constipation" value={formData.digestiveIssues} onChange={handleChange} />
-                                </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <Label htmlFor="familyHistory">Family medical history of chronic diseases?</Label>
-                                    <Input id="familyHistory" placeholder="e.g., Heart disease in parents" value={formData.familyHistory} onChange={handleChange} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label>Pregnancy or breastfeeding?</Label>
-                                    <Select value={formData.isPregnant} onValueChange={(v) => handleSelectChange('isPregnant', v)}>
-                                        <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="not_applicable">Not Applicable</SelectItem>
-                                            <SelectItem value="pregnant">Pregnant</SelectItem>
-                                            <SelectItem value="breastfeeding">Breastfeeding</SelectItem>
-                                            <SelectItem value="none">None</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="menstrualCycle">Menstrual cycle regularity?</Label>
-                                    <Input id="menstrualCycle" placeholder="e.g., Regular, irregular" value={formData.menstrualCycle} onChange={handleChange} />
-                                </div>
-                            </CardContent>
-                        </>
-                    )}
-                    {step === 3 && (
-                        <>
-                            <CardHeader><CardTitle className="font-headline">Lifestyle & Activity</CardTitle></CardHeader>
-                            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2 md:col-span-2">
-                                    <Label>Activity Level</Label>
+                                    <Label>Typical Activity Level</Label>
                                     <Select value={formData.activityLevel} onValueChange={(v) => handleSelectChange('activityLevel', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -269,16 +294,16 @@ export default function OnboardingPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="occupation">Occupation Type</Label>
-                                    <Input id="occupation" placeholder="e.g., Desk job, physical work" value={formData.occupation} onChange={handleChange} />
+                                    <Label htmlFor="occupation">Occupation</Label>
+                                    <Input id="occupation" placeholder="e.g., Desk job, physical labor" value={formData.occupation} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="sleepHours">Average Sleep (hours)</Label>
+                                    <Label htmlFor="sleepHours">Average Sleep (hours per night)</Label>
                                     <Input id="sleepHours" type="number" placeholder="e.g., 7" value={formData.sleepHours} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Stress Levels</Label>
-                                    <Select value={formData.stressLevel} onValueChange={(v) => handleSelectChange('stressLevel', v)}>
+                                     <Select value={formData.stressLevel} onValueChange={(v) => handleSelectChange('stressLevel', v)}>
                                         <SelectTrigger><SelectValue placeholder="Select stress level" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="low">Low</SelectItem>
@@ -286,81 +311,6 @@ export default function OnboardingPage() {
                                             <SelectItem value="high">High</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Alcohol Consumption</Label>
-                                    <Select value={formData.alcohol} onValueChange={(v) => handleSelectChange('alcohol', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="no">No</SelectItem>
-                                            <SelectItem value="rarely">Rarely</SelectItem>
-                                            <SelectItem value="socially">Socially</SelectItem>
-                                            <SelectItem value="regularly">Regularly</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Smoking Status</Label>
-                                    <Select value={formData.smoking} onValueChange={(v) => handleSelectChange('smoking', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="no">No</SelectItem>
-                                            <SelectItem value="yes">Yes</SelectItem>
-                                            <SelectItem value="trying_to_quit">Trying to quit</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </CardContent>
-                        </>
-                    )}
-                    {step === 4 && (
-                        <>
-                            <CardHeader><CardTitle className="font-headline">Kashmiri & Cultural Considerations</CardTitle></CardHeader>
-                            <CardContent className="space-y-6">
-                                <div>
-                                    <Label className="font-semibold">Traditional Kashmiri foods to include?</Label>
-                                    <div className="grid grid-cols-2 gap-2 mt-2">
-                                        {['Rogan Josh', 'Yakhni', 'Haak', 'Nadru'].map(food => (
-                                            <div key={food} className="flex items-center space-x-2">
-                                                <Checkbox id={`food-${food}`} onCheckedChange={() => handleCheckboxChange('includeTraditional', food)} checked={formData.includeTraditional.includes(food)} />
-                                                <Label htmlFor={`food-${food}`} className="font-normal">{food}</Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Religious dietary restrictions?</Label>
-                                    <Select value={formData.religiousRestrictions} onValueChange={(v) => handleSelectChange('religiousRestrictions', v)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">None</SelectItem>
-                                            <SelectItem value="halal">Halal</SelectItem>
-                                            <SelectItem value="other">Other (please specify below)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="handleWinters">How do you handle winters nutritionally?</Label>
-                                    <Textarea id="handleWinters" placeholder="e.g., More hot beverages, warming foods" value={formData.handleWinters} onChange={handleChange} />
-                                </div>
-                            </CardContent>
-                        </>
-                    )}
-                    {step === 5 && (
-                         <>
-                            <CardHeader><CardTitle className="font-headline">Goals & Preferences</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="primaryGoal">Primary health/fitness goal?</Label>
-                                    <Input id="primaryGoal" placeholder="e.g., Weight loss, better energy" value={formData.primaryGoal} onChange={handleChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="favoriteFoods">Foods you absolutely love?</Label>
-                                    <Textarea id="favoriteFoods" placeholder="e.g., Apples, chicken, naan" value={formData.favoriteFoods} onChange={handleChange} />
-                                </div>
-                                 <div className="space-y-2">
-                                    <Label htmlFor="hatedFoods">Foods you hate?</Label>
-                                    <Textarea id="hatedFoods" placeholder="e.g., Bitter gourd, okra" value={formData.hatedFoods} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Spice Tolerance</Label>
@@ -376,15 +326,89 @@ export default function OnboardingPage() {
                             </CardContent>
                         </>
                     )}
+                    {step === 3 && (
+                        <>
+                            <CardHeader>
+                                <CardTitle className="font-headline">Your Health Profile</CardTitle>
+                                <CardDescription>Here's a summary based on the information you provided.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                { isLoading ? (
+                                    <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                                        <p className="text-muted-foreground">Analyzing your profile and generating your avatar...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                        <div className="flex justify-center">
+                                            {healthProfile.bodyImageUrl ? (
+                                                <Image src={healthProfile.bodyImageUrl} alt="AI generated body representation" width={200} height={300} className="rounded-lg shadow-md" unoptimized/>
+                                            ) : (
+                                                <div className="w-[200px] h-[300px] bg-muted rounded-lg flex items-center justify-center">
+                                                    <User className="w-16 h-16 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="flex-shrink-0 bg-accent rounded-full h-10 w-10 flex items-center justify-center">
+                                                    <User className="h-6 w-6 text-accent-foreground" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">Body Mass Index (BMI)</h4>
+                                                    <p className="text-2xl font-bold text-primary">{healthProfile.bmi}</p>
+                                                    <p className="text-sm text-muted-foreground">{healthProfile.bmiCategory}</p>
+                                                </div>
+                                            </div>
+                                             <div className="flex items-start gap-4">
+                                                <div className="flex-shrink-0 bg-accent rounded-full h-10 w-10 flex items-center justify-center">
+                                                    <TrendingUp className="h-6 w-6 text-accent-foreground" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">Waist-to-Hip Ratio (WHR)</h4>
+                                                    <p className="text-2xl font-bold text-primary">{healthProfile.whr}</p>
+                                                    <p className="text-sm text-muted-foreground">{healthProfile.whrCategory}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </>
+                    )}
+                    {step === 4 && (
+                         <>
+                            <CardHeader>
+                                <CardTitle className="font-headline">Goals & Preferences</CardTitle>
+                                <CardDescription>What do you want to achieve? What do you love to eat?</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="primaryGoal">What is your primary health goal?</Label>
+                                    <Input id="primaryGoal" placeholder="e.g., Lose 5kg, increase energy, build muscle" value={formData.primaryGoal} onChange={handleChange} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="favoriteFoods">Foods you love?</Label>
+                                    <Textarea id="favoriteFoods" placeholder="List a few of your favorite foods" value={formData.favoriteFoods} onChange={handleChange} />
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="hatedFoods">Foods you dislike?</Label>
+                                    <Textarea id="hatedFoods" placeholder="List foods you prefer to avoid" value={formData.hatedFoods} onChange={handleChange} />
+                                </div>
+                            </CardContent>
+                        </>
+                    )}
                     <CardFooter className="justify-between mt-6">
                         <Button variant="outline" onClick={handlePrev} disabled={step === 1}>
                             <ChevronLeft className="mr-2 h-4 w-4" /> Previous
                         </Button>
                         {step < onboardingSteps.length ? (
-                             <Button onClick={handleNext}>Next <ChevronRight className="ml-2 h-4 w-4" /></Button>
+                             <Button onClick={handleNext} disabled={isNextDisabled || isLoading}>
+                                {isLoading && step === 2 ? (<><Loader2 className="animate-spin mr-2" /> Analyzing...</>) : (<>Next <ChevronRight className="ml-2 h-4 w-4" /></>)}
+                            </Button>
                         ) : (
-                            <Button onClick={handleSubmit} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                            <Button onClick={handleSubmit} disabled={isLoading || !formData.primaryGoal}>
+                                {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 {isLoading ? "Generating Plan..." : "Complete & Start Journey"}
                             </Button>
                         )}

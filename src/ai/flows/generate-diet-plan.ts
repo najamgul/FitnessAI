@@ -14,15 +14,15 @@ import {z} from 'genkit';
 const GenerateDietPlanInputSchema = z.object({
   dietaryPreferences: z
     .string()
-    .describe('Dietary preferences such as vegetarian, vegan, keto, etc.'),
-  healthInformation: z.string().describe('Health information like allergies, medical conditions, etc.'),
+    .describe('Dietary preferences such as vegetarian, vegan, keto, favorite foods, hated foods, spice tolerance etc.'),
+  healthInformation: z.string().describe('Health information like age, gender, weight, height, activity level, medical conditions, etc.'),
   goals: z.string().describe('Goals such as weight loss, muscle gain, etc.'),
   geographicLocation: z.string().describe('The geographic location of the user.'),
 });
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const GenerateDietPlanOutputSchema = z.object({
-  dietPlan: z.string().describe('A personalized 7-day diet plan.'),
+  dietPlan: z.string().describe('A personalized 7-day diet plan. Each day must include 7 meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed. The plan should be formatted as a JSON string within the string field. For example: \'{"Day 1": {"Breakfast": "Oatmeal", ...}, "Day 2": ...}\''),
 });
 export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema>;
 
@@ -34,16 +34,19 @@ const prompt = ai.definePrompt({
   name: 'generateDietPlanPrompt',
   input: {schema: GenerateDietPlanInputSchema},
   output: {schema: GenerateDietPlanOutputSchema},
-  prompt: `You are a personal nutrition assistant.
+  prompt: `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of Kashmiri cuisine.
 
-  Based on the user's dietary preferences, health information, and goals, generate a personalized 7-day diet plan. Consider their geographic location when recommending food items. 
+  Based on the user's detailed information, generate a personalized 7-day diet plan. It is critical that each day includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
 
-  Dietary Preferences: {{{dietaryPreferences}}}
-  Health Information: {{{healthInformation}}}
-  Goals: {{{goals}}}
-  Geographic Location: {{{geographicLocation}}}
+  The final output for the 'dietPlan' field must be a single JSON string. The JSON object should have keys for "Day 1" through "Day 7". Each day's value should be an object with keys for each of the 7 meals.
 
-  Provide the 7-day diet plan in a well-formatted, easy-to-read format.
+  User Details:
+  - Health Information: {{{healthInformation}}}
+  - Dietary Preferences & Tastes: {{{dietaryPreferences}}}
+  - Primary Goal: {{{goals}}}
+  - Geographic Location: {{{geographicLocation}}}
+
+  Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the response for dietPlan is only the JSON string and nothing else.
   `,
 });
 
