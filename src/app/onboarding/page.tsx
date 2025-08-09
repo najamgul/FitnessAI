@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target } from 'lucide-react';
+import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, Target, Clock } from 'lucide-react';
 import { generateDietPlan } from '@/ai/flows/generate-diet-plan';
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -52,6 +52,7 @@ export default function OnboardingPage() {
         // Step 4
         goalAction: 'maintain', // 'lose', 'gain', 'maintain'
         goalWeightKg: '',
+        otherGoal: '',
     });
 
     const [healthProfile, setHealthProfile] = useState({
@@ -62,6 +63,7 @@ export default function OnboardingPage() {
         bodyImageUrl: '',
         idealWeightMin: 0,
         idealWeightMax: 0,
+        suggestedDuration: '4-6 weeks'
     });
 
     const calculateHealthProfile = () => {
@@ -96,8 +98,6 @@ export default function OnboardingPage() {
             if (whr > 0.85) whrCategory = 'High Health Risk'; else whrCategory = 'Low Health Risk';
         }
 
-        // Ideal weight calculation using a simple formula (based on height)
-        // Using BMI range of 18.5 to 24.9
         const idealWeightMin = 18.5 * (heightM * heightM);
         const idealWeightMax = 24.9 * (heightM * heightM);
 
@@ -136,7 +136,6 @@ export default function OnboardingPage() {
                     description: 'Using a default placeholder.',
                     variant: 'destructive',
                 });
-                // Use a placeholder if generation fails
                 setHealthProfile(prev => ({...prev, bodyImageUrl: `https://placehold.co/400x600.png`}));
             }
             setIsLoading(false);
@@ -168,6 +167,8 @@ export default function OnboardingPage() {
                 goalDescription = `Lose ${formData.goalWeightKg} kg.`;
             } else if (formData.goalAction === 'gain') {
                 goalDescription = `Gain ${formData.goalWeightKg} kg.`;
+            } else if (formData.goalAction === 'other') {
+                goalDescription = formData.otherGoal;
             }
 
             const healthInformation = `
@@ -225,8 +226,14 @@ export default function OnboardingPage() {
     const isSubmitDisabled = useMemo(() => {
         if (isLoading) return true;
         if (formData.goalAction === 'maintain') return false;
-        return !formData.goalWeightKg || parseFloat(formData.goalWeightKg) <= 0;
-    }, [isLoading, formData.goalAction, formData.goalWeightKg]);
+        if (formData.goalAction === 'lose' || formData.goalAction === 'gain') {
+            return !formData.goalWeightKg || parseFloat(formData.goalWeightKg) <= 0;
+        }
+        if (formData.goalAction === 'other') {
+            return !formData.otherGoal.trim();
+        }
+        return false;
+    }, [isLoading, formData.goalAction, formData.goalWeightKg, formData.otherGoal]);
 
 
     return (
@@ -283,7 +290,7 @@ export default function OnboardingPage() {
 
                                 {formData.gender === 'female' && (
                                     <>
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 md:col-span-2">
                                             <Label>Pregnancy or breastfeeding?</Label>
                                             <Select value={formData.isPregnant} onValueChange={(v) => handleSelectChange('isPregnant', v)}>
                                                 <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
@@ -294,7 +301,7 @@ export default function OnboardingPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 md:col-span-2">
                                             <Label htmlFor="menstrualCycle">Menstrual cycle regularity?</Label>
                                             <Input id="menstrualCycle" placeholder="e.g., Regular, irregular" value={formData.menstrualCycle} onChange={handleChange} />
                                         </div>
@@ -396,6 +403,15 @@ export default function OnboardingPage() {
                                                     <p className="text-sm">Target WHR: <span className="font-bold">{formData.gender === 'male' ? '< 0.90' : '< 0.85'}</span></p>
                                                 </div>
                                             </div>
+                                             <div className="flex items-start gap-4">
+                                                <div className="flex-shrink-0 bg-secondary rounded-full h-10 w-10 flex items-center justify-center text-secondary-foreground">
+                                                    <Clock className="h-6 w-6" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold">Suggested Plan Duration</h4>
+                                                     <p className="text-lg font-bold">{healthProfile.suggestedDuration}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -409,18 +425,22 @@ export default function OnboardingPage() {
                                 <CardDescription>Let us know what you want to achieve. This will help us create the perfect plan for you.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="flex flex-col space-y-2">
+                                <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="lose" id="lose" />
-                                        <Label htmlFor="lose">Lose Weight</Label>
+                                        <Label htmlFor="lose" className="cursor-pointer">Lose Weight</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="gain" id="gain" />
-                                        <Label htmlFor="gain">Gain Weight</Label>
+                                        <Label htmlFor="gain" className="cursor-pointer">Gain Weight</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="maintain" id="maintain" />
-                                        <Label htmlFor="maintain">Maintain Current Weight</Label>
+                                        <Label htmlFor="maintain" className="cursor-pointer">Maintain Current Weight</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="other" id="other" />
+                                        <Label htmlFor="other" className="cursor-pointer">Other</Label>
                                     </div>
                                 </RadioGroup>
 
@@ -433,6 +453,17 @@ export default function OnboardingPage() {
                                             placeholder="e.g., 5" 
                                             value={formData.goalWeightKg}
                                             onChange={handleChange} 
+                                        />
+                                    </div>
+                                )}
+                                {formData.goalAction === 'other' && (
+                                    <div className="space-y-2 animate-in fade-in-50">
+                                        <Label htmlFor="otherGoal">Please specify your goal</Label>
+                                        <Textarea
+                                            id="otherGoal"
+                                            placeholder="e.g., Improve energy levels, build muscle, manage a health condition."
+                                            value={formData.otherGoal}
+                                            onChange={handleChange}
                                         />
                                     </div>
                                 )}
@@ -459,5 +490,7 @@ export default function OnboardingPage() {
         </div>
     );
 }
+
+    
 
     
