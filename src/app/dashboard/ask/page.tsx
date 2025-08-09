@@ -1,48 +1,65 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Send, Sparkles, User } from 'lucide-react';
 import { selectExpertForQuestion } from '@/ai/flows/select-expert-for-question';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
-export default function AskExpertPage() {
+type Message = {
+    sender: 'user' | 'ai';
+    text: string;
+};
+
+export default function ChatWithAzaiPage() {
     const { toast } = useToast();
-    const [question, setQuestion] = useState('');
+    const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [answer, setAnswer] = useState<string | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        try {
+            const savedMessages = sessionStorage.getItem('chatHistory');
+            if (savedMessages) {
+                setMessages(JSON.parse(savedMessages));
+            }
+        } catch (error) {
+            console.error("Could not load chat history from sessionStorage", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem('chatHistory', JSON.stringify(messages));
+            if (scrollAreaRef.current) {
+                scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+            }
+        } catch (error) {
+            console.error("Could not save chat history to sessionStorage", error);
+        }
+    }, [messages]);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
-        setAnswer(null);
+        if (!input.trim()) return;
 
-        if (!question) {
-            toast({
-                title: 'Question is empty',
-                description: 'Please write your question before submitting.',
-                variant: 'destructive',
-            });
-            setIsLoading(false);
-            return;
-        }
+        const userMessage: Message = { sender: 'user', text: input };
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
 
         try {
-            const response = await selectExpertForQuestion({ question });
-            if (response.answer) {
-                setAnswer(response.answer);
-            } else {
-                 toast({
-                    title: 'No answer found',
-                    description: 'We could not find an answer for your question at this time.',
-                    variant: 'destructive',
-                });
-            }
+            const response = await selectExpertForQuestion({ question: input });
+            const aiMessage: Message = { sender: 'ai', text: response.answer };
+            setMessages(prev => [...prev, aiMessage]);
         } catch (error) {
             toast({
                 title: 'Error',
@@ -55,41 +72,72 @@ export default function AskExpertPage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-3xl font-bold font-headline">Ask Azai</CardTitle>
-                    <CardDescription>Have a specific dietary question? Our AI assistant, Azai, is here to help, using our curated knowledge base.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="question">Your Question</Label>
-                            <Textarea
-                                id="question"
-                                placeholder="e.g., What are the benefits of hydration?"
-                                required
-                                value={question}
-                                onChange={(e) => setQuestion(e.target.value)}
-                                rows={5}
-                            />
-                        </div>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin" /> : 'Ask Azai'}
+        <Card className="h-[calc(100vh-6rem)] flex flex-col">
+            <CardHeader>
+                <CardTitle className="text-3xl font-bold font-headline">Chat with Azai</CardTitle>
+                <CardDescription>Your AI nutrition assistant. Ask me anything about your diet or health!</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col p-0">
+                <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
+                    <div className="space-y-6">
+                        {messages.map((message, index) => (
+                            <div
+                                key={index}
+                                className={cn(
+                                    'flex items-end gap-2',
+                                    message.sender === 'user' ? 'justify-end' : 'justify-start'
+                                )}
+                            >
+                                {message.sender === 'ai' && (
+                                    <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
+                                        <AvatarFallback><Sparkles size={16} /></AvatarFallback>
+                                    </Avatar>
+                                )}
+                                <div
+                                    className={cn(
+                                        'max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 whitespace-pre-wrap',
+                                        message.sender === 'user'
+                                            ? 'bg-primary text-primary-foreground rounded-br-none'
+                                            : 'bg-muted rounded-bl-none'
+                                    )}
+                                >
+                                    {message.text}
+                                </div>
+                                 {message.sender === 'user' && (
+                                    <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground">
+                                        <AvatarFallback><User size={16}/></AvatarFallback>
+                                    </Avatar>
+                                )}
+                            </div>
+                        ))}
+                         {isLoading && (
+                            <div className="flex items-end gap-2 justify-start">
+                               <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
+                                    <AvatarFallback><Sparkles size={16} /></AvatarFallback>
+                                </Avatar>
+                                <div className="bg-muted rounded-lg px-4 py-3 rounded-bl-none flex items-center justify-center">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+                <div className="p-4 border-t bg-background">
+                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                        <Input
+                            id="message"
+                            placeholder="Type your message..."
+                            autoComplete="off"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={isLoading}
+                        />
+                        <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                            {isLoading ? <Loader2 className="animate-spin" /> : <Send />}
                         </Button>
                     </form>
-                </CardContent>
-            </Card>
-
-            {answer && (
-                <Alert className="animate-in fade-in-50">
-                    <Sparkles className="h-4 w-4" />
-                    <AlertTitle className="font-headline">Azai's Answer</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap">
-                        {answer}
-                    </AlertDescription>
-                </Alert>
-            )}
-        </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
