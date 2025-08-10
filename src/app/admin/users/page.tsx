@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2, Eye } from 'lucide-react';
@@ -30,6 +30,7 @@ type User = {
     role: 'user' | 'admin';
     planDuration?: string;
     onboardingData?: any;
+    createdAt: any;
 };
 
 type TeamMember = {
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
 
     const fetchUsersAndPayments = useCallback(() => {
         setIsLoading(true);
-        const usersQuery = query(collection(db, 'users'));
+        const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
         const paymentsCollection = collection(db, 'payments');
 
         const unsubscribe = onSnapshot(usersQuery, async (usersSnapshot) => {
@@ -65,6 +66,7 @@ export default function AdminUsersPage() {
                         planStatus: userData.planStatus || 'not_started',
                         assignedTo: userData.assignedTo || '',
                         role: userData.role || 'user',
+                        createdAt: userData.createdAt,
                     };
 
                     if (user.paymentStatus === 'pending') {
