@@ -42,7 +42,8 @@ type DietPlanDay = {
 };
 
 const parseTime = (timeStr: string): Date => {
-    const now = new Date();
+    // Use a fixed date to avoid hydration errors, only the time matters for sorting.
+    const referenceDate = new Date(0); 
     const [time, modifier] = timeStr.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
 
@@ -52,8 +53,8 @@ const parseTime = (timeStr: string): Date => {
         hours += 12;
     }
 
-    now.setHours(hours, minutes, 0, 0);
-    return now;
+    referenceDate.setHours(hours, minutes, 0, 0);
+    return referenceDate;
 };
 
 export default function AdminClientsPage() {
@@ -67,6 +68,7 @@ export default function AdminClientsPage() {
 
     const fetchClients = useCallback(() => {
         setIsLoading(true);
+        // Removed `orderBy` to prevent needing a composite index in Firestore.
         const q = query(collection(db, 'users'), where('planStatus', '==', 'ready'));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -403,3 +405,5 @@ export default function AdminClientsPage() {
         </Card>
     );
 }
+
+    
