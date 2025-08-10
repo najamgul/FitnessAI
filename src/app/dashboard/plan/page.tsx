@@ -137,7 +137,7 @@ const SmartDietPlanner = () => {
     
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center h-64">
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <p className="mt-4 text-muted-foreground">Loading your diet plan...</p>
             </div>
@@ -146,30 +146,36 @@ const SmartDietPlanner = () => {
     
     if (planStatus === 'pending_review') {
         return (
-            <Card className="text-center">
-                <CardHeader>
-                    <div className="mx-auto bg-primary text-primary-foreground rounded-full h-20 w-20 flex items-center justify-center mb-4">
-                        <FileClock className="h-10 w-10" />
-                    </div>
-                    <CardTitle className="text-3xl font-headline">Plan Under Review</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-lg text-muted-foreground">
-                        Your personalized diet plan has been generated and is now being reviewed by one of our nutrition experts.
-                    </p>
-                    <p className="mt-2 text-muted-foreground">
-                        This ensures your plan is perfectly tailored and safe. We will notify you as soon as it's ready!
-                    </p>
-                </CardContent>
-            </Card>
+            <div className="min-h-screen bg-background flex items-center justify-center p-4">
+                <Card className="text-center max-w-md w-full">
+                    <CardHeader>
+                        <div className="mx-auto bg-primary text-primary-foreground rounded-full h-20 w-20 flex items-center justify-center mb-4">
+                            <FileClock className="h-10 w-10" />
+                        </div>
+                        <CardTitle className="text-3xl font-headline">Plan Under Review</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-lg text-muted-foreground">
+                            Your personalized diet plan has been generated and is now being reviewed by one of our nutrition experts.
+                        </p>
+                        <p className="mt-2 text-muted-foreground">
+                            This ensures your plan is perfectly tailored and safe. We will notify you as soon as it's ready!
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
         );
     }
     
     if (planStatus !== 'ready' || plan.length === 0) {
-        return <div className="text-center p-8 bg-card rounded-lg border">
-             <h3 className="text-xl font-semibold">Diet Plan Not Found</h3>
-             <p className="text-muted-foreground mt-2">We could not find an approved diet plan for your account. Please complete the onboarding process or contact support if you believe this is an error.</p>
-        </div>;
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center p-4">
+                <div className="text-center p-8 bg-card rounded-lg border max-w-md w-full">
+                    <h3 className="text-xl font-semibold">Diet Plan Not Found</h3>
+                    <p className="text-muted-foreground mt-2">We could not find an approved diet plan for your account. Please complete the onboarding process or contact support if you believe this is an error.</p>
+                </div>
+            </div>
+        );
     }
 
     const currentDayPlan = plan[currentDay];
@@ -178,81 +184,94 @@ const SmartDietPlanner = () => {
     const completionRate = dailyGoal > 0 ? Math.round((totalCaloriesConsumed / dailyGoal) * 100) : 0;
 
     return (
-        <div className="bg-background">
-            <div className="bg-card rounded-3xl shadow-lg overflow-hidden border">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-primary to-emerald-600 p-6 text-primary-foreground">
-                    <div className="flex items-center justify-between mb-4 flex-wrap">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-white/20 rounded-full">
-                                <Brain className="w-8 h-8" />
+        <div className="min-h-screen bg-background">
+            <div className="min-h-screen flex flex-col">
+                <div className="bg-card rounded-none shadow-lg overflow-hidden border-0 flex-1 flex flex-col">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-primary to-emerald-600 p-4 sm:p-6 text-primary-foreground">
+                        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0">
+                                    <Brain className="w-6 h-6 sm:w-8 sm:h-8" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-headline leading-tight truncate">Your Diet Plan</h1>
+                                    <p className="text-green-100 mt-1 text-sm sm:text-base">Curated by Aziaf & our experts</p>
+                                </div>
                             </div>
-                            <div>
-                                <h1 className="text-3xl font-bold font-headline">Your Personalized Diet Plan</h1>
-                                <p className="text-green-100 mt-1">Curated by Aziaf & approved by our experts</p>
+                            <div className="text-right flex-shrink-0">
+                                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{completionRate}%</div>
+                                <div className="text-green-100 text-xs sm:text-sm">Daily Progress</div>
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-4xl font-bold">{completionRate}%</div>
-                            <div className="text-green-100">Daily Progress</div>
                         </div>
                     </div>
-                </div>
 
-                <div className="p-4 md:p-6">
-                    <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full">
-                        <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                            <TabsList>
-                                {plan.map((dayPlan) => (
-                                    <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`}>
-                                        Day {dayPlan.day}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                        
-                        <TabsContent value={`day-${currentDay + 1}`} className="space-y-4 mt-4">
-                            {plan[currentDay]?.meals.map((meal, mealIndex) => (
-                            <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                <div className="flex flex-col sm:flex-row sm:items-start">
-                                    {meal.imageUrl ? (
-                                        <Image 
-                                            src={meal.imageUrl}
-                                            alt={meal.meal}
-                                            width={128}
-                                            height={128}
-                                            className="w-full h-40 sm:w-32 sm:h-auto object-cover"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        <div className="w-full h-40 sm:w-32 sm:h-full bg-muted flex items-center justify-center flex-shrink-0">
-                                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                                        </div>
-                                    )}
-                                    <div className="p-4 flex-1">
-                                        <div className="flex items-start justify-between flex-wrap gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                    <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
-                                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
-                                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                    <div className="p-3 sm:p-4 md:p-6 flex-1 flex flex-col">
+                        <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full h-full flex flex-col">
+                            <ScrollArea className="w-full whitespace-nowrap rounded-md mb-4 flex-shrink-0">
+                                <TabsList className="w-full justify-start h-auto p-1">
+                                    {plan.map((dayPlan) => (
+                                        <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`} className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2">
+                                            Day {dayPlan.day}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                            
+                            <TabsContent value={`day-${currentDay + 1}`} className="mt-0 flex-1 min-h-0">
+                                <ScrollArea className="h-full pr-2">
+                                    <div className="space-y-3 sm:space-y-4 pb-4">
+                                        {plan[currentDay]?.meals.map((meal, mealIndex) => (
+                                        <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
+                                            <div className="flex flex-col">
+                                                {meal.imageUrl ? (
+                                                    <Image 
+                                                        src={meal.imageUrl}
+                                                        alt={meal.meal}
+                                                        width={128}
+                                                        height={128}
+                                                        className="w-full h-40 sm:h-48 object-cover"
+                                                        unoptimized
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-40 sm:h-48 bg-muted flex items-center justify-center">
+                                                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                                    </div>
+                                                )}
+                                                <div className="p-3 sm:p-4">
+                                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                                <h3 className="font-bold text-base sm:text-lg text-foreground leading-tight">{meal.meal}</h3>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
+                                                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                                                            </div>
+                                                            <p className="text-muted-foreground text-sm leading-relaxed">{meal.description}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <Button 
+                                                            onClick={() => toggleMealCompletion(currentDay, mealIndex)} 
+                                                            variant={meal.completed ? 'default' : 'secondary'} 
+                                                            size="sm"
+                                                            className="w-full sm:w-auto"
+                                                        >
+                                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                            {meal.completed ? 'Completed' : 'Mark as Eaten'}
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                                <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
                                             </div>
-                                            <div className="flex-shrink-0">
-                                                <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
-                                                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                    {meal.completed ? 'Completed' : 'Mark as Eaten'}
-                                                </Button>
-                                            </div>
-                                        </div>
+                                        </Card>
+                                        ))}
                                     </div>
-                                </div>
-                            </Card>
-                            ))}
-                        </TabsContent>
-                    </Tabs>
+                                </ScrollArea>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
                 </div>
             </div>
         </div>
