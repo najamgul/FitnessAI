@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, Bot, Clock, Droplets, CheckCircle2 } from 'lucide-react';
+import { Loader2, Sparkles, Bot, Droplets, CheckCircle2, Info } from 'lucide-react';
 import { generateHydrationSchedule } from '@/ai/flows/generate-hydration-schedule';
 import { getHydrationAdvice } from '@/ai/flows/get-hydration-advice';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,19 +27,53 @@ type ScheduleEntry = {
     completed?: boolean;
 };
 
+const calculateRecommendedIntake = (weight: number, activityLevel: string): number => {
+    let baseIntake = weight * 35; // 35 ml per kg
+
+    switch (activityLevel) {
+        case 'light':
+            baseIntake += 250;
+            break;
+        case 'moderate':
+            baseIntake += 500;
+            break;
+        case 'very':
+            baseIntake += 750;
+            break;
+    }
+    
+    // Return in Liters, rounded to one decimal place
+    return Math.round(baseIntake / 100) / 10;
+};
+
+
 export default function HydrationPage() {
     const { toast } = useToast();
-    const [goal, setGoal] = useState('2.5');
-    const [wakeUp, setWakeUp] = useState('07:00');
-    const [bedTime, setBedTime] = useState('23:00');
+    const [goal, setGoal] = useState('2.5'); // Default goal
+    const [wakeUp] = useState('07:00'); // Default wake-up
+    const [bedTime] = useState('23:00'); // Default bedtime
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
     const [explanation, setExplanation] = useState('');
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
     
-    // State for the catch-up dialog
     const [catchUpDialogOpen, setCatchUpDialogOpen] = useState(false);
     const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
     const [catchUpAdvice, setCatchUpAdvice] = useState('');
+
+    useEffect(() => {
+        try {
+            const onboardingDataString = localStorage.getItem('onboardingData');
+            if (onboardingDataString) {
+                const data = JSON.parse(onboardingDataString);
+                if(data.weight && data.activityLevel) {
+                    const recommendedGoal = calculateRecommendedIntake(parseFloat(data.weight), data.activityLevel);
+                    setGoal(recommendedGoal.toString());
+                }
+            }
+        } catch(e) {
+            console.error("Could not set hydration goal from onboarding data.", e);
+        }
+    }, [])
 
     const handleGenerateSchedule = async () => {
         setIsLoadingSchedule(true);
@@ -47,11 +81,6 @@ export default function HydrationPage() {
         setExplanation('');
         try {
             const totalIntakeLiters = parseFloat(goal);
-            if (isNaN(totalIntakeLiters) || totalIntakeLiters <= 0) {
-                toast({ title: 'Invalid Goal', description: 'Please enter a valid number for your daily intake goal.', variant: 'destructive' });
-                setIsLoadingSchedule(false);
-                return;
-            }
             const response = await generateHydrationSchedule({
                 totalIntakeLiters,
                 wakeUpTime: wakeUp,
@@ -134,23 +163,23 @@ export default function HydrationPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="font-headline">Create Your Schedule</CardTitle>
-                            <CardDescription>Set your daily goal to generate a personalized hydration plan.</CardDescription>
+                            <CardDescription>Click generate to get a plan based on your personalized goals.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="goal">Daily Intake Goal (Liters)</Label>
-                                <Input id="goal" type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g., 2.5" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                               <div className="space-y-2">
-                                    <Label htmlFor="wakeUp">Wake-up Time</Label>
-                                    <Input id="wakeUp" type="time" value={wakeUp} onChange={(e) => setWakeUp(e.target.value)} />
+                                <Label htmlFor="goal">Recommended Daily Goal</Label>
+                                 <div className="flex items-center gap-2">
+                                    <Input id="goal" type="number" value={goal} readOnly className="font-bold text-lg bg-muted" />
+                                    <span className="font-semibold text-lg">Liters</span>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="bedTime">Bedtime</Label>
-                                    <Input id="bedTime" type="time" value={bedTime} onChange={(e) => setBedTime(e.target.value)} />
-                                </div>
+                               <Alert variant="default" className="mt-2 text-xs">
+                                    <Info className="h-4 w-4" />
+                                    <AlertDescription>
+                                        This goal is automatically calculated based on your weight and activity level from your onboarding profile.
+                                    </AlertDescription>
+                                </Alert>
                             </div>
+                            
                             <Button onClick={handleGenerateSchedule} disabled={isLoadingSchedule} className="w-full">
                                 {isLoadingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Droplets className="mr-2 h-4 w-4" />}
                                 Generate Schedule
@@ -195,7 +224,7 @@ export default function HydrationPage() {
                                 <div className="flex flex-col items-center justify-center text-center p-12 border-2 border-dashed rounded-lg">
                                     <Droplets className="h-12 w-12 text-muted-foreground mb-4" />
                                     <h3 className="font-semibold">Your Schedule Awaits</h3>
-                                    <p className="text-muted-foreground text-sm">Fill in your details and click "Generate Schedule" to start.</p>
+                                    <p className="text-muted-foreground text-sm">Click "Generate Schedule" to start your hydration plan.</p>
                                 </div>
                             )}
                             {schedule.length > 0 && (
@@ -225,4 +254,5 @@ export default function HydrationPage() {
             </div>
         </div>
     );
-}
+
+    
