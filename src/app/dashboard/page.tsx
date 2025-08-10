@@ -9,7 +9,8 @@ import {
   Droplets, Sun, Sparkles,
   ArrowUp, ArrowDown, Bell, Settings, User,
   PlayCircle, BookOpen, MessageSquare, Flame,
-  Rocket, Crown, Diamond, ThumbsUp, LineChart as ChartIcon
+  Rocket, Crown, Diamond, ThumbsUp, LineChart as ChartIcon,
+  CheckCircle2, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -459,5 +460,3 @@ declare module "react" {
       indicatorClassName?: string;
     }
 }
-
-    
