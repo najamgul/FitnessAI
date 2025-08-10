@@ -49,6 +49,7 @@ export default function HydrationPage() {
             const totalIntakeLiters = parseFloat(goal);
             if (isNaN(totalIntakeLiters) || totalIntakeLiters <= 0) {
                 toast({ title: 'Invalid Goal', description: 'Please enter a valid number for your daily intake goal.', variant: 'destructive' });
+                setIsLoadingSchedule(false);
                 return;
             }
             const response = await generateHydrationSchedule({
@@ -133,20 +134,22 @@ export default function HydrationPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="font-headline">Create Your Schedule</CardTitle>
-                            <CardDescription>Set your daily goals to generate a personalized hydration plan.</CardDescription>
+                            <CardDescription>Set your daily goal to generate a personalized hydration plan.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="goal">Daily Intake Goal (Liters)</Label>
                                 <Input id="goal" type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="e.g., 2.5" />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="wakeUp">Wake-up Time</Label>
-                                <Input id="wakeUp" type="time" value={wakeUp} onChange={(e) => setWakeUp(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="bedTime">Bedtime</Label>
-                                <Input id="bedTime" type="time" value={bedTime} onChange={(e) => setBedTime(e.target.value)} />
+                            <div className="grid grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                    <Label htmlFor="wakeUp">Wake-up Time</Label>
+                                    <Input id="wakeUp" type="time" value={wakeUp} onChange={(e) => setWakeUp(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="bedTime">Bedtime</Label>
+                                    <Input id="bedTime" type="time" value={bedTime} onChange={(e) => setBedTime(e.target.value)} />
+                                </div>
                             </div>
                             <Button onClick={handleGenerateSchedule} disabled={isLoadingSchedule} className="w-full">
                                 {isLoadingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Droplets className="mr-2 h-4 w-4" />}
