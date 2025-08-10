@@ -13,9 +13,7 @@ import {z} from 'genkit';
 
 const SelectExpertForQuestionInputSchema = z.object({
   question: z.string().describe("The user's question."),
-  // We'll determine the location on the server-side for security.
-  // For this prototype, we'll use a simple flag. In a real app, this might come from user profile data.
-  isKashmir: z.boolean().describe('Whether the user is located in Kashmir.'),
+  knowledgeBaseId: z.enum(['kashmir', 'general']).describe('The identifier for the knowledge base to use.'),
 });
 export type SelectExpertForQuestionInput = z.infer<typeof SelectExpertForQuestionInputSchema>;
 
@@ -28,8 +26,8 @@ const SelectExpertForQuestionOutputSchema = z.object({
 });
 export type SelectExpertForQuestionOutput = z.infer<typeof SelectExpertForQuestionOutputSchema>;
 
-async function searchKnowledgeBase(isKashmir: boolean, question: string): Promise<string> {
-  const fileName = isKashmir ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
+async function searchKnowledgeBase(knowledgeBaseId: 'kashmir' | 'general', question: string): Promise<string> {
+  const fileName = knowledgeBaseId === 'kashmir' ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
   try {
     const knowledgeBase = await fs.readFile(
       path.join(process.cwd(), 'src', 'ai', fileName),
@@ -54,7 +52,7 @@ async function searchKnowledgeBase(isKashmir: boolean, question: string): Promis
 export async function selectExpertForQuestion(
   input: SelectExpertForQuestionInput
 ): Promise<SelectExpertForQuestionOutput> {
-  const knowledgeContext = await searchKnowledgeBase(input.isKashmir, input.question);
+  const knowledgeContext = await searchKnowledgeBase(input.knowledgeBaseId, input.question);
   
   return selectExpertForQuestionFlow({
     question: input.question,

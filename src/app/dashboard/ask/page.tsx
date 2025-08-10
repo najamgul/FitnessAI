@@ -4,23 +4,28 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, Sparkles, User } from 'lucide-react';
+import { Loader2, Send, Sparkles, User, BookOpen } from 'lucide-react';
 import { selectExpertForQuestion } from '@/ai/flows/select-expert-for-question';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type Message = {
     sender: 'user' | 'ai';
     text: string;
 };
 
+type KnowledgeBase = 'kashmir' | 'general';
+
 export default function ChatWithAzaiPage() {
     const { toast } = useToast();
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [isKashmir, setIsKashmir] = useState(false);
+    const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase>('general');
+    const [isAdmin, setIsAdmin] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -30,19 +35,22 @@ export default function ChatWithAzaiPage() {
                 setMessages(JSON.parse(savedMessages));
             }
 
-            const onboardingDataString = localStorage.getItem('onboardingData');
-            if (onboardingDataString) {
-                const onboardingData = JSON.parse(onboardingDataString);
-                if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
-                    setIsKashmir(true);
-                }
+            const loggedInEmail = localStorage.getItem('loggedInEmail');
+            if (loggedInEmail === 'care@aziaf.com') {
+                setIsAdmin(true);
+                // Default admin to Kashmir, but allow changing
+                setKnowledgeBase('kashmir');
             } else {
-                 const loggedInEmail = localStorage.getItem('loggedInEmail');
-                 if (loggedInEmail === 'care@aziaf.com') {
-                     setIsKashmir(true);
-                 }
+                const onboardingDataString = localStorage.getItem('onboardingData');
+                if (onboardingDataString) {
+                    const onboardingData = JSON.parse(onboardingDataString);
+                    if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
+                        setKnowledgeBase('kashmir');
+                    } else {
+                        setKnowledgeBase('general');
+                    }
+                }
             }
-
         } catch (error) {
             console.error("Could not load session data", error);
         }
@@ -74,7 +82,7 @@ export default function ChatWithAzaiPage() {
         setIsLoading(true);
 
         try {
-            const response = await selectExpertForQuestion({ question: input, isKashmir });
+            const response = await selectExpertForQuestion({ question: input, knowledgeBaseId: knowledgeBase });
             const aiMessage: Message = { sender: 'ai', text: response.answer };
             setMessages(prev => [...prev, aiMessage]);
         } catch (error) {
@@ -90,9 +98,25 @@ export default function ChatWithAzaiPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] bg-card rounded-xl border shadow-lg">
-             <div className="p-4 border-b">
-                <h2 className="text-xl font-bold font-headline">Chat with Aziaf</h2>
-                <p className="text-sm text-muted-foreground">Your nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{isKashmir ? 'Kashmir' : 'General'}</span></p>
+             <div className="p-4 border-b flex justify-between items-center">
+                <div>
+                    <h2 className="text-xl font-bold font-headline">Chat with Aziaf</h2>
+                    <p className="text-sm text-muted-foreground">Your nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{knowledgeBase === 'kashmir' ? 'Kashmir' : 'General'}</span></p>
+                </div>
+                {isAdmin && (
+                    <div className="flex items-center gap-2">
+                         <Label htmlFor="kb-select" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground"><BookOpen size={14}/> KB:</Label>
+                         <Select value={knowledgeBase} onValueChange={(v) => setKnowledgeBase(v as KnowledgeBase)}>
+                            <SelectTrigger id="kb-select" className="w-[180px]">
+                                <SelectValue placeholder="Select KB" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="kashmir">Kashmir</SelectItem>
+                                <SelectItem value="general">General</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
             <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
                 <div className="space-y-6">
