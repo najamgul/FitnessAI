@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Droplets, Clock, Target, TrendingUp, Sun, Activity, Bell, Zap, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Droplets, Clock, Target, TrendingUp, Sun, Activity, Bell, Zap, Brain, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 type ScheduleItem = {
   time: string;
@@ -30,6 +30,7 @@ const SmartWaterTracker = () => {
   const [activityBoost, setActivityBoost] = useState(300);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
 
   const saveScheduleToLocalStorage = (schedule: ScheduleItem[]) => {
@@ -41,6 +42,7 @@ const SmartWaterTracker = () => {
   };
 
   useEffect(() => {
+    setIsClient(true);
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -59,51 +61,7 @@ const SmartWaterTracker = () => {
     }
   }, []);
 
-   useEffect(() => {
-    notificationTimeouts.current.forEach(clearTimeout);
-    notificationTimeouts.current = [];
-
-    if (typeof window !== 'undefined' && Notification.permission === 'granted') {
-      scheduleItems.forEach(item => {
-        if (!item.completed && !item.skipped) {
-          const now = new Date();
-          const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
-          if (!itemTimeParts) return;
-
-          let [, hours, minutes, meridiem] = itemTimeParts;
-          let hour = parseInt(hours, 10);
-
-          if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
-          if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-
-          const itemDate = new Date();
-          itemDate.setHours(hour, parseInt(minutes, 10), 0, 0);
-
-          const notificationTime = new Date(itemDate.getTime() - 5 * 60 * 1000);
-
-          if (notificationTime > now) {
-            const timeout = setTimeout(() => {
-              new Notification('Hydration Reminder', {
-                body: `Time for your next glass of water at ${item.time}!`,
-                icon: '/logo.png' 
-              });
-              const audio = new Audio(notificationSoundUrl);
-              audio.play().catch(error => console.error("Audio playback failed:", error));
-            }, notificationTime.getTime() - now.getTime());
-            notificationTimeouts.current.push(timeout);
-          }
-        }
-      });
-    }
-    
-    saveScheduleToLocalStorage(scheduleItems);
-
-    return () => {
-      notificationTimeouts.current.forEach(clearTimeout);
-    };
-  }, [scheduleItems]);
-
-  const generateSmartSchedule = useCallback(() => {
+   const generateSmartSchedule = useCallback(() => {
     const wakeHour = parseInt(profile.wakeTime.split(':')[0]);
     const sleepHour = parseInt(profile.sleepTime.split(':')[0]);
     let awakeHours = sleepHour - wakeHour;
@@ -177,19 +135,71 @@ const SmartWaterTracker = () => {
     return schedule;
   }, [profile.wakeTime, profile.sleepTime, dailyGoal, smartMode, weatherTemp, activityBoost]);
 
+
   useEffect(() => {
-    try {
-        const savedSchedule = localStorage.getItem('hydrationSchedule');
-        if (savedSchedule) {
-            setScheduleItems(JSON.parse(savedSchedule));
-        } else {
-            setScheduleItems(generateSmartSchedule());
+    if (isClient) {
+        try {
+            const savedSchedule = localStorage.getItem('hydrationSchedule');
+            if (savedSchedule) {
+                setScheduleItems(JSON.parse(savedSchedule));
+            } else {
+                const newSchedule = generateSmartSchedule();
+                setScheduleItems(newSchedule);
+                saveScheduleToLocalStorage(newSchedule);
+            }
+        } catch (e) {
+            console.error("Failed to load hydration schedule from localStorage", e);
+            const newSchedule = generateSmartSchedule();
+            setScheduleItems(newSchedule);
         }
-    } catch (e) {
-        console.error("Failed to load hydration schedule from localStorage", e);
-        setScheduleItems(generateSmartSchedule());
     }
-  }, [generateSmartSchedule]);
+  }, [isClient, generateSmartSchedule]);
+
+  useEffect(() => {
+    notificationTimeouts.current.forEach(clearTimeout);
+    notificationTimeouts.current = [];
+
+    if (isClient && Notification.permission === 'granted') {
+      scheduleItems.forEach(item => {
+        if (!item.completed && !item.skipped) {
+          const now = new Date();
+          const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+          if (!itemTimeParts) return;
+
+          let [, hours, minutes, meridiem] = itemTimeParts;
+          let hour = parseInt(hours, 10);
+
+          if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+          if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+          const itemDate = new Date();
+          itemDate.setHours(hour, parseInt(minutes, 10), 0, 0);
+
+          const notificationTime = new Date(itemDate.getTime() - 5 * 60 * 1000);
+
+          if (notificationTime > now) {
+            const timeout = setTimeout(() => {
+              new Notification('Hydration Reminder', {
+                body: `Time for your next glass of water at ${item.time}!`,
+                icon: '/logo.png' 
+              });
+              const audio = new Audio(notificationSoundUrl);
+              audio.play().catch(error => console.error("Audio playback failed:", error));
+            }, notificationTime.getTime() - now.getTime());
+            notificationTimeouts.current.push(timeout);
+          }
+        }
+      });
+    }
+    
+    if (isClient) {
+      saveScheduleToLocalStorage(scheduleItems);
+    }
+
+    return () => {
+      notificationTimeouts.current.forEach(clearTimeout);
+    };
+  }, [scheduleItems, isClient]);
 
   const redistributeWaterSlots = useCallback((skippedItemId: number) => {
     setRedistributing(true);
@@ -307,6 +317,14 @@ const SmartWaterTracker = () => {
       toggleCompletion(firstUncompletedSlot.id, true);
     }
   };
+
+  if (!isClient || scheduleItems.length === 0) {
+    return (
+        <div className="flex h-96 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="bg-background rounded-3xl shadow-xl overflow-hidden border">
