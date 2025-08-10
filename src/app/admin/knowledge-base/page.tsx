@@ -96,7 +96,7 @@ export default function AdminKnowledgeBasePage() {
         <Card>
             <CardHeader>
                 <CardTitle className="text-3xl font-bold font-headline">Manage Knowledge Base</CardTitle>
-                <CardDescription>Edit the content used by the AI to answer user questions.</CardDescription>
+                <CardDescription>Edit the content used by Aziaf to answer user questions.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -130,9 +130,3 @@ export default function AdminKnowledgeBasePage() {
                             <Save className="mr-2 h-4 w-4" />
                         )}
                         Save {activeTab === 'kashmir' ? 'Kashmir' : 'Non-Kashmir'} Content
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}

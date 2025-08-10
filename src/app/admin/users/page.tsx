@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,16 +10,26 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
-const mockUsers = [
-    { id: 1, name: 'John Doe', email: 'john.doe@example.com', screenshotUrl: 'https://placehold.co/150x300.png', status: 'Pending' },
-    { id: 2, name: 'Jane Smith', email: 'jane.smith@example.com', screenshotUrl: 'https://placehold.co/150x300.png', status: 'Approved', days: 30 },
-    { id: 3, name: 'Sam Wilson', email: 'sam.wilson@example.com', screenshotUrl: 'https://placehold.co/150x300.png', status: 'Pending' },
-];
+type User = {
+    id: number;
+    name: string;
+    email: string;
+    screenshotUrl: string;
+    status: 'Pending' | 'Approved';
+    days?: number;
+};
 
 export default function AdminUsersPage() {
     const { toast } = useToast();
-    const [users, setUsers] = useState(mockUsers);
+    const [users, setUsers] = useState<User[]>([]);
     const [accessDays, setAccessDays] = useState<{ [key: number]: string }>({});
+
+    useEffect(() => {
+        // In a real app, this would be an API call.
+        const storedUsersString = localStorage.getItem('userSubmissions');
+        const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : [];
+        setUsers(storedUsers);
+    }, []);
 
     const handleApprove = (userId: number, userEmail: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
@@ -37,11 +46,18 @@ export default function AdminUsersPage() {
             user.id === userId ? { ...user, status: 'Approved', days } : user
         ));
 
-        // In a real app, this would be a database call. Here we use localStorage.
         try {
             const approvedUsersString = localStorage.getItem('approvedUsers');
             const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
-            approvedUsers[userEmail] = { approved: true, days };
+            
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + days);
+
+            approvedUsers[userEmail] = { 
+                approved: true, 
+                expiry: expiryDate.toISOString() 
+            };
+            
             localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
 
             toast({
@@ -80,38 +96,44 @@ export default function AdminUsersPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.map(user => (
-                                    <TableRow key={user.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{user.name}</div>
-                                            <div className="text-sm text-muted-foreground">{user.email}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
-                                                <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
-                                            </a>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
-                                                {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {user.status === 'Pending' && (
-                                                <div className="flex items-center gap-2">
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="Days (e.g., 30)"
-                                                        className="w-32"
-                                                        value={accessDays[user.id] || ''}
-                                                        onChange={(e) => handleDaysChange(user.id, e.target.value)}
-                                                    />
-                                                    <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
-                                                </div>
-                                            )}
-                                        </TableCell>
+                                {users.length > 0 ? (
+                                    users.map(user => (
+                                        <TableRow key={user.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{user.name}</div>
+                                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                                    <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
+                                                </a>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
+                                                    {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                {user.status === 'Pending' && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="Days (e.g., 30)"
+                                                            className="w-32"
+                                                            value={accessDays[user.id] || ''}
+                                                            onChange={(e) => handleDaysChange(user.id, e.target.value)}
+                                                        />
+                                                        <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                          <ScrollBar orientation="horizontal" />

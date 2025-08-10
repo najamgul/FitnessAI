@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -27,24 +26,32 @@ const SmartWaterTracker = () => {
   const [smartMode, setSmartMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [weatherTemp, setWeatherTemp] = useState(24);
-  const [activityBoost, setActivityBoost] = useState(300); // Default moderate activity boost
+  const [activityBoost, setActivityBoost] = useState(300);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
   const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
 
 
-  // Request notification permission on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
       }
     }
+    const onboardingDataString = localStorage.getItem('onboardingData');
+    if (onboardingDataString) {
+        const data = JSON.parse(onboardingDataString);
+        setProfile(prev => ({
+            ...prev,
+            weight: parseInt(data.weight) || 70,
+            activityLevel: data.activityLevel || 'moderate',
+            wakeTime: data.sleepHours ? `${(parseInt(data.sleepHours.split('-')[1]) || 7)}:00` : '07:00',
+            sleepTime: data.sleepHours ? `${(parseInt(data.sleepHours.split('-')[0]) || 23)}:00`: '23:00'
+        }));
+    }
   }, []);
 
-  // Schedule notifications
    useEffect(() => {
-    // Clear any existing notification timeouts
     notificationTimeouts.current.forEach(clearTimeout);
     notificationTimeouts.current = [];
 
@@ -64,7 +71,6 @@ const SmartWaterTracker = () => {
           const itemDate = new Date();
           itemDate.setHours(hour, parseInt(minutes, 10), 0, 0);
 
-          // Calculate notification time (5 minutes before)
           const notificationTime = new Date(itemDate.getTime() - 5 * 60 * 1000);
 
           if (notificationTime > now) {
@@ -82,14 +88,12 @@ const SmartWaterTracker = () => {
       });
     }
 
-    // Cleanup function to clear timeouts when component unmounts or schedule changes
     return () => {
       notificationTimeouts.current.forEach(clearTimeout);
     };
   }, [scheduleItems]);
 
 
-  // Smart schedule generation using useCallback to memoize
   const generateSmartSchedule = useCallback(() => {
     const wakeHour = parseInt(profile.wakeTime.split(':')[0]);
     const sleepHour = parseInt(profile.sleepTime.split(':')[0]);
@@ -136,7 +140,7 @@ const SmartWaterTracker = () => {
 
       schedule.push({
         time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-        amount: Math.round(amount / 10) * 10, // Round to nearest 10
+        amount: Math.round(amount / 10) * 10,
         completed: false,
         skipped: false,
         smart: true,
@@ -145,7 +149,6 @@ const SmartWaterTracker = () => {
       });
     }
 
-    // Adjust total to match the goal
     const totalScheduled = schedule.reduce((sum, item) => sum + item.amount, 0);
     let diff = adjustedGoal - totalScheduled;
     let i = 0;
@@ -156,7 +159,7 @@ const SmartWaterTracker = () => {
         diff -= adjustment;
       }
       i++;
-      if (i > 100) break; // Safety break
+      if (i > 100) break;
     }
 
     return schedule;
@@ -299,7 +302,7 @@ const SmartWaterTracker = () => {
             <div className="p-3 bg-white/20 rounded-full"><Droplets className="w-8 h-8" /></div>
             <div>
               <h1 className="text-3xl font-bold font-headline text-primary-foreground">Smart Hydration Assistant</h1>
-              <p className="text-blue-100 mt-1">AI-powered personalized water tracking</p>
+              <p className="text-blue-100 mt-1">Aziaf-powered personalized water tracking</p>
             </div>
           </div>
           <div className="text-right">
@@ -311,12 +314,11 @@ const SmartWaterTracker = () => {
           <button onClick={() => setSmartMode(!smartMode)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${smartMode ? 'bg-yellow-400 text-blue-900' : 'bg-white/20 text-white'}`}>
             <Zap className="w-4 h-4" /> Smart Mode {smartMode ? 'ON' : 'OFF'}
           </button>
-          {smartMode && <div className="flex items-center gap-2 text-sm text-blue-100"><Brain className="w-4 h-4" /> AI automatically adjusting your plan</div>}
+          {smartMode && <div className="flex items-center gap-2 text-sm text-blue-100"><Brain className="w-4 h-4" /> Aziaf automatically adjusting your plan</div>}
         </div>
       </div>
 
       <div className="p-6">
-        {/* Progress Ring */}
           <div className="text-center mb-8">
             <div className="relative inline-block">
               <svg className="w-80 h-80 transform -rotate-90" viewBox="0 0 200 200">
@@ -372,13 +374,13 @@ const SmartWaterTracker = () => {
         {redistributing && (
           <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
             <div className="animate-spin"><Zap className="w-5 h-5 text-yellow-600" /></div>
-            <div className="text-yellow-800"><div className="font-semibold">Redistributing Schedule...</div><div className="text-sm">AI is recalculating remaining hydration slots</div></div>
+            <div className="text-yellow-800"><div className="font-semibold">Redistributing Schedule...</div><div className="text-sm">Aziaf is recalculating remaining hydration slots</div></div>
           </div>
         )}
 
         {smartMode && insights.length > 0 && (
           <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-            <h3 className="font-semibold text-purple-900 mb-4 flex items-center gap-2"><Brain className="w-5 h-5" /> AI Insights</h3>
+            <h3 className="font-semibold text-purple-900 mb-4 flex items-center gap-2"><Brain className="w-5 h-5" /> Aziaf Insights</h3>
             <div className="space-y-3">
               {insights.map((insight, index) => <div key={index} className="flex items-center gap-3 text-sm">{insight.icon}<span className="text-gray-700">{insight.text}</span></div>)}
             </div>
@@ -405,7 +407,7 @@ const SmartWaterTracker = () => {
 
         <div className="bg-background rounded-2xl border overflow-hidden">
           <div className="bg-gradient-to-r from-gray-800 to-gray-700 p-4 text-white">
-            <h3 className="font-semibold flex items-center gap-2 font-headline"><Clock className="w-5 h-5" />{smartMode ? 'AI-Optimized Hydration Plan' : 'Standard Schedule'}</h3>
+            <h3 className="font-semibold flex items-center gap-2 font-headline"><Clock className="w-5 h-5" />{smartMode ? 'Aziaf-Optimized Hydration Plan' : 'Standard Schedule'}</h3>
             {smartMode && <p className="text-gray-300 text-sm mt-1">Automatically adjusted for weather, activity, and your personal patterns</p>}
           </div>
           <div className="divide-y">
@@ -450,5 +452,3 @@ const SmartWaterTracker = () => {
 };
 
 export default SmartWaterTracker;
-
-    

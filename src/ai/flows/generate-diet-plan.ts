@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview AI-powered diet plan generator.
+ * @fileOverview Aziaf-powered diet plan generator.
  *
  * - generateDietPlan - A function that generates a personalized diet plan for a specified duration.
  * - GenerateDietPlanInput - The input type for the generateDietPlan function.
@@ -89,6 +89,3 @@ const generateDietPlanFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
-  }
-);

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import Link from 'next/link';
@@ -45,7 +43,7 @@ const allNavItems = [
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
   { href: '/dashboard/hydration', label: 'Hydration', icon: Droplets, admin: false },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
-  { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare, admin: false },
+  { href: '/dashboard/ask', label: 'Chat with Aziaf', icon: MessageSquare, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
   { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
 ];
@@ -66,19 +64,39 @@ export default function DashboardLayout({
   useEffect(() => {
     setIsClient(true);
     const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
-    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail;
     
+    // Check for user approval and expiry
+    const approvedUsersString = localStorage.getItem('approvedUsers');
+    const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+    const userApproval = approvedUsers[loggedInEmail];
+
+    if (!loggedInEmail || !userApproval || new Date(userApproval.expiry) < new Date()) {
+        if (!loggedInEmail) {
+            router.push('/login');
+        } else {
+            const userSubmissionsString = localStorage.getItem('userSubmissions');
+            const userSubmissions = userSubmissionsString ? JSON.parse(userSubmissionsString) : [];
+            const userHasPendingSubmission = userSubmissions.some((sub: any) => sub.email === loggedInEmail && sub.status === 'Pending');
+
+            if(userHasPendingSubmission) {
+                router.push('/awaiting-approval');
+            } else {
+                 router.push('/payment');
+            }
+        }
+        return;
+    }
+
+    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail;
     setIsAdmin(userIsAdmin);
     
     if (userIsAdmin) {
         setMockUser({ name: 'Admin', email: adminEmail });
-    } else if (loggedInEmail) {
-        const username = loggedInEmail.split('@')[0];
+    } else {
+        const onboardingDataString = localStorage.getItem('onboardingData');
+        const username = onboardingDataString ? JSON.parse(onboardingDataString).name : loggedInEmail.split('@')[0];
         const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
         setMockUser({ name: capitalizedUsername, email: loggedInEmail });
-    } else {
-        // Fallback for when no one is logged in (though they should be redirected)
-        router.push('/login');
     }
   }, [router]);
   
@@ -87,23 +105,22 @@ export default function DashboardLayout({
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('loggedInEmail');
+        localStorage.removeItem('onboardingData');
+        localStorage.removeItem('progressHistory');
+        sessionStorage.removeItem('chatHistory');
     }
     router.push('/login');
   }
 
   const getCurrentPageTitle = () => {
-    // Find the best match for the current path
-    const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
-    if (matchingItems.length > 0) {
-      // Sort by href length descending to get the most specific match
-      matchingItems.sort((a, b) => b.href.length - a.href.length);
-      return matchingItems[0].label;
-    }
-    return 'Dashboard'; // Fallback title
+    const matchingItem = navItems
+      .slice()
+      .reverse()
+      .find(item => pathname.startsWith(item.href));
+    return matchingItem ? matchingItem.label : 'Dashboard';
   };
 
   if (!isClient) {
-    // Render a skeleton or loading state on the server to avoid hydration mismatch
     return (
         <div className="flex min-h-screen">
             <div className="w-16 md:w-64 bg-muted/40 animate-pulse"></div>
@@ -129,7 +146,7 @@ export default function DashboardLayout({
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)} tooltip={item.label}>
+                  <SidebarMenuButton asChild isActive={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')} tooltip={item.label}>
                     <div>
                       <item.icon />
                       <span>{item.label}</span>

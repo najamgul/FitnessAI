@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -21,28 +20,24 @@ export default function ChatWithAzaiPage() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [isKashmir, setIsKashmir] = useState(false); // New state for location
+    const [isKashmir, setIsKashmir] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         try {
-            // Restore chat history
             const savedMessages = sessionStorage.getItem('chatHistory');
             if (savedMessages) {
                 setMessages(JSON.parse(savedMessages));
             }
 
-            // Determine user location from onboarding data
             const onboardingDataString = localStorage.getItem('onboardingData');
             if (onboardingDataString) {
                 const onboardingData = JSON.parse(onboardingDataString);
-                // Simple check, could be more robust
                 if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
                     setIsKashmir(true);
                 }
             } else {
                  const loggedInEmail = localStorage.getItem('loggedInEmail');
-                 // For prototype, we can also check admin email to default to one KB
                  if (loggedInEmail === 'care@aziaf.com') {
                      setIsKashmir(true);
                  }
@@ -57,7 +52,6 @@ export default function ChatWithAzaiPage() {
         try {
             sessionStorage.setItem('chatHistory', JSON.stringify(messages));
             if (scrollAreaRef.current) {
-                // A slight delay to allow the new message to render before scrolling
                 setTimeout(() => {
                     if (scrollAreaRef.current) {
                         scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
@@ -97,8 +91,8 @@ export default function ChatWithAzaiPage() {
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] bg-card rounded-xl border shadow-lg">
              <div className="p-4 border-b">
-                <h2 className="text-xl font-bold font-headline">Chat with Azai</h2>
-                <p className="text-sm text-muted-foreground">Your AI nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{isKashmir ? 'Kashmir' : 'General'}</span></p>
+                <h2 className="text-xl font-bold font-headline">Chat with Aziaf</h2>
+                <p className="text-sm text-muted-foreground">Your nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{isKashmir ? 'Kashmir' : 'General'}</span></p>
             </div>
             <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
                 <div className="space-y-6">
