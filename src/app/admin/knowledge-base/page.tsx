@@ -60,7 +60,10 @@ export default function AdminKnowledgeBasePage() {
             const contentToSave = activeTab === 'kashmir' ? kashmirKb : nonKashmirKb;
             const response = await fetch('/api/admin/knowledge-base', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Email': localStorage.getItem('loggedInEmail') || ''
+                },
                 body: JSON.stringify({ type: activeTab, content: contentToSave }),
             });
 
@@ -130,3 +133,9 @@ export default function AdminKnowledgeBasePage() {
                             <Save className="mr-2 h-4 w-4" />
                         )}
                         Save {activeTab === 'kashmir' ? 'Kashmir' : 'Non-Kashmir'} Content
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
