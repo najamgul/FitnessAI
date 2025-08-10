@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw, BookOpen } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw, BookOpen, Trash2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
@@ -164,6 +164,25 @@ export default function AdminReviewsPage() {
         });
     };
 
+    const handleDeleteDay = (reviewId: string, dayIndex: number) => {
+        setEditablePlans(prev => {
+            const currentPlan = prev[reviewId];
+            if (!currentPlan || currentPlan.length <= 1) {
+                toast({ title: "Cannot Delete", description: "You must have at least one day in the plan.", variant: "destructive"});
+                return prev;
+            };
+
+            const newPlan = currentPlan.filter((_, index) => index !== dayIndex);
+
+            const renumberedPlan = newPlan.map((day, index) => ({
+                ...day,
+                day: index + 1
+            }));
+
+            return { ...prev, [reviewId]: renumberedPlan };
+        });
+    }
+
     const handleGeneratePlan = async (task: ReviewTask) => {
         setGeneratingFor(task.id);
         try {
@@ -207,9 +226,9 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', currentValue: string | number) => {
+    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', currentValue: string | number | undefined) => {
         setEditingCell({ reviewId, dayIndex, mealTime, field });
-        setTempValue(currentValue);
+        setTempValue(currentValue || '');
     };
     
     const handleCellSave = () => {
@@ -281,6 +300,7 @@ export default function AdminReviewsPage() {
                             value={tempValue as string}
                             onChange={(e) => setTempValue(e.target.value)}
                             className="min-h-[80px] text-sm"
+                            autoFocus
                         />
                     ) : (
                         <Input
@@ -288,6 +308,7 @@ export default function AdminReviewsPage() {
                             value={tempValue}
                             onChange={(e) => setTempValue(e.target.value)}
                             className="text-sm h-8"
+                            autoFocus
                         />
                     )}
                     <div className="flex gap-2 justify-end">
@@ -314,7 +335,7 @@ export default function AdminReviewsPage() {
                         ) : (
                             <div className="w-10 h-10 bg-muted rounded flex items-center justify-center"><ImageIcon className="w-4 h-4 text-muted-foreground"/></div>
                         )}
-                        <span className="text-xs text-muted-foreground truncate">{value || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground truncate w-24">{typeof value === 'string' && value.startsWith('http') ? new URL(value).pathname.split('/').pop() : 'N/A'}</span>
                     </div>
                     <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                 </div>
@@ -421,7 +442,7 @@ export default function AdminReviewsPage() {
                                                                     <TableHead>Calories</TableHead>
                                                                     <TableHead>Description</TableHead>
                                                                     <TableHead>Image</TableHead>
-                                                                    <TableHead className="w-24">Actions</TableHead>
+                                                                    <TableHead className="w-28 text-center">Actions</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
                                                             <TableBody>
@@ -448,9 +469,14 @@ export default function AdminReviewsPage() {
                                                                             </TableCell>
                                                                             {mealIndex === 0 && (
                                                                                 <TableCell rowSpan={Object.keys(dayPlan.meals).length} className="align-middle">
-                                                                                    <Button variant="outline" size="icon" onClick={() => handleDuplicateDay(task.id, dayIndex)} title={`Duplicate Day ${dayPlan.day}`}>
-                                                                                        <Copy className="h-4 w-4" />
-                                                                                    </Button>
+                                                                                     <div className="flex flex-col gap-2 items-center">
+                                                                                        <Button variant="outline" size="icon" onClick={() => handleDuplicateDay(task.id, dayIndex)} title={`Duplicate Day ${dayPlan.day}`}>
+                                                                                            <Copy className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                        <Button variant="destructive" size="icon" onClick={() => handleDeleteDay(task.id, dayIndex)} title={`Delete Day ${dayPlan.day}`}>
+                                                                                            <Trash2 className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    </div>
                                                                                 </TableCell>
                                                                             )}
                                                                         </TableRow>
