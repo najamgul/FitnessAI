@@ -5,13 +5,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, Sparkles, User, BookOpen } from 'lucide-react';
+import { Loader2, Send, Sparkles, User } from 'lucide-react';
 import { selectExpertForQuestion } from '@/ai/flows/select-expert-for-question';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 
 type Message = {
     sender: 'user' | 'ai';
@@ -26,6 +24,7 @@ export default function ChatWithAzaiPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase>('general');
+    const [userProfile, setUserProfile] = useState('');
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -35,7 +34,6 @@ export default function ChatWithAzaiPage() {
                 setMessages(JSON.parse(savedMessages));
             }
             
-            // Set default knowledge base based on user's location from onboarding
             const onboardingDataString = localStorage.getItem('onboardingData');
             if (onboardingDataString) {
                 const onboardingData = JSON.parse(onboardingDataString);
@@ -44,6 +42,19 @@ export default function ChatWithAzaiPage() {
                 } else {
                     setKnowledgeBase('general');
                 }
+                // Create a string summary of the user's profile
+                const profileSummary = `
+- Name: ${onboardingData.name}
+- Age: ${onboardingData.age}
+- Gender: ${onboardingData.gender}
+- Weight: ${onboardingData.weight}kg
+- Height: ${onboardingData.heightFt}'${onboardingData.heightIn}"
+- Goal: ${onboardingData.goalAction} weight (Target: ${onboardingData.goalWeightKg || 'N/A'} kg)
+- Health Conditions: ${onboardingData.healthGoals?.join(', ') || 'None'}
+- Location: ${onboardingData.geographicLocation}
+- Activity Level: ${onboardingData.activityLevel}
+                `;
+                setUserProfile(profileSummary);
             }
         } catch (error) {
             console.error("Could not load session data", error);
@@ -76,7 +87,11 @@ export default function ChatWithAzaiPage() {
         setIsLoading(true);
 
         try {
-            const response = await selectExpertForQuestion({ question: input, knowledgeBaseId: knowledgeBase });
+            const response = await selectExpertForQuestion({ 
+                question: input, 
+                knowledgeBaseId: knowledgeBase,
+                userProfile: userProfile
+            });
             const aiMessage: Message = { sender: 'ai', text: response.answer };
             setMessages(prev => [...prev, aiMessage]);
         } catch (error) {

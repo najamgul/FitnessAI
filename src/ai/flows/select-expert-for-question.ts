@@ -14,6 +14,7 @@ import {z} from 'genkit';
 const SelectExpertForQuestionInputSchema = z.object({
   question: z.string().describe("The user's question."),
   knowledgeBaseId: z.enum(['kashmir', 'general']).describe('The identifier for the knowledge base to use.'),
+  userProfile: z.string().describe("A summary of the user's health profile, goals, and preferences."),
 });
 export type SelectExpertForQuestionInput = z.infer<typeof SelectExpertForQuestionInputSchema>;
 
@@ -30,7 +31,7 @@ async function searchKnowledgeBase(knowledgeBaseId: 'kashmir' | 'general', quest
   const fileName = knowledgeBaseId === 'kashmir' ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
   try {
     const knowledgeBase = await fs.readFile(
-      path.join(process.cwd(), 'src', 'ai', fileName),
+      path.join(process.cwd(), 'src', 'ai', 'knowledge-base-kashmir.txt'),
       'utf-8'
     );
     const paragraphs = knowledgeBase.split('\n\n');
@@ -56,6 +57,7 @@ export async function selectExpertForQuestion(
   
   return selectExpertForQuestionFlow({
     question: input.question,
+    userProfile: input.userProfile,
     knowledgeContext: knowledgeContext,
   });
 }
@@ -65,27 +67,34 @@ const prompt = ai.definePrompt({
   input: {
     schema: z.object({
       question: z.string(),
+      userProfile: z.string(),
       knowledgeContext: z.string(),
     }),
   },
   output: {schema: SelectExpertForQuestionOutputSchema},
-  prompt: `You are Azai, a helpful and friendly nutrition assistant. Your personality is encouraging and supportive.
+  prompt: `You are Azai, a helpful and friendly personal nutrition coach. Your personality is encouraging, knowledgeable, and supportive. You are answering a user who you know.
 
-Your primary goal is to answer the user's nutrition-related questions based on the provided "Knowledge Base Context".
+You MUST use the user's profile to personalize your answer.
 
-User's Question:
+Your primary goal is to answer the user's nutrition-related questions.
+
+### User's Profile
+{{{userProfile}}}
+
+### User's Question
 "{{{question}}}"
 
-Knowledge Base Context:
+### Knowledge Base Context
 """
 {{{knowledgeContext}}}
 """
 
-Follow these rules:
-1.  If the user's question is a general greeting or conversational (e.g., "hello", "how are you?"), respond in a friendly, conversational manner.
-2.  If the user asks a question and the "Knowledge Base Context" contains a relevant answer, formulate a clear and concise answer based *exclusively* on that information. Do not add any information that is not present in the context.
-3.  If the user asks a question and the context is empty or does not contain relevant information, you MUST respond with: "I'm sorry, but I couldn't find an answer to that in my knowledge base. Could you try rephrasing it, or ask something else about nutrition?"
-4.  Do not use any external knowledge. Stick strictly to the provided text for nutrition answers.
+Follow these rules STRICTLY:
+1.  Address the user in a friendly, personal tone. Use their profile information to make the conversation feel like a one-on-one consultation.
+2.  If the user's question is a general greeting (e.g., "hello", "how are you?"), respond in a friendly, conversational manner.
+3.  First, try to formulate an answer using the "Knowledge Base Context". Your answer should be tailored to the user's specific profile. For example, if they ask about snacks and their goal is weight loss, recommend low-calorie options.
+4.  If the "Knowledge Base Context" does NOT contain a relevant answer, use your general nutrition knowledge to answer the question. **DO NOT say you cannot find an answer.** Instead, provide a helpful, safe, and general nutrition-based answer that is still personalized to the user's profile.
+5.  Keep your answers concise, helpful, and easy to understand.
 `,
 });
 
@@ -94,12 +103,12 @@ const selectExpertForQuestionFlow = ai.defineFlow(
     name: 'selectExpertForQuestionFlow',
     inputSchema: z.object({
       question: z.string(),
+      userProfile: z.string(),
       knowledgeContext: z.string(),
     }),
     outputSchema: SelectExpertForQuestionOutputSchema,
   },
   async input => {
-    // We don't need the check here anymore, the prompt can handle an empty context.
     const {output} = await prompt(input);
     return output!;
   }
