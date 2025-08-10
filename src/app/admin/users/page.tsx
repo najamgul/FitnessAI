@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 
 type User = {
     id: string; // Firestore document ID
@@ -28,6 +29,7 @@ type User = {
     paymentId?: string;
     role: 'user' | 'admin';
     planDuration?: string;
+    onboardingData?: any;
 };
 
 type TeamMember = {
@@ -73,11 +75,12 @@ export default function AdminUsersPage() {
                         }
                     }
                     
-                    // Fetch onboarding data to get plan duration
                     const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
                     const onboardingDoc = await getDoc(onboardingDocRef);
                     if (onboardingDoc.exists()) {
-                        user.planDuration = onboardingDoc.data().planDuration;
+                        const onboardingData = onboardingDoc.data();
+                        user.planDuration = onboardingData.planDuration;
+                        user.onboardingData = onboardingData;
                     }
                     
                     userList.push(user);
@@ -182,7 +185,6 @@ export default function AdminUsersPage() {
                 title: 'User Approved & Assigned',
                 description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
-            // The onSnapshot listener will refresh the list automatically
         } catch (error) {
             console.error("Approval Error: ", error);
              toast({
@@ -246,7 +248,7 @@ export default function AdminUsersPage() {
                                             </TableCell>
                                             <TableCell>
                                                 {user.paymentStatus === 'pending' ? (
-                                                    <div className="flex items-start gap-4 flex-wrap">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <div className="space-y-1">
                                                              <Input
                                                                 type="number"
@@ -269,6 +271,28 @@ export default function AdminUsersPage() {
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
+                                                        
+                                                        {user.onboardingData && (
+                                                            <Dialog>
+                                                                <DialogTrigger asChild>
+                                                                    <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4"/>View Details</Button>
+                                                                </DialogTrigger>
+                                                                <DialogContent className="sm:max-w-2xl">
+                                                                    <DialogHeader>
+                                                                        <DialogTitle>Onboarding Details for {user.name}</DialogTitle>
+                                                                        <DialogDescription>
+                                                                            Full details submitted by the user during the onboarding process.
+                                                                        </DialogDescription>
+                                                                    </DialogHeader>
+                                                                    <ScrollArea className="max-h-[60vh] mt-4">
+                                                                        <pre className="p-4 bg-muted rounded-md text-xs whitespace-pre-wrap">
+                                                                            {JSON.stringify(user.onboardingData, null, 2)}
+                                                                        </pre>
+                                                                    </ScrollArea>
+                                                                </DialogContent>
+                                                            </Dialog>
+                                                        )}
+
                                                         <Button size="sm" onClick={() => handleApprove(user.id, user.email, user.name)}>Approve & Assign</Button>
                                                     </div>
                                                 ) : <span className="text-sm text-muted-foreground">No pending actions.</span>}
