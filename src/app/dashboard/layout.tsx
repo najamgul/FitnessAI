@@ -91,6 +91,17 @@ export default function DashboardLayout({
     router.push('/login');
   }
 
+  const getCurrentPageTitle = () => {
+    // Find the best match for the current path
+    const matchingItems = navItems.filter(item => pathname.startsWith(item.href));
+    if (matchingItems.length > 0) {
+      // Sort by href length descending to get the most specific match
+      matchingItems.sort((a, b) => b.href.length - a.href.length);
+      return matchingItems[0].label;
+    }
+    return 'Dashboard'; // Fallback title
+  };
+
   if (!isClient) {
     // Render a skeleton or loading state on the server to avoid hydration mismatch
     return (
@@ -154,7 +165,7 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm lg:hidden">
           <SidebarTrigger className="lg:hidden" />
           <h2 className="text-xl font-semibold font-headline lg:hidden">
-            {navItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard'}
+            {getCurrentPageTitle()}
           </h2>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
