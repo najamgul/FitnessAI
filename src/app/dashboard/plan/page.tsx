@@ -368,7 +368,7 @@ export default function DietPlanPage() {
                                                         checked={mealStatus[`Day ${dayPlan.day}`]?.[mealTime] || false}
                                                         onCheckedChange={() => handleCheckboxChange(`Day ${dayPlan.day}`, mealTime)}
                                                     />
-                                                    <Label htmlFor={`Day ${dayPlan.day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                    <Label htmlFor={`Day ${dayPlan.day}-${mealTime}-checkbox`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
                                                         Mark as Eaten
                                                     </Label>
                                                 </div>
