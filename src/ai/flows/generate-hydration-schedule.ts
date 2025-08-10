@@ -44,7 +44,7 @@ The goal is to help the user consume a total of {{totalIntakeLiters}} liters of 
 
 Break down the total intake into manageable portions (e.g., 200-300ml) throughout the day. Avoid scheduling large amounts of water close to bedtime. The first glass should be upon waking.
 
-Generate a schedule array with specific times and amounts in milliliters. Also provide a brief, one-sentence explanation of the strategy used.
+Generate a schedule array with specific times and amounts in milliliters. The time MUST be in AM/PM format (e.g., "9:00 AM", "1:30 PM"). Also provide a brief, one-sentence explanation of the strategy used.
 `,
 });
 

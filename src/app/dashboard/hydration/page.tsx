@@ -50,8 +50,8 @@ const calculateRecommendedIntake = (weight: number, activityLevel: string): numb
 export default function HydrationPage() {
     const { toast } = useToast();
     const [goal, setGoal] = useState('2.5'); // Default goal
-    const [wakeUp] = useState('07:00'); // Default wake-up
-    const [bedTime] = useState('23:00'); // Default bedtime
+    const [wakeUp] = useState('7:00 AM'); // Default wake-up
+    const [bedTime] = useState('11:00 PM'); // Default bedtime
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
     const [explanation, setExplanation] = useState('');
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
@@ -254,5 +254,3 @@ export default function HydrationPage() {
             </div>
         </div>
     );
-
-    
