@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
 
+const adminEmail = 'care@aziaf.com';
+const adminPassword = 'Aziaf@1653#';
+
 export default function LoginPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -25,26 +28,58 @@ export default function LoginPage() {
         setIsLoading(true);
 
         setTimeout(() => {
-            if (email && password) {
-                // In a real app, you'd get user data from an API.
-                // Here, we just store the email to simulate a logged-in state.
-                if (typeof window !== 'undefined') {
-                    localStorage.setItem('loggedInEmail', email);
-                }
-
-                toast({
-                    title: 'Login Successful',
-                    description: "Welcome back!",
-                });
-                router.push('/dashboard');
-            } else {
-                toast({
+            if (!email || !password) {
+                 toast({
                     title: 'Login Failed',
-                    description: 'Please enter valid credentials.',
+                    description: 'Please enter both email and password.',
                     variant: 'destructive',
                 });
                 setIsLoading(false);
+                return;
             }
+
+            const isTryingAdminLogin = email.toLowerCase() === adminEmail;
+
+            if (isTryingAdminLogin && password !== adminPassword) {
+                 toast({
+                    title: 'Admin Login Failed',
+                    description: 'Invalid password for admin account.',
+                    variant: 'destructive',
+                });
+                setIsLoading(false);
+                return;
+            }
+            
+            // Store email to simulate a logged-in state
+            localStorage.setItem('loggedInEmail', email);
+
+            // Handle admin-specific logic
+            if (isTryingAdminLogin) {
+                 localStorage.setItem('isAdmin', 'true');
+                 // Ensure admin user is "approved" to access dashboard
+                 const approvedUsersString = localStorage.getItem('approvedUsers');
+                 const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+                 if (!approvedUsers[adminEmail]) {
+                     const expiryDate = new Date();
+                     expiryDate.setDate(expiryDate.getDate() + 365); // Give admin a long expiry
+                     approvedUsers[adminEmail] = { 
+                         approved: true, 
+                         expiry: expiryDate.toISOString(),
+                         planStatus: 'approved'
+                     };
+                     localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
+                 }
+            } else {
+                localStorage.removeItem('isAdmin');
+            }
+
+
+            toast({
+                title: 'Login Successful',
+                description: "Welcome back!",
+            });
+            router.push('/dashboard');
+
         }, 1500);
     };
 

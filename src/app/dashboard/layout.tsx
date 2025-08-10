@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -72,8 +73,9 @@ export default function DashboardLayout({
     const approvedUsersString = localStorage.getItem('approvedUsers');
     const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
     const userApproval = approvedUsers[loggedInEmail];
+    const userIsAdminFromStorage = localStorage.getItem('isAdmin') === 'true';
 
-    if (!loggedInEmail || !userApproval || new Date(userApproval.expiry) < new Date()) {
+    if (!loggedInEmail || (!userApproval && !userIsAdminFromStorage)) {
         if (!loggedInEmail) {
             router.push('/login');
         } else {
@@ -89,17 +91,26 @@ export default function DashboardLayout({
         }
         return;
     }
-
-    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail;
+    
+    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail && userIsAdminFromStorage;
     setIsAdmin(userIsAdmin);
     
     if (userIsAdmin) {
         setMockUser({ name: 'Admin', email: adminEmail });
     } else {
         const onboardingDataString = localStorage.getItem('onboardingData');
-        const username = onboardingDataString ? JSON.parse(onboardingDataString).name : loggedInEmail.split('@')[0];
-        const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
-        setMockUser({ name: capitalizedUsername, email: loggedInEmail });
+        if (onboardingDataString) {
+             const username = JSON.parse(onboardingDataString).name || loggedInEmail.split('@')[0];
+             const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
+             setMockUser({ name: capitalizedUsername, email: loggedInEmail });
+        } else {
+            const storedSubmissionsString = localStorage.getItem('userSubmissions');
+            const storedSubmissions = storedSubmissionsString ? JSON.parse(storedSubmissionsString) : [];
+            const userSubmission = storedSubmissions.find((sub: any) => sub.email === loggedInEmail);
+            const username = userSubmission?.name || loggedInEmail.split('@')[0];
+            const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
+            setMockUser({ name: capitalizedUsername, email: loggedInEmail });
+        }
     }
   }, [router]);
   
@@ -108,6 +119,7 @@ export default function DashboardLayout({
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('loggedInEmail');
+        localStorage.removeItem('isAdmin');
         localStorage.removeItem('onboardingData');
         localStorage.removeItem('progressHistory');
         sessionStorage.removeItem('chatHistory');
