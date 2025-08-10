@@ -45,6 +45,22 @@ type DietPlanDay = {
     meals: { [key: string]: Meal };
 };
 
+const parseTime = (timeStr: string): Date => {
+    const now = new Date();
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+
+    if (hours === 12) {
+        hours = modifier?.toUpperCase() === 'AM' ? 0 : 12;
+    } else if (modifier?.toUpperCase() === 'PM') {
+        hours += 12;
+    }
+
+    now.setHours(hours, minutes, 0, 0);
+    return now;
+};
+
+
 const constructDefaultPrompt = (onboardingData: any) => {
     if (!onboardingData) return '';
     
@@ -133,7 +149,13 @@ export default function AdminReviewsPage() {
                 
                 // Set editable plan if it exists
                 if (task.generatedPlan) {
-                     setEditablePlans(prev => ({...prev, [task.id]: task.generatedPlan!.dietPlan}));
+                    const sortedPlan = task.generatedPlan.dietPlan.map(day => {
+                        const sortedMeals = Object.entries(day.meals)
+                            .sort(([, a], [, b]) => parseTime(a.time).getTime() - parseTime(b.time).getTime())
+                            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+                        return { ...day, meals: sortedMeals };
+                    });
+                    setEditablePlans(prev => ({...prev, [task.id]: sortedPlan}));
                 }
                 
                 // Set default prompt
@@ -264,8 +286,14 @@ export default function AdminReviewsPage() {
                     generatedPlan: JSON.parse(JSON.stringify(result)), // Use clean data
                     status: 'pending_approval'
                 });
+                const sortedPlan = result.dietPlan.map(day => {
+                    const sortedMeals = Object.entries(day.meals)
+                        .sort(([, a], [, b]) => parseTime(a.time).getTime() - parseTime(b.time).getTime())
+                        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+                    return { ...day, meals: sortedMeals };
+                });
 
-                setEditablePlans(prev => ({...prev, [task.id]: result.dietPlan}));
+                setEditablePlans(prev => ({...prev, [task.id]: sortedPlan}));
                 
                 toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
             } else {
@@ -297,13 +325,16 @@ export default function AdminReviewsPage() {
     
         setEditablePlans(prev => {
             const newPlans = { ...prev };
-            const newDayPlan = [...newPlans[reviewId]];
-            const mealToUpdate = newDayPlan[dayIndex].meals[mealTime];
+            const dayPlanToUpdate = newPlans[reviewId]?.[dayIndex];
+            if (!dayPlanToUpdate) return prev;
+    
+            const mealToUpdate = dayPlanToUpdate.meals[mealTime as keyof typeof dayPlanToUpdate.meals];
+            
             if (mealToUpdate) {
                 const valueToSave = field === 'calories' ? Number(tempValue) : tempValue;
                 (mealToUpdate as any)[field] = valueToSave;
             }
-            newPlans[reviewId] = newDayPlan;
+            
             return newPlans;
         });
     

@@ -10,7 +10,7 @@ import { Loader2, User, Edit3, Save, X, Copy, Image as ImageIcon, Trash2, CheckC
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
-import { collection, query, where, onSnapshot, doc, getDocs, updateDoc, setDoc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDocs, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -28,6 +28,8 @@ type Client = {
 
 type Meal = {
     meal: string;
+    time: string;
+    quantity: string;
     hint: string;
     calories: number;
     description: string;
@@ -37,6 +39,21 @@ type Meal = {
 type DietPlanDay = {
     day: number;
     meals: { [key: string]: Meal };
+};
+
+const parseTime = (timeStr: string): Date => {
+    const now = new Date();
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+
+    if (hours === 12) {
+        hours = modifier?.toUpperCase() === 'AM' ? 0 : 12;
+    } else if (modifier?.toUpperCase() === 'PM') {
+        hours += 12;
+    }
+
+    now.setHours(hours, minutes, 0, 0);
+    return now;
 };
 
 export default function AdminClientsPage() {
@@ -84,9 +101,17 @@ export default function AdminClientsPage() {
 
         if (planDoc.exists()) {
             const planData = planDoc.data() as GenerateDietPlanOutput;
+            // Sort meals by time
+            const sortedPlan = planData.dietPlan.map(day => {
+                const sortedMeals = Object.entries(day.meals)
+                    .sort(([, a], [, b]) => parseTime(a.time).getTime() - parseTime(b.time).getTime())
+                    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+                return { ...day, meals: sortedMeals };
+            });
+
             setEditablePlans(prev => ({
                 ...prev,
-                [clientId]: planData.dietPlan
+                [clientId]: sortedPlan
             }));
         }
     }, [editablePlans]);
@@ -378,6 +403,3 @@ export default function AdminClientsPage() {
         </Card>
     );
 }
-
-
-    
