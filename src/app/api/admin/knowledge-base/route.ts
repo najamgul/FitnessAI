@@ -2,21 +2,51 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuth } from 'firebase-admin/auth';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { credential } from 'firebase-admin';
 
 const KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-kashmir.txt');
 const NON_KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-non-kashmir.txt');
 
-// A very basic auth check for the prototype. In a real app, use a proper session/auth system.
-function isAdmin(req: NextRequest): boolean {
-    // This is insecure and for demonstration purposes only.
-    // In a real app, you would validate a secure session cookie or JWT.
-    const authHeader = req.headers.get('Authorization');
-    return authHeader === `Bearer ${process.env.ADMIN_SECRET_KEY}`; 
+// Initialize Firebase Admin SDK
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+  : null;
+
+let adminApp: App;
+if (!getApps().length) {
+  if (serviceAccount) {
+    adminApp = initializeApp({
+      credential: credential.cert(serviceAccount),
+    });
+  } else {
+    console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
+    // Initialize without credentials for environments where it's not needed/available.
+    adminApp = initializeApp();
+  }
+} else {
+  adminApp = getApps()[0];
 }
 
+async function verifyToken(req: NextRequest) {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        return null;
+    }
+    const token = authHeader.split('Bearer ')[1];
+    try {
+        if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
+        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
+        return decodedToken;
+    } catch (error) {
+        console.error('Error verifying Firebase ID token:', error);
+        return null;
+    }
+}
+
+
 export async function GET(req: NextRequest) {
-    // In a real app, you'd protect this route with robust authentication.
-    // For this prototype, we'll allow GET requests but secure the POST.
     try {
         const kashmir = await fs.readFile(KASHMIR_KB_PATH, 'utf-8');
         const nonKashmir = await fs.readFile(NON_KASHMIR_KB_PATH, 'utf-8');
@@ -28,11 +58,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-    // In a real app, use a proper authentication mechanism
-    // We'll simulate a check here for the purpose of the prototype
-    const loggedInEmail = req.headers.get('X-User-Email'); // A custom header we'll have to send from client
-    if (loggedInEmail?.toLowerCase() !== 'care@aziaf.com') {
-         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const decodedToken = await verifyToken(req);
+    if (!decodedToken || decodedToken.role !== 'admin') {
+         return NextResponse.json({ error: 'Unauthorized: You must be an admin to perform this action.' }, { status: 403 });
     }
 
     try {

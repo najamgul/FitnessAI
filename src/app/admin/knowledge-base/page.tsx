@@ -9,8 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
-const adminEmail = 'care@aziaf.com';
 
 export default function AdminKnowledgeBasePage() {
     const { toast } = useToast();
@@ -21,48 +23,67 @@ export default function AdminKnowledgeBasePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('kashmir');
+    const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
-        const loggedInEmail = localStorage.getItem('loggedInEmail');
-        if (loggedInEmail?.toLowerCase() !== adminEmail) {
-            toast({ title: 'Access Denied', description: 'You do not have permission to view this page.', variant: 'destructive' });
-            router.push('/dashboard');
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists() && userDoc.data().role === 'admin') {
+                    fetchKnowledgeBases();
+                } else {
+                    toast({ title: 'Access Denied', description: 'You do not have permission to view this page.', variant: 'destructive' });
+                    router.push('/dashboard');
+                }
+            } else {
+                router.push('/login');
+            }
+        });
+
+        return () => unsubscribe();
+    }, [router, toast]);
+
+
+    const fetchKnowledgeBases = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/admin/knowledge-base');
+            if (!response.ok) {
+                throw new Error('Failed to fetch knowledge bases');
+            }
+            const data = await response.json();
+            setKashmirKb(data.kashmir);
+            setNonKashmirKb(data.nonKashmir);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Could not load knowledge bases. Please try again.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
+    const handleSave = async () => {
+        if (!user) {
+            toast({ title: "Not authenticated", variant: "destructive" });
             return;
         }
 
-        const fetchKnowledgeBases = async () => {
-            setIsLoading(true);
-            try {
-                const response = await fetch('/api/admin/knowledge-base');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch knowledge bases');
-                }
-                const data = await response.json();
-                setKashmirKb(data.kashmir);
-                setNonKashmirKb(data.nonKashmir);
-            } catch (error) {
-                toast({
-                    title: 'Error',
-                    description: 'Could not load knowledge bases. Please try again.',
-                    variant: 'destructive',
-                });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchKnowledgeBases();
-    }, [router, toast]);
-
-    const handleSave = async () => {
         setIsSaving(true);
         try {
             const contentToSave = activeTab === 'kashmir' ? kashmirKb : nonKashmirKb;
+            const idToken = await user.getIdToken();
+
             const response = await fetch('/api/admin/knowledge-base', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-User-Email': localStorage.getItem('loggedInEmail') || ''
+                    'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ type: activeTab, content: contentToSave }),
             });
