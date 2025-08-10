@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +43,7 @@ export default function AdminReviewsPage() {
     const [reviewQueue, setReviewQueue] = useState<ReviewTask[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
-    const [approvingFor, setApprovingFor] = useState<string | null>(null);
+    const [approvingFor, setApprovingFor] = useState<string | null>(approvingFor);
     const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: DietPlanDay[] }>({});
     const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
@@ -107,6 +107,29 @@ export default function AdminReviewsPage() {
         const unsubscribe = fetchReviewQueue();
         return () => unsubscribe && unsubscribe();
     }, [fetchReviewQueue]);
+
+    const handleDuplicateDay = (reviewId: string, dayIndex: number) => {
+        setEditablePlans(prev => {
+            const currentPlan = prev[reviewId];
+            if (!currentPlan) return prev;
+
+            const dayToDuplicate = JSON.parse(JSON.stringify(currentPlan[dayIndex]));
+            
+            const newPlan = [
+                ...currentPlan.slice(0, dayIndex + 1),
+                dayToDuplicate,
+                ...currentPlan.slice(dayIndex + 1)
+            ];
+
+            // Re-number all days sequentially
+            const renumberedPlan = newPlan.map((day, index) => ({
+                ...day,
+                day: index + 1
+            }));
+
+            return { ...prev, [reviewId]: renumberedPlan };
+        });
+    };
 
     const handleGeneratePlan = async (task: ReviewTask) => {
         setGeneratingFor(task.id);
@@ -305,6 +328,7 @@ export default function AdminReviewsPage() {
                                                                     <TableHead>Meal</TableHead>
                                                                     <TableHead>Calories</TableHead>
                                                                     <TableHead>Description</TableHead>
+                                                                    <TableHead className="w-24">Actions</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
                                                             <TableBody>
@@ -326,6 +350,13 @@ export default function AdminReviewsPage() {
                                                                             <TableCell className="min-w-[300px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'description', mealDetails.description)}
                                                                             </TableCell>
+                                                                            {mealIndex === 0 && (
+                                                                                <TableCell rowSpan={Object.keys(dayPlan.meals).length} className="align-middle">
+                                                                                    <Button variant="outline" size="icon" onClick={() => handleDuplicateDay(task.id, dayIndex)} title={`Duplicate Day ${dayPlan.day}`}>
+                                                                                        <Copy className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                </TableCell>
+                                                                            )}
                                                                         </TableRow>
                                                                     ))
                                                                 ))}
