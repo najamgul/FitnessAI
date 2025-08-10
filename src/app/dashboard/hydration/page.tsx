@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -32,6 +31,14 @@ const SmartWaterTracker = () => {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
   const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
+
+  const saveScheduleToLocalStorage = (schedule: ScheduleItem[]) => {
+    try {
+      localStorage.setItem('hydrationSchedule', JSON.stringify(schedule));
+    } catch (error) {
+      console.error("Could not save hydration schedule to localStorage", error);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -88,6 +95,8 @@ const SmartWaterTracker = () => {
         }
       });
     }
+    
+    saveScheduleToLocalStorage(scheduleItems);
 
     return () => {
       notificationTimeouts.current.forEach(clearTimeout);
@@ -169,26 +178,18 @@ const SmartWaterTracker = () => {
   }, [profile.wakeTime, profile.sleepTime, dailyGoal, smartMode, weatherTemp, activityBoost]);
 
   useEffect(() => {
-    setScheduleItems(generateSmartSchedule());
+    try {
+        const savedSchedule = localStorage.getItem('hydrationSchedule');
+        if (savedSchedule) {
+            setScheduleItems(JSON.parse(savedSchedule));
+        } else {
+            setScheduleItems(generateSmartSchedule());
+        }
+    } catch (e) {
+        console.error("Failed to load hydration schedule from localStorage", e);
+        setScheduleItems(generateSmartSchedule());
+    }
   }, [generateSmartSchedule]);
-
-  // Function to check if an item is in the future
-  const isItemInFuture = (item: ScheduleItem): boolean => {
-    const now = new Date();
-    const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
-    if (!itemTimeParts) return false;
-    
-    let [, hours, minutes, meridiem] = itemTimeParts;
-    let hour = parseInt(hours, 10);
-    
-    if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
-    if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-    
-    const itemTime = new Date(now);
-    itemTime.setHours(hour, parseInt(minutes, 10), 0, 0);
-    
-    return itemTime >= now;
-  };
 
   const redistributeWaterSlots = useCallback((skippedItemId: number) => {
     setRedistributing(true);
@@ -204,7 +205,6 @@ const SmartWaterTracker = () => {
 
       const skippedAmount = skippedItem.originalAmount || skippedItem.amount;
       
-      // Find remaining slots (future slots that aren't completed or skipped)
       const remainingItems = updatedItems.filter(item => 
         item.id > skippedItemId && 
         !item.completed && 
@@ -216,10 +216,8 @@ const SmartWaterTracker = () => {
         return updatedItems;
       }
 
-      // Distribute skipped amount evenly across remaining slots
-      const additionalAmountPerSlot = Math.round(skippedAmount / remainingItems.length / 10) * 10; // Round to nearest 10ml
+      const additionalAmountPerSlot = Math.round(skippedAmount / remainingItems.length / 10) * 10;
       
-      // Apply redistribution
       updatedItems.forEach(item => {
         if (remainingItems.some(remaining => remaining.id === item.id)) {
           const originalAmount = item.originalAmount || item.amount;
@@ -264,7 +262,16 @@ const SmartWaterTracker = () => {
   
   const nextDrink = scheduleItems.find(item => {
     if (item.completed || item.skipped) return false;
-    return isItemInFuture(item);
+    const now = new Date();
+    const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+    if (!itemTimeParts) return false;
+    let [, hours, minutes, meridiem] = itemTimeParts;
+    let hour = parseInt(hours, 10);
+    if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+    if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    const itemTime = new Date(now);
+    itemTime.setHours(hour, parseInt(minutes, 10), 0, 0);
+    return itemTime >= now;
   });
 
   const getSmartInsights = useCallback(() => {
@@ -309,7 +316,7 @@ const SmartWaterTracker = () => {
             <div className="p-3 bg-white/20 rounded-full"><Droplets className="w-8 h-8" /></div>
             <div>
               <h1 className="text-3xl font-bold font-headline text-primary-foreground">Smart Hydration Assistant</h1>
-              <p className="text-blue-100 mt-1">AZIAF-powered personalized water tracking</p>
+              <p className="text-blue-100 mt-1">Azai-powered personalized water tracking</p>
             </div>
           </div>
           <div className="text-right">

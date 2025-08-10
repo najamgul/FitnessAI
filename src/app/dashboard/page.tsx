@@ -64,22 +64,22 @@ const DashboardPage = () => {
 
     const weightProgress = useMemo(() => {
         if (progressHistory.length < 2) return 0;
-        const initialWeight = progressHistory[0].weight;
-        const currentWeight = progressHistory[progressHistory.length - 1].weight;
+        const initialWeight = progressHistory[progressHistory.length - 1].weight; // Oldest entry
+        const currentWeight = progressHistory[0].weight; // Newest entry
         return initialWeight - currentWeight;
     }, [progressHistory]);
 
     const consistency = useMemo(() => {
         if (progressHistory.length === 0) return 0;
-        const totalMealCompletion = progressHistory.reduce((acc, entry) => acc + entry.meals, 0);
-        return Math.round(totalMealCompletion / progressHistory.length);
+        const latestEntry = progressHistory[0];
+        return latestEntry.meals;
     }, [progressHistory]);
 
     const chartData = useMemo(() => progressHistory.map(entry => ({
         name: new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         Weight: entry.weight,
         Energy: entry.energy,
-    })), [progressHistory]);
+    })).reverse(), [progressHistory]);
 
     if (isLoading) {
         return <div className="flex justify-center items-center h-full"><Sparkles className="h-8 w-8 animate-spin" /></div>;
@@ -188,19 +188,19 @@ const DashboardPage = () => {
                 <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="p-4 bg-secondary rounded-lg">
                         <h3 className="text-lg font-semibold flex items-center gap-2 text-secondary-foreground"><Scale/> Weight</h3>
-                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[progressHistory.length-1].weight : 'N/A'} kg</p>
+                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[0].weight : 'N/A'} kg</p>
                     </div>
                      <div className="p-4 bg-secondary rounded-lg">
                         <h3 className="text-lg font-semibold flex items-center gap-2 text-secondary-foreground"><Battery/> Energy</h3>
-                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[progressHistory.length-1].energy : 'N/A'}/10</p>
+                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[0].energy : 'N/A'}/10</p>
                     </div>
                      <div className="p-4 bg-secondary rounded-lg">
                         <h3 className="text-lg font-semibold flex items-center gap-2 text-secondary-foreground"><Droplets/> Water</h3>
-                         <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[progressHistory.length-1].water : 'N/A'} ml</p>
+                         <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[0].water : 'N/A'} ml</p>
                     </div>
                      <div className="p-4 bg-secondary rounded-lg">
                         <h3 className="text-lg font-semibold flex items-center gap-2 text-secondary-foreground"><Moon/> Sleep</h3>
-                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[progressHistory.length-1].sleep : 'N/A'} hrs</p>
+                        <p className="text-3xl font-bold mt-2">{progressHistory.length > 0 ? progressHistory[0].sleep : 'N/A'} hrs</p>
                     </div>
                 </CardContent>
             </Card>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,8 +15,6 @@ import { useToast } from '@/hooks/use-toast';
 type ProgressMetric = {
     weight: number;
     energyLevel: number;
-    mealCompletion: number;
-    waterIntake: number;
     sleepHours: number;
     moodScore: number;
     exerciseMinutes: number;
@@ -65,8 +62,6 @@ const UltimateProgressTracker = () => {
   const [currentMetrics, setCurrentMetrics] = useState<ProgressMetric>({
     weight: 0,
     energyLevel: 5,
-    mealCompletion: 75,
-    waterIntake: 1500,
     sleepHours: 7,
     moodScore: 5,
     exerciseMinutes: 30,
@@ -89,8 +84,6 @@ const UltimateProgressTracker = () => {
                  setCurrentMetrics({
                     weight: lastEntry.weight,
                     energyLevel: lastEntry.energy,
-                    mealCompletion: lastEntry.meals,
-                    waterIntake: lastEntry.water,
                     sleepHours: lastEntry.sleep,
                     moodScore: lastEntry.mood,
                     exerciseMinutes: lastEntry.exercise,
@@ -256,13 +249,35 @@ const UltimateProgressTracker = () => {
         setIsLogging(false);
         return;
     }
+    
+    // Fetch meal completion from local storage
+    const mealProgressString = localStorage.getItem(`mealProgress_${today}`);
+    const mealProgress = mealProgressString ? JSON.parse(mealProgressString) : {};
+    let totalMeals = 0;
+    let completedMeals = 0;
+    Object.values(mealProgress).forEach((day: any) => {
+      Object.values(day).forEach((meal: any) => {
+        totalMeals++;
+        if (meal.completed) completedMeals++;
+      });
+    });
+    const mealCompletion = totalMeals > 0 ? Math.round((completedMeals / totalMeals) * 100) : 0;
+
+    // Fetch water intake from local storage
+    const hydrationString = localStorage.getItem('hydrationSchedule');
+    let waterIntake = 0;
+    if (hydrationString) {
+        const schedule = JSON.parse(hydrationString);
+        waterIntake = schedule.filter((item: any) => item.completed).reduce((sum: number, item: any) => sum + item.amount, 0);
+    }
+
 
     const newEntry: HistoryEntry = {
         date: today,
         weight: currentMetrics.weight,
         energy: currentMetrics.energyLevel,
-        meals: currentMetrics.mealCompletion,
-        water: currentMetrics.waterIntake,
+        meals: mealCompletion,
+        water: waterIntake,
         sleep: currentMetrics.sleepHours,
         mood: currentMetrics.moodScore,
         exercise: currentMetrics.exerciseMinutes,
@@ -366,32 +381,6 @@ const UltimateProgressTracker = () => {
                             <CardContent className="flex items-center gap-3">
                                 <input type="range" min="1" max="10" value={currentMetrics.energyLevel} onChange={(e) => updateMetric('energyLevel', parseInt(e.target.value))} className="w-full" />
                                 <span className="text-2xl font-bold text-yellow-600 w-12">{currentMetrics.energyLevel}</span>
-                            </CardContent>
-                        </Card>
-                         <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
-                             <CardHeader className="flex-row items-center gap-3 pb-2">
-                                <Utensils className="w-6 h-6 text-green-600" />
-                                <CardTitle className="text-lg">Meals (%)</CardTitle>
-                                {getTrendIcon(trends.meals)}
-                            </CardHeader>
-                            <CardContent className="flex items-center gap-3">
-                                <input type="range" min="0" max="100" value={currentMetrics.mealCompletion} onChange={(e) => updateMetric('mealCompletion', parseInt(e.target.value))} className="w-full" />
-                                <span className="text-2xl font-bold text-green-600 w-16">{currentMetrics.mealCompletion}%</span>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-100">
-                             <CardHeader className="flex-row items-center gap-3 pb-2">
-                                <Droplets className="w-6 h-6 text-cyan-600" />
-                                <CardTitle className="text-lg">Water (ml)</CardTitle>
-                                {getTrendIcon(trends.water)}
-                            </CardHeader>
-                            <CardContent>
-                                <input
-                                    type="number" value={currentMetrics.waterIntake}
-                                    onChange={(e) => updateMetric('waterIntake', parseInt(e.target.value))}
-                                    className="w-full text-2xl font-bold bg-white border-2 border-cyan-200 rounded-xl p-3 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                                    step="50"
-                                />
                             </CardContent>
                         </Card>
                         <Card className="bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-100">
@@ -535,8 +524,8 @@ const UltimateProgressTracker = () => {
                                 <td className="p-4 font-semibold text-green-800">Today's Log</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.weight}kg</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.energyLevel}/10</td>
-                                <td className="text-center p-4 font-bold text-green-700">{currentMetrics.mealCompletion}%</td>
-                                <td className="text-center p-4 font-bold text-green-700">{currentMetrics.waterIntake}ml</td>
+                                <td className="text-center p-4 font-bold text-green-700">{/* Value will be auto-filled */}</td>
+                                <td className="text-center p-4 font-bold text-green-700">{/* Value will be auto-filled */}</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.sleepHours}h</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.moodScore}/10</td>
                                 </tr>
