@@ -14,7 +14,7 @@ type ScheduleItem = {
   reason: string;
 };
 
-const notificationSoundUrl = 'https://cdn.freesound.org/previews/573/573353_10619566-lq.mp3';
+const notificationSoundUrl = 'https://cdn.pixabay.com/download/audio/2025/05/24/audio_aacf3a51fd.mp3?filename=sound-of-flowing-river-346329.mp3';
 
 const SmartWaterTracker = () => {
   const [dailyGoal, setDailyGoal] = useState(2500);
