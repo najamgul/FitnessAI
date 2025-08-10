@@ -99,7 +99,7 @@ export default function AdminKnowledgeBasePage() {
         <Card>
             <CardHeader>
                 <CardTitle className="text-3xl font-bold font-headline">Manage Knowledge Base</CardTitle>
-                <CardDescription>Edit the content used by Aziaf to answer user questions.</CardDescription>
+                <CardDescription>Edit the content used by Azai to answer user questions.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>

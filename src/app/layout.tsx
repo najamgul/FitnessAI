@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Aziaf',
-  description: 'Your personal AI-powered nutrition assistant',
+  title: 'AZIAF',
+  description: 'Your personal Azai-powered nutrition assistant',
 };
 
 export default function RootLayout({

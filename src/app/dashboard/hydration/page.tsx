@@ -311,7 +311,7 @@ const SmartWaterTracker = () => {
             <div className="p-3 bg-white/20 rounded-full"><Droplets className="w-8 h-8" /></div>
             <div>
               <h1 className="text-3xl font-bold font-headline text-primary-foreground">Smart Hydration Assistant</h1>
-              <p className="text-blue-100 mt-1">Aziaf-powered personalized water tracking</p>
+              <p className="text-blue-100 mt-1">Azai-powered personalized water tracking</p>
             </div>
           </div>
           <div className="text-right">
@@ -326,7 +326,7 @@ const SmartWaterTracker = () => {
           <button onClick={() => setSmartMode(!smartMode)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${smartMode ? 'bg-yellow-400 text-blue-900' : 'bg-white/20 text-white'}`}>
             <Zap className="w-4 h-4" /> Smart Mode {smartMode ? 'ON' : 'OFF'}
           </button>
-          {smartMode && <div className="flex items-center gap-2 text-sm text-blue-100"><Brain className="w-4 h-4" /> Aziaf automatically adjusting your plan</div>}
+          {smartMode && <div className="flex items-center gap-2 text-sm text-blue-100"><Brain className="w-4 h-4" /> Azai automatically adjusting your plan</div>}
         </div>
       </div>
 
@@ -395,7 +395,7 @@ const SmartWaterTracker = () => {
 
         {smartMode && insights.length > 0 && (
           <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-            <h3 className="font-semibold text-purple-900 mb-4 flex items-center gap-2"><Brain className="w-5 h-5" /> Aziaf Insights</h3>
+            <h3 className="font-semibold text-purple-900 mb-4 flex items-center gap-2"><Brain className="w-5 h-5" /> Azai Insights</h3>
             <div className="space-y-3">
               {insights.map((insight, index) => <div key={index} className="flex items-center gap-3 text-sm">{insight.icon}<span className="text-gray-700">{insight.text}</span></div>)}
             </div>
@@ -448,7 +448,7 @@ const SmartWaterTracker = () => {
 
         <div className="bg-background rounded-2xl border overflow-hidden">
           <div className="bg-gradient-to-r from-gray-800 to-gray-700 p-4 text-white">
-            <h3 className="font-semibold flex items-center gap-2 font-headline"><Clock className="w-5 h-5" />{smartMode ? 'Aziaf-Optimized Hydration Plan' : 'Standard Schedule'}</h3>
+            <h3 className="font-semibold flex items-center gap-2 font-headline"><Clock className="w-5 h-5" />{smartMode ? 'Azai-Optimized Hydration Plan' : 'Standard Schedule'}</h3>
             {smartMode && <p className="text-gray-300 text-sm mt-1">Automatically adjusted for weather, activity, and your personal patterns</p>}
           </div>
           <div className="divide-y">

@@ -270,7 +270,7 @@ export default function AdminReviewsPage() {
                 toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
             } else {
                 // This case handles if the flow returns something unexpected but not an error
-                throw new Error("Received an invalid response from the AI flow.");
+                throw new Error("Received an invalid response from the Azai flow.");
             }
 
         } catch (error) {
@@ -294,21 +294,19 @@ export default function AdminReviewsPage() {
     const handleCellSave = () => {
         if (!editingCell) return;
         const { reviewId, dayIndex, mealTime, field } = editingCell;
-
+    
         setEditablePlans(prev => {
             const newPlans = { ...prev };
             const newDayPlan = [...newPlans[reviewId]];
-            const valueToSave = field === 'calories' ? Number(tempValue) : tempValue;
-            
             const mealToUpdate = newDayPlan[dayIndex].meals[mealTime];
             if (mealToUpdate) {
+                const valueToSave = field === 'calories' ? Number(tempValue) : tempValue;
                 (mealToUpdate as any)[field] = valueToSave;
             }
-
             newPlans[reviewId] = newDayPlan;
             return newPlans;
         });
-
+    
         setEditingCell(null);
         setTempValue('');
     };
@@ -424,7 +422,7 @@ export default function AdminReviewsPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="text-3xl font-bold font-headline">Diet Plan Review Queue</CardTitle>
-                <CardDescription>Review, modify, and approve Aziaf-generated diet plans for new users.</CardDescription>
+                <CardDescription>Review, modify, and approve Azai-generated diet plans for new users.</CardDescription>
             </CardHeader>
             <CardContent>
                 {reviewQueue.length > 0 ? (

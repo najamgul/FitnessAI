@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A plant problem diagnosis Aziaf agent.
+ * @fileOverview A plant problem diagnosis Azai agent.
  *
  * - diagnosePlant - A function that handles the plant diagnosis process.
  * - DiagnosePlantInput - The input type for the diagnosePlant function.
@@ -41,7 +41,7 @@ const prompt = ai.definePrompt({
   name: 'diagnosePlantPrompt',
   input: {schema: DiagnosePlantInputSchema},
   output: {schema: DiagnosePlantOutputSchema},
-  prompt: `You are an expert botanist specializing diagnosing plant illnesses.
+  prompt: `You are Azai, an expert botanist specializing diagnosing plant illnesses.
 
 You will use this information to diagnose the plant, and any issues it has. You will make a determination as to whether the plant is healthy or not, and what is wrong with it, and set the isHealthy output field appropriately.
 

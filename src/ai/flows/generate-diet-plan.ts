@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Aziaf-powered diet plan generator.
+ * @fileOverview Azai-powered diet plan generator.
  *
  * - generateDietPlan - A function that generates a personalized diet plan for a specified duration.
  * - GenerateDietPlanInput - The input type for the generateDietPlan function.
@@ -234,7 +234,7 @@ export async function generateDietPlan(input: GenerateDietPlanInput): Promise<Ge
   }
 }
 
-const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
+const defaultPromptTemplate = `You are Azai, a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
 
 Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for exactly 3 days. 
 
@@ -342,9 +342,9 @@ const generateDietPlanFlow = ai.defineFlow(
       try {
         const { output } = await prompt(input);
         basePlan = output;
-        console.log('AI generation completed successfully');
+        console.log('Azai generation completed successfully');
       } catch (error) {
-        console.error('AI generation error:', error);
+        console.error('Azai generation error:', error);
         // Create a minimal fallback structure
         basePlan = { dietPlan: [] };
       }

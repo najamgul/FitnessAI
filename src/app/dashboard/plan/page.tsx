@@ -188,41 +188,44 @@ const SmartDietPlanner = () => {
     const handleSkipMeal = (dayIndex: number, mealIndex: number) => {
         setIsAdjusting(mealIndex);
         setAdjustmentAdvice(null);
-    
-        const planToUpdate = JSON.parse(JSON.stringify(plan));
-        const dayPlan = planToUpdate[dayIndex];
-        const mealToSkip = dayPlan.meals[mealIndex];
-    
+
+        const currentDayPlan = plan[dayIndex];
+        const mealToSkip = currentDayPlan.meals[mealIndex];
+
         if (mealToSkip.completed || mealToSkip.skipped) {
             setIsAdjusting(null);
             return;
         }
-    
-        mealToSkip.skipped = true;
-        mealToSkip.completed = false;
-        saveProgress(dayIndex, mealToSkip.mealTime, { completed: false, skipped: true });
-    
-        const remainingMeals = dayPlan.meals.slice(mealIndex + 1).filter((m: Meal) => !m.completed && !m.skipped);
-    
+
+        const updatedPlan = JSON.parse(JSON.stringify(plan));
+        const dayToUpdate = updatedPlan[dayIndex];
+        const mealToUpdate = dayToUpdate.meals[mealIndex];
+
+        mealToUpdate.skipped = true;
+        mealToUpdate.completed = false;
+        saveProgress(dayIndex, mealToUpdate.mealTime, { completed: false, skipped: true });
+        
+        const remainingMeals = dayToUpdate.meals.slice(mealIndex + 1).filter((m: Meal) => !m.completed && !m.skipped);
+
         if (remainingMeals.length === 0) {
             setAdjustmentAdvice("You've missed your last meal. Just focus on starting fresh tomorrow!");
         } else {
-            const caloriesToRedistribute = mealToSkip.originalCalories || mealToSkip.calories;
+            const caloriesToRedistribute = mealToUpdate.originalCalories || mealToUpdate.calories;
             const perMealIncrease = Math.round(caloriesToRedistribute / remainingMeals.length);
-    
+
             remainingMeals.forEach((meal: Meal) => {
-                const mealInPlan = dayPlan.meals.find((m: Meal) => m.mealTime === meal.mealTime);
+                const mealInPlan = dayToUpdate.meals.find((m: Meal) => m.mealTime === meal.mealTime);
                 if (mealInPlan) {
-                    const originalCalories = mealInPlan.originalCalories || mealInPlan.calories;
-                    mealInPlan.calories = originalCalories + perMealIncrease;
-                    mealInPlan.description = `${(mealInPlan.description || '').split(' (Adjusted')[0]} (Adjusted for missed ${mealToSkip.mealTime})`;
+                    mealInPlan.calories = (mealInPlan.originalCalories || mealInPlan.calories) + perMealIncrease;
+                    mealInPlan.description = `${(mealInPlan.originalDescription || mealInPlan.description).split(' (Adjusted')[0]} (Adjusted for missed ${mealToUpdate.mealTime})`;
                 }
             });
+
             setAdjustmentAdvice(`To keep you on track, ${caloriesToRedistribute} calories from your skipped meal have been distributed among your remaining meals.`);
             toast({ title: "Plan Adjusted", description: `Remaining meals updated to meet your daily goal.` });
         }
-    
-        setPlan(planToUpdate);
+        
+        setPlan(updatedPlan);
         setIsAdjusting(null);
     };
     
@@ -278,7 +281,7 @@ const SmartDietPlanner = () => {
                 <div className="bg-card rounded-none shadow-lg overflow-hidden border-0 flex-1 flex flex-col max-w-full">
                     <div className="bg-gradient-to-r from-primary to-emerald-600 p-4 sm:p-6 text-primary-foreground w-full">
                         <div className="flex items-center justify-between mb-4 flex-wrap gap-4 max-w-full">
-                            <div className="flex items-center gap-3 min-w-0 flex-1"><div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0"><Brain className="w-6 h-6 sm:w-8 sm:h-8" /></div><div className="min-w-0 flex-1"><h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-headline leading-tight">Your Personalized Diet Plan</h1><p className="text-green-100 mt-1 text-sm sm:text-base">Curated by Aziaf & approved by our experts</p></div></div>
+                            <div className="flex items-center gap-3 min-w-0 flex-1"><div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0"><Brain className="w-6 h-6 sm:w-8 sm:h-8" /></div><div className="min-w-0 flex-1"><h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-headline leading-tight">Your Personalized Diet Plan</h1><p className="text-green-100 mt-1 text-sm sm:text-base">Curated by Azai & approved by our experts</p></div></div>
                             <div className="text-right flex-shrink-0"><div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{completionRate}%</div><div className="text-green-100 text-xs sm:text-sm">Daily Progress</div></div>
                         </div>
                     </div>
@@ -383,5 +386,3 @@ const SmartDietPlanner = () => {
 };
 
 export default SmartDietPlanner;
-
-    

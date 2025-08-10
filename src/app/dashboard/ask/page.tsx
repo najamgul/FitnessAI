@@ -100,7 +100,7 @@ export default function ChatWithAzaiPage() {
         <div className="flex flex-col h-[calc(100vh-8rem)] bg-card rounded-xl border shadow-lg">
              <div className="p-4 border-b flex justify-between items-center">
                 <div>
-                    <h2 className="text-xl font-bold font-headline">Chat with Aziaf</h2>
+                    <h2 className="text-xl font-bold font-headline">Chat with Azai</h2>
                     <p className="text-sm text-muted-foreground">Your nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{knowledgeBase === 'kashmir' ? 'Kashmir' : 'General'}</span></p>
                 </div>
                 {isAdmin && (
@@ -180,4 +180,3 @@ export default function ChatWithAzaiPage() {
         </div>
     );
 }
-

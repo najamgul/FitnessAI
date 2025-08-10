@@ -164,7 +164,7 @@ const DashboardPage = () => {
                 </Card>
                 <Card className="lg:col-span-3">
                      <CardHeader>
-                        <CardTitle className="font-headline flex items-center gap-2"><Brain/> Aziaf Quick Actions</CardTitle>
+                        <CardTitle className="font-headline flex items-center gap-2"><Brain/> Azai Quick Actions</CardTitle>
                         <CardDescription>Jump right back into your journey.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4">
@@ -175,7 +175,7 @@ const DashboardPage = () => {
                             <Button className="w-full justify-start h-14 text-base" variant="outline"><Utensils className="mr-4"/> View Your Diet Plan</Button>
                         </Link>
                          <Link href="/dashboard/ask">
-                            <Button className="w-full justify-start h-14 text-base" variant="outline"><MessageSquare className="mr-4"/> Chat with Aziaf</Button>
+                            <Button className="w-full justify-start h-14 text-base" variant="outline"><MessageSquare className="mr-4"/> Chat with Azai</Button>
                         </Link>
                     </CardContent>
                 </Card>

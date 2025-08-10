@@ -307,7 +307,7 @@ const UltimateProgressTracker = () => {
                         <Brain className="w-10 h-10" />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-bold font-headline">AI Progress Tracker</h1>
+                        <h1 className="text-4xl font-bold font-headline">Azai Progress Tracker</h1>
                         <p className="text-indigo-100 mt-2">Your intelligent health & fitness companion</p>
                     </div>
                 </div>
@@ -320,7 +320,7 @@ const UltimateProgressTracker = () => {
             <div className="flex items-center gap-4 bg-white/10 rounded-2xl p-4 flex-wrap">
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm">AI Analysis Active</span>
+                    <span className="text-sm">Azai Analysis Active</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-yellow-300" />
@@ -428,14 +428,14 @@ const UltimateProgressTracker = () => {
                         className="w-full bg-gradient-to-r from-primary to-purple-600 text-white py-6 px-8 rounded-2xl font-bold text-xl hover:from-primary/90 hover:to-purple-600/90 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-3"
                     >
                         {isLogging ? <Loader2 className="w-6 h-6 animate-spin" /> : <Brain className="w-6 h-6" />}
-                        {isLogging ? 'Logging...' : 'Log Progress & Get AI Insights'}
+                        {isLogging ? 'Logging...' : 'Log Progress & Get Azai Insights'}
                     </Button>
                 </div>
 
                 <div className="space-y-6">
                     <h2 className="text-3xl font-bold font-headline text-foreground mb-6 flex items-center gap-3">
                         <Lightbulb className="w-8 h-8 text-yellow-500" />
-                        AI Intelligence Center
+                        Azai Intelligence Center
                     </h2>
 
                     <div className="space-y-4">
@@ -455,7 +455,7 @@ const UltimateProgressTracker = () => {
                             </CardContent>
                         </Card>
                         )) : (
-                            <Card className="bg-gradient-to-r from-gray-50 to-gray-100"><CardContent className="pt-6"><p className="text-muted-foreground text-center">Log your progress to see AI insights here.</p></CardContent></Card>
+                            <Card className="bg-gradient-to-r from-gray-50 to-gray-100"><CardContent className="pt-6"><p className="text-muted-foreground text-center">Log your progress to see Azai insights here.</p></CardContent></Card>
                         )}
                     </div>
 
@@ -463,7 +463,7 @@ const UltimateProgressTracker = () => {
                         <CardHeader>
                             <CardTitle className="text-xl flex items-center gap-2">
                                 <Eye className="w-6 h-6 text-blue-600" />
-                                AI Predictions
+                                Azai Predictions
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">

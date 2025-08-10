@@ -69,7 +69,7 @@ const prompt = ai.definePrompt({
     }),
   },
   output: {schema: SelectExpertForQuestionOutputSchema},
-  prompt: `You are Azai, a helpful AI nutrition assistant. Your goal is to answer the user's question based *only* on the provided "Knowledge Base Context".
+  prompt: `You are Azai, a helpful nutrition assistant. Your goal is to answer the user's question based *only* on the provided "Knowledge Base Context".
 
 User's Question:
 "{{{question}}}"

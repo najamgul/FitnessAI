@@ -37,7 +37,7 @@ const prompt = ai.definePrompt({
   name: 'filterExpertResponsesPrompt',
   input: {schema: FilterExpertResponsesInputSchema},
   output: {schema: FilterExpertResponsesOutputSchema},
-  prompt: `You are an AI expert in consolidating diet plans based on multiple expert opinions and user-specific health factors.
+  prompt: `You are an expert in consolidating diet plans based on multiple expert opinions and user-specific health factors.
 
 You will receive diet plan suggestions from multiple experts and the user's health factors. Your goal is to create a single, optimized diet plan that takes into account all the expert opinions and the user's specific health needs.
 

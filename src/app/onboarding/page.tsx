@@ -299,7 +299,7 @@ export default function OnboardingPage() {
             <div className="w-full max-w-2xl">
                  <div className="mb-8 flex flex-col items-center gap-4">
                     <Link href="/">
-                        <Image src="/logo.png" alt="Aziaf Logo" width={256} height={256} />
+                        <Image src="/logo.png" alt="AZIAF Logo" width={256} height={256} />
                     </Link>
                     <p className="text-muted-foreground">Let's get some details to personalize your experience.</p>
                     <Progress value={progress} className="w-full" />
@@ -453,7 +453,7 @@ export default function OnboardingPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                                         <div className="flex justify-center">
                                             {healthProfile.bodyImageUrl ? (
-                                                <Image src={healthProfile.bodyImageUrl} alt="AI generated body representation" width={200} height={300} className="rounded-lg shadow-md" unoptimized/>
+                                                <Image src={healthProfile.bodyImageUrl} alt="Azai generated body representation" width={200} height={300} className="rounded-lg shadow-md" unoptimized/>
                                             ) : (
                                                 <div className="w-[200px] h-[300px] bg-muted rounded-lg flex items-center justify-center">
                                                     <User className="w-16 h-16 text-muted-foreground" />

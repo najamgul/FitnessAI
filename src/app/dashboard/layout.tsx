@@ -50,7 +50,7 @@ const allNavItems = [
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
   { href: '/dashboard/hydration', label: 'Hydration', icon: Droplets, admin: false },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
-  { href: '/dashboard/ask', label: 'Chat with Aziaf', icon: MessageSquare, admin: false },
+  { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
   { href: '/admin/reviews', label: 'Plan Reviews', icon: ClipboardCheck, admin: true },
   { href: '/admin/clients', label: 'Client Plans', icon: FileHeart, admin: true },
@@ -153,7 +153,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href={isAdmin ? '/admin/users' : '/dashboard'}>
-                <Image src="/logo.png" alt="Aziaf Logo" width={80} height={80} />
+                <Image src="/logo.png" alt="AZIAF Logo" width={80} height={80} />
             </Link>
           </div>
         </SidebarHeader>
