@@ -16,6 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import NextImage from 'next/image';
+import { Textarea } from '@/components/ui/textarea';
 
 type Client = {
     id: string; // user ID
@@ -185,7 +186,7 @@ export default function AdminClientsPage() {
             const finalPlan: GenerateDietPlanOutput = { dietPlan: finalPlanData };
 
             const dietPlanDocRef = doc(db, 'users', client.id, 'dietPlan', 'current');
-            await setDoc(dietPlanDocRef, { ...finalPlan }, { merge: true });
+            await setDoc(dietPlanDocRef, finalPlan, { merge: true });
             
             toast({ title: 'Plan Updated!', description: `Changes for ${client.email} have been saved.`});
 
@@ -206,10 +207,10 @@ export default function AdminClientsPage() {
             return (
                 <div className="flex flex-col gap-2 p-1">
                      {isTextArea ? (
-                        <textarea
+                        <Textarea
                             value={tempValue as string}
                             onChange={(e) => setTempValue(e.target.value)}
-                            className="min-h-[80px] text-sm form-textarea"
+                            className="min-h-[80px] text-sm"
                             autoFocus
                         />
                     ) : (
@@ -377,4 +378,3 @@ export default function AdminClientsPage() {
         </Card>
     );
 }
-
