@@ -22,7 +22,7 @@ import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { addDays, differenceInDays, format } from 'date-fns';
+import { addDays, differenceInDays, format, startOfWeek } from 'date-fns';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
@@ -45,6 +45,7 @@ const SmartDietPlanner = () => {
     const [plan, setPlan] = useState<DayPlan[]>([]);
     const [planStartDate, setPlanStartDate] = useState<Date | null>(null);
     const [currentDayIndex, setCurrentDayIndex] = useState(0); // 0-indexed
+    const [currentWeek, setCurrentWeek] = useState(0);
     const [user, setUser] = useState<User | null>(null);
     const [userGoals, setUserGoals] = useState('');
     const [adjustmentAdvice, setAdjustmentAdvice] = useState<string | null>(null);
@@ -128,6 +129,7 @@ const SmartDietPlanner = () => {
                                 const dayDifference = differenceInDays(today, startDate);
                                 const todayIndex = dayDifference % transformedPlan.length;
                                 setCurrentDayIndex(todayIndex < 0 ? 0 : todayIndex);
+                                setCurrentWeek(Math.floor(todayIndex / 7));
                             }
 
                         } else {
@@ -277,6 +279,12 @@ const SmartDietPlanner = () => {
     const totalCaloriesConsumed = currentDayPlan.meals.filter(m => m.completed).reduce((sum, meal) => sum + meal.calories, 0);
     const dailyGoal = currentDayPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
     const completionRate = dailyGoal > 0 ? Math.round((totalCaloriesConsumed / dailyGoal) * 100) : 0;
+    
+    const numWeeks = Math.ceil(plan.length / 7);
+    const weekStart = currentWeek * 7;
+    const weekEnd = Math.min(weekStart + 7, plan.length);
+    const daysToShowIndices = Array.from({ length: weekEnd - weekStart }, (_, i) => weekStart + i);
+
 
     return (
         <div className="min-h-screen bg-background overflow-x-hidden">
@@ -290,29 +298,48 @@ const SmartDietPlanner = () => {
                     </div>
                     <div className="p-3 sm:p-4 md:p-6 flex-1 w-full max-w-full overflow-x-hidden">
                         <Tabs value={`day-${currentDayIndex}`} onValueChange={(val) => setCurrentDayIndex(parseInt(val.split('-')[1]))} className="w-full h-full flex flex-col max-w-full">
-                            <ScrollArea className="w-full whitespace-nowrap rounded-md mb-4 max-w-full">
-                                <TabsList className="w-full justify-start h-auto p-1 max-w-full">
-                                    {plan.map((dayPlan, index) => {
-                                        const dayDate = planStartDate ? addDays(planStartDate, index) : null;
-                                        const isToday = dayDate && format(dayDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                                        return (
-                                            <TabsTrigger 
-                                                key={dayPlan.day} 
-                                                value={`day-${index}`} 
-                                                className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 flex flex-col h-auto"
-                                            >
-                                                <span>Day {dayPlan.day}</span>
-                                                {dayDate && (
-                                                    <span className={`text-xs mt-1 ${isToday ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
-                                                        {format(dayDate, 'MMM-dd')}
-                                                    </span>
-                                                )}
-                                            </TabsTrigger>
-                                        )
-                                    })}
-                                </TabsList>
-                                <ScrollBar orientation="horizontal" />
-                            </ScrollArea>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => setCurrentWeek(w => Math.max(0, w - 1))}
+                                    disabled={currentWeek === 0}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                                    <TabsList className="w-full justify-start h-auto p-1">
+                                        {daysToShowIndices.map(index => {
+                                            const dayPlan = plan[index];
+                                            const dayDate = planStartDate ? addDays(planStartDate, index) : null;
+                                            const isToday = dayDate && format(dayDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                                            return (
+                                                <TabsTrigger 
+                                                    key={dayPlan.day} 
+                                                    value={`day-${index}`} 
+                                                    className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 flex flex-col h-auto"
+                                                >
+                                                    <span>Day {dayPlan.day}</span>
+                                                    {dayDate && (
+                                                        <span className={`text-xs mt-1 ${isToday ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
+                                                            {format(dayDate, 'MMM-dd')}
+                                                        </span>
+                                                    )}
+                                                </TabsTrigger>
+                                            )
+                                        })}
+                                    </TabsList>
+                                    <ScrollBar orientation="horizontal" />
+                                </ScrollArea>
+                                 <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => setCurrentWeek(w => Math.min(numWeeks - 1, w + 1))}
+                                    disabled={currentWeek >= numWeeks - 1}
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
                             <TabsContent value={`day-${currentDayIndex}`} className="mt-0 flex-1 w-full max-w-full">
                                 <ScrollArea className="h-full w-full">
                                     {adjustmentAdvice && (<Alert className="mb-4 bg-blue-50 border-blue-200"><Info className="h-4 w-4 text-blue-600" /><AlertTitle className="text-blue-800 font-semibold">Aziaf's Advice</AlertTitle><AlertDescription className="text-blue-700">{adjustmentAdvice}</AlertDescription></Alert>)}
