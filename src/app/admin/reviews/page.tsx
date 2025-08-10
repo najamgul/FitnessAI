@@ -67,7 +67,7 @@ Please use the following user details and the provided knowledge base context.
 {{{knowledgeContext}}}
 
 ### Instructions
-Generate a personalized diet plan for **${onboardingData.planDuration} days**.
+Generate a personalized diet plan for **3 days**.
 
 The output must be an array of day plan objects. Each object must represent a single day and contain:
 1.  **day**: The day number.
@@ -75,9 +75,10 @@ The output must be an array of day plan objects. Each object must represent a si
 
 For each of the seven meal slots, provide:
 1.  **meal**: The name of the meal.
-2.  **hint**: A 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
-3.  **calories**: The approximate calorie count for the meal.
-4.  **description**: A brief 1-2 sentence description of the meal's benefits.
+2.  **quantity**: Detailed quantities for ALL ingredients in specific units (e.g., '150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil').
+3.  **hint**: A 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
+4.  **calories**: The approximate calorie count for the meal.
+5.  **description**: A brief 1-2 sentence description of the meal's benefits.
 
 **Crucially**, if a fasting preference is specified (e.g., Intermittent Fasting), you must still provide all seven meal slots, but adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
 `;
@@ -91,7 +92,7 @@ export default function AdminReviewsPage() {
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
     const [approvingFor, setApprovingFor] = useState<string | null>(null);
     const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: DietPlanDay[] }>({});
-    const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal | 'imageUrl' } | null>(null);
+    const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal | 'imageUrl' | 'quantity' } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
     const [customPrompts, setCustomPrompts] = useState<{ [reviewId: string]: string }>({});
     const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<{ [reviewId: string]: 'kashmir' | 'general' }>({});
@@ -247,7 +248,7 @@ export default function AdminReviewsPage() {
                 healthInformation: `Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}`,
                 goals: `Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}`,
                 geographicLocation: onboardingData.geographicLocation,
-                planDuration: parseInt(onboardingData.planDuration, 10),
+                planDuration: 3, // Hardcoded to 3 days
                 fastingPreference: onboardingData.fastingPreference,
                 customPrompt: prompt,
                 knowledgeBaseId: knowledgeBaseId
@@ -283,7 +284,7 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', currentValue: string | number | undefined) => {
+    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl' | 'quantity', currentValue: string | number | undefined) => {
         setEditingCell({ reviewId, dayIndex, mealTime, field });
         setTempValue(currentValue || '');
     };
@@ -297,7 +298,10 @@ export default function AdminReviewsPage() {
             const newDayPlan = [...newPlans[reviewId]];
             const valueToSave = field === 'calories' ? Number(tempValue) : tempValue;
             
-            (newDayPlan[dayIndex].meals[mealTime] as any)[field] = valueToSave;
+            const mealToUpdate = newDayPlan[dayIndex].meals[mealTime];
+            if (mealToUpdate) {
+                (mealToUpdate as any)[field] = valueToSave;
+            }
 
             newPlans[reviewId] = newDayPlan;
             return newPlans;
@@ -343,7 +347,7 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', value: string | number | undefined) => {
+    const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl' | 'quantity', value: string | number | undefined) => {
         const isEditing = editingCell?.reviewId === reviewId && editingCell?.dayIndex === dayIndex && editingCell?.mealTime === mealTime && editingCell?.field === field;
         const isTextArea = field === 'description' || field === 'meal' || field ==='quantity';
         const isNumber = field === 'calories';
@@ -573,3 +577,5 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
+
+    
