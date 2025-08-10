@@ -22,7 +22,7 @@ type GetPexelsImageOutput = {
 export async function getPexelsImage(input: GetPexelsImageInput): Promise<GetPexelsImageOutput> {
     const apiKey = process.env.PEXELS_API_KEY;
 
-    if (!apiKey) {
+    if (!apiKey || apiKey === "YOUR_PEXELS_API_KEY") {
         console.warn('Pexels API key is not set. Using placeholder images.');
         // Return a placeholder if the key is missing
         return { imageUrl: `https://placehold.co/300x200.png` };
