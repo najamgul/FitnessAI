@@ -46,27 +46,39 @@ type DietPlanDay = {
 const constructDefaultPrompt = (onboardingData: any) => {
     if (!onboardingData) return '';
     
-    return `You are a master nutritionist. Your goal is to create a personalized, culturally relevant diet plan based on the user's information and the provided knowledge base context.
+    // Construct a detailed prompt string from the onboarding data
+    const healthGoalsString = onboardingData.healthGoals?.length > 0 ? onboardingData.healthGoals.join(', ') : 'No specific conditions listed.';
+    const preferences = `Primary health conditions or goals: ${healthGoalsString}. Other notes: ${onboardingData.otherGoal || 'None'}`;
+    const healthInfo = `Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity Level: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}`;
+    const goals = `Primary Action: ${onboardingData.goalAction}. Target weight: ${onboardingData.goalWeightKg ? onboardingData.goalWeightKg + 'kg' : 'N/A'}.`;
+    
+    return `You are a master nutritionist creating a personalized diet plan.
+Please use the following user details and the provided knowledge base context.
 
-User Details:
-- Health Information: Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}
-- Dietary Preferences & Tastes: ${onboardingData.healthGoals?.join(', ')}. ${onboardingData.otherGoal}
-- Primary Goal: Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}
-- Fasting Preference: ${onboardingData.fastingPreference}
+### User Details
+- **Health Information:** ${healthInfo}
+- **Dietary Preferences & Tastes:** ${preferences}
+- **Primary Goal:** ${goals}
+- **Geographic Location:** ${onboardingData.geographicLocation}
+- **Fasting Preference:** ${onboardingData.fastingPreference || 'Not specified'}
 
-Knowledge Base Context:
+### Knowledge Base Context
 {{{knowledgeContext}}}
 
-Based on all the information above, generate a personalized diet plan for ${onboardingData.planDuration} days.
-The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object with exactly seven meal slots: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
-For each meal, provide:
-1.  'meal': The name of the meal.
-2.  'hint': A 2-3 word hint for an image search.
-3.  'calories': The approximate calorie count.
-4.  'description': A brief 1-2 sentence description of the meal's benefits.
-5.  'imageUrl': The URL of a relevant image for the meal (fetched from Pexels).
+### Instructions
+Generate a personalized diet plan for **${onboardingData.planDuration} days**.
 
-If fasting is requested (e.g., Intermittent Fasting), adjust the meal content accordingly (e.g., 'Breakfast' can be 'Water/Green Tea' with 0 calories), but still include all seven meal slots.
+The output must be an array of day plan objects. Each object must represent a single day and contain:
+1.  **day**: The day number.
+2.  **meals**: An object with exactly seven meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", and "Before Bed".
+
+For each of the seven meal slots, provide:
+1.  **meal**: The name of the meal.
+2.  **hint**: A 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
+3.  **calories**: The approximate calorie count for the meal.
+4.  **description**: A brief 1-2 sentence description of the meal's benefits.
+
+**Crucially**, if a fasting preference is specified (e.g., Intermittent Fasting), you must still provide all seven meal slots, but adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
 `;
 };
 
@@ -85,6 +97,7 @@ export default function AdminReviewsPage() {
 
     const fetchReviewQueue = useCallback(() => {
         setIsLoading(true);
+        // Admin role check will happen in the useEffect hook that calls this.
         const q = query(collection(db, 'reviews'), where('status', 'in', ['pending_generation', 'pending_approval']));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -227,7 +240,7 @@ export default function AdminReviewsPage() {
             }
 
             const input: GenerateDietPlanInput = {
-                dietaryPreferences: onboardingData.healthGoals.join(', ') + '. ' + onboardingData.otherGoal,
+                dietaryPreferences: onboardingData.healthGoals?.join(', ') + '. ' + onboardingData.otherGoal,
                 healthInformation: `Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}`,
                 goals: `Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}`,
                 geographicLocation: onboardingData.geographicLocation,
@@ -236,21 +249,32 @@ export default function AdminReviewsPage() {
                 customPrompt: prompt,
                 knowledgeBaseId: knowledgeBaseId
             };
+
             const result = await generateDietPlan(input);
             
-            const reviewDocRef = doc(db, 'reviews', task.id);
-            await updateDoc(reviewDocRef, {
-                generatedPlan: result,
-                status: 'pending_approval'
+            if (result && result.dietPlan) {
+                const reviewDocRef = doc(db, 'reviews', task.id);
+                await updateDoc(reviewDocRef, {
+                    generatedPlan: result,
+                    status: 'pending_approval'
+                });
+
+                setEditablePlans(prev => ({...prev, [task.id]: result.dietPlan}));
+                
+                toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
+            } else {
+                // This case handles if the flow returns something unexpected but not an error
+                throw new Error("Received an invalid response from the AI flow.");
+            }
+
+        } catch (error) {
+            console.error("Plan Generation Error:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during plan generation.";
+            toast({ 
+                title: 'Generation Failed', 
+                description: errorMessage, 
+                variant: 'destructive' 
             });
-
-            // This direct state update will make the UI refresh instantly
-            setEditablePlans(prev => ({...prev, [task.id]: result.dietPlan}));
-            
-            toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
-
-        } catch (error: any) {
-            toast({ title: 'Generation Failed', description: error.message || 'Could not generate diet plan.', variant: 'destructive' });
         } finally {
             setGeneratingFor(null);
         }
@@ -462,7 +486,7 @@ export default function AdminReviewsPage() {
                                             {editablePlans[task.id] && (
                                                 <div className="space-y-4 mt-6">
                                                      <h4 className="font-semibold">Review & Edit Plan</h4>
-                                                     <ScrollArea className="w-full border rounded-lg">
+                                                     <ScrollArea className="w-full border rounded-lg bg-background">
                                                         <Table>
                                                             <TableHeader>
                                                                 <TableRow>
@@ -541,3 +565,5 @@ export default function AdminReviewsPage() {
     );
 }
 
+
+    
