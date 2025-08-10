@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -38,17 +39,16 @@ export default function ChatWithAzaiPage() {
             const loggedInEmail = localStorage.getItem('loggedInEmail');
             if (loggedInEmail === 'care@aziaf.com') {
                 setIsAdmin(true);
-                // Default admin to Kashmir, but allow changing
-                setKnowledgeBase('kashmir');
-            } else {
-                const onboardingDataString = localStorage.getItem('onboardingData');
-                if (onboardingDataString) {
-                    const onboardingData = JSON.parse(onboardingDataString);
-                    if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
-                        setKnowledgeBase('kashmir');
-                    } else {
-                        setKnowledgeBase('general');
-                    }
+            }
+            
+            // Set default knowledge base based on user's location from onboarding
+            const onboardingDataString = localStorage.getItem('onboardingData');
+            if (onboardingDataString) {
+                const onboardingData = JSON.parse(onboardingDataString);
+                if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
+                    setKnowledgeBase('kashmir');
+                } else {
+                    setKnowledgeBase('general');
                 }
             }
         } catch (error) {
@@ -180,3 +180,4 @@ export default function ChatWithAzaiPage() {
         </div>
     );
 }
+

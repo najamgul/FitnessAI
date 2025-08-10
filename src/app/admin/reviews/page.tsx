@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw, BookOpen } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,8 @@ import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import NextImage from 'next/image';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type ReviewTask = {
     id: string; // review document ID
@@ -42,9 +44,8 @@ type DietPlanDay = {
 
 const constructDefaultPrompt = (onboardingData: any) => {
     if (!onboardingData) return '';
-    return `You are a master nutritionist specializing in creating personalized diet plans.
-
-Based on the user's detailed information, generate a personalized diet plan for ${onboardingData.planDuration} days.
+    
+    return `You are a master nutritionist. Your goal is to create a personalized, culturally relevant diet plan based on the user's information and the provided knowledge base context.
 
 User Details:
 - Health Information: Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}
@@ -52,7 +53,18 @@ User Details:
 - Primary Goal: Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}
 - Fasting Preference: ${onboardingData.fastingPreference}
 
-Create a balanced, delicious, and culturally relevant plan. For each meal, provide the meal name, a 2-3 word hint for an image search, the approximate calorie count, and a brief 1-2 sentence description. Ensure the final response for the 'dietPlan' field is only the JSON array and nothing else.
+Knowledge Base Context:
+{{{knowledgeContext}}}
+
+Based on all the information above, generate a personalized diet plan for ${onboardingData.planDuration} days.
+The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object with exactly seven meal slots: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed.
+For each meal, provide:
+1.  'meal': The name of the meal.
+2.  'hint': A 2-3 word hint for an image search.
+3.  'calories': The approximate calorie count.
+4.  'description': A brief 1-2 sentence description of the meal's benefits.
+
+If fasting is requested (e.g., Intermittent Fasting), adjust the meal content accordingly (e.g., 'Breakfast' can be 'Water/Green Tea' with 0 calories), but still include all seven meal slots.
 `;
 };
 
@@ -67,21 +79,21 @@ export default function AdminReviewsPage() {
     const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal | 'imageUrl' } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
     const [customPrompts, setCustomPrompts] = useState<{ [reviewId: string]: string }>({});
+    const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<{ [reviewId: string]: 'kashmir' | 'general' }>({});
 
     const fetchReviewQueue = useCallback(() => {
         setIsLoading(true);
         const q = query(collection(db, 'reviews'), where('status', 'in', ['pending_generation', 'pending_approval']));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const newCustomPrompts = {...customPrompts};
             const queue: ReviewTask[] = [];
-            const newEditablePlans = {...editablePlans};
 
-            const planPromises = snapshot.docs.map(async (reviewDoc) => {
+            for (const reviewDoc of snapshot.docs) {
                 const reviewData = reviewDoc.data();
                 
                 const onboardingDocRef = doc(db, 'users', reviewData.userId, 'onboarding', 'profile');
                 const onboardingDoc = await getDoc(onboardingDocRef);
+                const onboardingData = onboardingDoc.exists() ? onboardingDoc.data() : {};
 
                 const task: ReviewTask = {
                     id: reviewDoc.id,
@@ -89,42 +101,32 @@ export default function AdminReviewsPage() {
                     userName: reviewData.userName,
                     userEmail: reviewData.userEmail,
                     assignedTo: reviewData.assignedTo,
-                    onboardingData: onboardingDoc.exists() ? onboardingDoc.data() : {},
+                    onboardingData: onboardingData,
                     generatedPlan: reviewData.generatedPlan || undefined,
                 };
-                
-                if (task.generatedPlan && !newEditablePlans[task.id]) {
-                     newEditablePlans[task.id] = task.generatedPlan.dietPlan;
-                }
-                if (task.onboardingData && !newCustomPrompts[task.id]) {
-                    newCustomPrompts[task.id] = constructDefaultPrompt(task.onboardingData);
-                }
-                return task;
-            });
-            
-            const resolvedQueue = await Promise.all(planPromises);
-            
-            setEditablePlans(prev => {
-                const updatedPlans = {...prev};
-                resolvedQueue.forEach(task => {
-                    if(task.generatedPlan && !updatedPlans[task.id]) {
-                        updatedPlans[task.id] = task.generatedPlan.dietPlan;
-                    }
+
+                // Set initial knowledge base based on location
+                setKnowledgeBaseIds(prev => {
+                    if (prev[task.id]) return prev;
+                    const isKashmir = onboardingData.geographicLocation?.toLowerCase().includes('kashmir');
+                    return {...prev, [task.id]: isKashmir ? 'kashmir' : 'general' };
                 });
-                return updatedPlans;
-            });
+                
+                // Set editable plan if it exists
+                if (task.generatedPlan) {
+                     setEditablePlans(prev => ({...prev, [task.id]: task.generatedPlan!.dietPlan}));
+                }
+                
+                // Set default prompt
+                setCustomPrompts(prev => {
+                     if (prev[task.id]) return prev;
+                     return {...prev, [task.id]: constructDefaultPrompt(onboardingData)};
+                });
 
-            setCustomPrompts(prev => {
-                const updatedPrompts = {...prev};
-                resolvedQueue.forEach(task => {
-                    if(task.onboardingData && !updatedPrompts[task.id]) {
-                        updatedPrompts[task.id] = constructDefaultPrompt(task.onboardingData);
-                    }
-                })
-                return updatedPrompts;
-            });
-
-            setReviewQueue(resolvedQueue);
+                queue.push(task);
+            }
+            
+            setReviewQueue(queue);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching review queue: ", error);
@@ -162,11 +164,18 @@ export default function AdminReviewsPage() {
         });
     };
 
-    const handleGeneratePlan = async (task: ReviewTask, customPrompt?: string) => {
+    const handleGeneratePlan = async (task: ReviewTask) => {
         setGeneratingFor(task.id);
         try {
             const { onboardingData } = task;
             if (!onboardingData) throw new Error("Onboarding data not found.");
+
+            const prompt = customPrompts[task.id];
+            const knowledgeBaseId = knowledgeBaseIds[task.id];
+
+            if (!prompt || !knowledgeBaseId) {
+                 throw new Error("Prompt or knowledge base not selected.");
+            }
 
             const input: GenerateDietPlanInput = {
                 dietaryPreferences: onboardingData.healthGoals.join(', ') + '. ' + onboardingData.otherGoal,
@@ -175,7 +184,8 @@ export default function AdminReviewsPage() {
                 geographicLocation: onboardingData.geographicLocation,
                 planDuration: parseInt(onboardingData.planDuration, 10),
                 fastingPreference: onboardingData.fastingPreference,
-                ...(customPrompt && { customPrompt }),
+                customPrompt: prompt,
+                knowledgeBaseId: knowledgeBaseId
             };
             const result = await generateDietPlan(input);
             
@@ -363,16 +373,44 @@ export default function AdminReviewsPage() {
                                         
                                         {/* Diet Plan Table or Generate Button */}
                                         <div className="flex-1">
-                                            <h4 className="font-semibold mb-2">Diet Plan</h4>
-                                            {!editablePlans[task.id] ? (
-                                                <div className="h-full flex items-center justify-center bg-background rounded-md p-8">
-                                                    <Button onClick={() => handleGeneratePlan(task)} disabled={generatingFor === task.id} size="lg">
-                                                        {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                                        Generate Plan
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-4">
+                                            <h4 className="font-semibold mb-2">Generation Controls</h4>
+                                            <div className='space-y-4 p-4 border rounded-lg bg-background'>
+                                                 <div>
+                                                     <Label htmlFor={`prompt-${task.id}`} className='font-semibold'>Generation Prompt</Label>
+                                                     <Textarea 
+                                                        id={`prompt-${task.id}`}
+                                                        placeholder="The prompt to generate the plan will appear here..."
+                                                        value={customPrompts[task.id] || ''}
+                                                        onChange={(e) => setCustomPrompts(prev => ({...prev, [task.id]: e.target.value}))}
+                                                        className="min-h-[200px] mt-1"
+                                                     />
+                                                 </div>
+                                                 <div className="flex items-end gap-4">
+                                                    <div className="flex-1">
+                                                        <Label htmlFor={`kb-${task.id}`} className="font-semibold flex items-center gap-1.5"><BookOpen size={14}/> Knowledge Base</Label>
+                                                        <Select 
+                                                            value={knowledgeBaseIds[task.id] || 'general'} 
+                                                            onValueChange={(v) => setKnowledgeBaseIds(prev => ({...prev, [task.id]: v as 'kashmir' | 'general'}))}
+                                                        >
+                                                            <SelectTrigger id={`kb-${task.id}`} className="mt-1">
+                                                                <SelectValue placeholder="Select KB" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="kashmir">Kashmir</SelectItem>
+                                                                <SelectItem value="general">General</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                     <Button onClick={() => handleGeneratePlan(task)} disabled={generatingFor === task.id || !customPrompts[task.id]}>
+                                                         {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                                         {editablePlans[task.id] ? 'Regenerate' : 'Generate Plan'}
+                                                     </Button>
+                                                 </div>
+                                            </div>
+
+                                            {editablePlans[task.id] && (
+                                                <div className="space-y-4 mt-6">
+                                                     <h4 className="font-semibold">Review & Edit Plan</h4>
                                                      <ScrollArea className="w-full border rounded-lg">
                                                         <Table>
                                                             <TableHeader>
@@ -423,20 +461,6 @@ export default function AdminReviewsPage() {
                                                         <ScrollBar orientation="horizontal" />
                                                     </ScrollArea>
                                                     
-                                                    <div className='space-y-2 p-4 border rounded-lg bg-background'>
-                                                        <h5 className='font-semibold'>Regenerate with Custom Prompt</h5>
-                                                        <Textarea 
-                                                           placeholder="Optional: Enter a new prompt to regenerate the plan. For example: 'Create a 7-day vegetarian plan with a focus on high protein and low carbs...'"
-                                                           value={customPrompts[task.id] || ''}
-                                                           onChange={(e) => setCustomPrompts(prev => ({...prev, [task.id]: e.target.value}))}
-                                                           className="min-h-[120px]"
-                                                        />
-                                                        <Button onClick={() => handleGeneratePlan(task, customPrompts[task.id])} disabled={generatingFor === task.id || !customPrompts[task.id]}>
-                                                            {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-                                                            Regenerate
-                                                        </Button>
-                                                    </div>
-
                                                     <Button onClick={() => handleApprovePlan(task)} disabled={approvingFor === task.id} className="w-full">
                                                         {approvingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                                                         Approve & Finalize Plan
@@ -460,3 +484,4 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
+

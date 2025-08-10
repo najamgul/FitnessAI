@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -7,7 +8,8 @@
  * - GenerateDietPlanInput - The input type for the generateDietPlan function.
  * - GenerateDietPlanOutput - The return type for the generateDietPlan function.
  */
-
+import {promises as fs} from 'fs';
+import path from 'path';
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { getPexelsImage } from './get-pexels-image';
@@ -22,6 +24,7 @@ const GenerateDietPlanInputSchema = z.object({
   planDuration: z.number().describe('The number of days the diet plan should cover.'),
   fastingPreference: z.string().optional().describe('The user\'s preference for fasting, e.g., "No Fasting", "Intermittent Fasting".'),
   customPrompt: z.string().optional().describe('An optional custom prompt to override the default generation logic.'),
+  knowledgeBaseId: z.enum(['kashmir', 'general']).optional().describe('The identifier for the knowledge base to use for context.'),
 });
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
@@ -53,13 +56,30 @@ const GenerateDietPlanOutputSchema = z.object({
 });
 export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema>;
 
-export async function generateDietPlan(input: GenerateDietPlanInput): Promise<GenerateDietPlanOutput> {
-  return generateDietPlanFlow(input);
+async function getKnowledgeContext(knowledgeBaseId?: 'kashmir' | 'general'): Promise<string> {
+  if (!knowledgeBaseId) return 'No specific knowledge base provided.';
+  
+  const fileName = knowledgeBaseId === 'kashmir' ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
+  try {
+    const knowledgeBase = await fs.readFile(
+      path.join(process.cwd(), 'src', 'ai', fileName),
+      'utf-8'
+    );
+    return knowledgeBase;
+  } catch (error) {
+    console.error(`Could not read knowledge base (${fileName}):`, error);
+    return 'Could not load knowledge base content.';
+  }
 }
 
-const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of Kashmiri cuisine.
+export async function generateDietPlan(input: GenerateDietPlanInput): Promise<GenerateDietPlanOutput> {
+  const knowledgeContext = await getKnowledgeContext(input.knowledgeBaseId);
+  return generateDietPlanFlow({...input, knowledgeContext});
+}
 
-  Based on the user's detailed information, generate a personalized diet plan for {{{planDuration}}} days. The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object.
+const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
+
+  Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for {{{planDuration}}} days. The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object.
   
   Crucially, you must adapt the meal timings and structure based on the user's fasting preference.
   - If Intermittent Fasting is chosen, structure the meals within an 8-hour eating window (e.g., 12 PM to 8 PM). This means some meals like 'Breakfast' or 'Morning Snack' might be combined, shifted, or removed. Adjust the plan accordingly.
@@ -76,12 +96,18 @@ const defaultPromptTemplate = `You are a master nutritionist specializing in cre
   - Geographic Location: {{{geographicLocation}}}
   - Fasting Preference: {{{fastingPreference}}}
 
+  Knowledge Base Context:
+  {{{knowledgeContext}}}
+
   Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the final response for the 'dietPlan' field is only the JSON array and nothing else.
   `;
 
 const prompt = ai.definePrompt({
   name: 'generateDietPlanPrompt',
-  input: {schema: GenerateDietPlanInputSchema},
+  input: {schema: z.object({
+      ...GenerateDietPlanInputSchema.shape,
+      knowledgeContext: z.string(),
+  })},
   output: {schema: GenerateDietPlanOutputSchema},
   prompt: `{{#if customPrompt}}{{{customPrompt}}}{{else}}${defaultPromptTemplate}{{/if}}`
 });
@@ -89,7 +115,10 @@ const prompt = ai.definePrompt({
 const generateDietPlanFlow = ai.defineFlow(
   {
     name: 'generateDietPlanFlow',
-    inputSchema: GenerateDietPlanInputSchema,
+    inputSchema: z.object({
+      ...GenerateDietPlanInputSchema.shape,
+      knowledgeContext: z.string(),
+    }),
     outputSchema: GenerateDietPlanOutputSchema,
   },
   async input => {
