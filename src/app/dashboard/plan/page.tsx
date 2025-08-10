@@ -169,59 +169,58 @@ const SmartDietPlanner = () => {
     };
 
     const handleSkipMeal = async (dayIndex: number, mealIndex: number) => {
-        const skippedMeal = plan[dayIndex].meals[mealIndex];
-        // Prevent skipping if already completed or skipped
-        if (skippedMeal.completed || skippedMeal.skipped) return;
+        const planToUpdate = JSON.parse(JSON.stringify(plan));
+        const dayPlan = planToUpdate[dayIndex];
+        const mealToSkip = dayPlan.meals[mealIndex];
+
+        if (mealToSkip.completed || mealToSkip.skipped) return;
 
         setIsAdjusting(mealIndex);
         setAdjustmentAdvice(null);
+        
+        mealToSkip.skipped = true;
+        mealToSkip.completed = false;
+        saveProgress(dayIndex, mealToSkip.mealTime, { completed: false, skipped: true });
+        setPlan(planToUpdate);
 
         try {
-             // First, mark the meal as skipped locally
-            setPlan(prevPlan => {
-                const newPlan = JSON.parse(JSON.stringify(prevPlan));
-                const meal = newPlan[dayIndex].meals[mealIndex];
-                meal.skipped = true;
-                meal.completed = false;
-                saveProgress(dayIndex, meal.mealTime, { completed: false, skipped: true });
-                return newPlan;
-            });
-
-            const remainingMeals = plan[dayIndex].meals.slice(mealIndex + 1);
+            const remainingMeals = dayPlan.meals.slice(mealIndex + 1);
+            if(remainingMeals.length === 0) {
+                 setAdjustmentAdvice("You've missed your last meal. Just focus on starting fresh tomorrow!");
+                 setIsAdjusting(null);
+                 return;
+            }
 
             const response = await getMissedMealAdvice({
-                missedMeal: skippedMeal,
+                missedMeal: mealToSkip,
                 remainingMeals: remainingMeals,
                 userGoals: userGoals,
             });
 
             setAdjustmentAdvice(response.advice);
 
-            // Update the rest of the day's plan with adjustments
-            setPlan(prevPlan => {
-                const newPlan = JSON.parse(JSON.stringify(prevPlan));
-                response.adjustedMeals.forEach(adjustedMeal => {
-                    const mealToUpdate = newPlan[dayIndex].meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
-                    if (mealToUpdate) {
-                        mealToUpdate.quantity = adjustedMeal.quantity;
-                        mealToUpdate.calories = adjustedMeal.calories;
-                        mealToUpdate.description += ` (Adjusted for skipped ${skippedMeal.mealTime})`;
-                    }
-                });
-                return newPlan;
+            // Create a new version of the plan to update state correctly
+            const finalPlanState = JSON.parse(JSON.stringify(planToUpdate));
+            response.adjustedMeals.forEach(adjustedMeal => {
+                const mealToUpdate = finalPlanState[dayIndex].meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
+                if (mealToUpdate) {
+                    mealToUpdate.quantity = adjustedMeal.quantity;
+                    mealToUpdate.calories = adjustedMeal.calories;
+                    mealToUpdate.description = `${mealToUpdate.description.split(' (Adjusted for')[0]} (Adjusted for skipped ${mealToSkip.mealTime})`;
+                }
             });
+            setPlan(finalPlanState);
 
-             toast({ title: "Plan Adjusted", description: "Your remaining meals for today have been updated." });
+            toast({ title: "Plan Adjusted", description: "Your remaining meals for today have been updated." });
 
         } catch (error) {
             console.error("Failed to adjust plan:", error);
             toast({ title: "Adjustment Failed", description: "Could not get updated advice from AI.", variant: "destructive" });
-            // Revert optimistic update
-             setPlan(prevPlan => {
-                const newPlan = JSON.parse(JSON.stringify(prevPlan));
-                newPlan[dayIndex].meals[mealIndex].skipped = false;
-                return newPlan;
-            });
+            
+            // Revert optimistic update on failure
+            const revertedPlan = JSON.parse(JSON.stringify(plan));
+            revertedPlan[dayIndex].meals[mealIndex].skipped = false;
+            setPlan(revertedPlan);
         } finally {
             setIsAdjusting(null);
         }
