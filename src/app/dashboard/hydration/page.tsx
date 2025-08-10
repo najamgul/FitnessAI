@@ -67,8 +67,8 @@ export default function HydrationPage() {
     const handleGenerateSchedule = async (intakeGoal: number, startTime: string) => {
         if (intakeGoal <= 0) return;
         
-        setIsLoadingSchedule(true);
         if(!isRecalculating) {
+            setIsLoadingSchedule(true);
             setSchedule([]);
             setExplanation('');
         }
@@ -100,7 +100,9 @@ export default function HydrationPage() {
 
 
     useEffect(() => {
-        handleGenerateSchedule(parseFloat(goal), wakeUp);
+        if (goal) {
+            handleGenerateSchedule(parseFloat(goal), wakeUp);
+        }
     }, [goal]);
     
     const handleCheckboxChange = (index: number) => {
@@ -175,7 +177,7 @@ export default function HydrationPage() {
                                  <Button variant="outline" onClick={handleRecalculate} disabled={isRecalculating}>
                                     {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
                                     Recalculate Schedule
-                                </Button>
+                                 </Button>
                             </CardContent>
                         </Card>
                     )}
@@ -188,10 +190,10 @@ export default function HydrationPage() {
                             {explanation && <CardDescription>{explanation}</CardDescription>}
                         </CardHeader>
                         <CardContent>
-                            {isLoadingSchedule && (
+                            {isLoadingSchedule && !isRecalculating && (
                                 <div className="flex flex-col items-center justify-center text-center p-12">
                                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                                    <p className="font-semibold">{isRecalculating ? 'Recalculating your new plan...' : 'Generating your plan...'}</p>
+                                    <p className="font-semibold">Generating your plan...</p>
                                     <p className="text-sm text-muted-foreground">The AI is creating a schedule just for you.</p>
                                 </div>
                             )}
@@ -213,10 +215,10 @@ export default function HydrationPage() {
                                                     onCheckedChange={() => handleCheckboxChange(index)}
                                                     className="mr-4 h-5 w-5"
                                                 />
-                                                <Label htmlFor={`item-${index}`} className={`cursor-pointer ${entry.completed ? 'line-through text-muted-foreground' : ''}`}>
-                                                    <div className="font-bold text-lg">{entry.time}</div>
-                                                    <div className="text-sm">{entry.amount} ml of water</div>
-                                                </Label>
+                                                <div className={`cursor-pointer ${entry.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                                    <Label htmlFor={`item-${index}`} className="font-bold text-lg cursor-pointer">{entry.time}</Label>
+                                                    <p className="text-sm">{entry.amount} ml of water</p>
+                                                </div>
                                             </div>
                                             {entry.completed && <CheckCircle2 className="h-6 w-6 text-primary" />}
                                         </li>
