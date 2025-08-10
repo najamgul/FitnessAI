@@ -22,10 +22,11 @@ import {
   LineChart,
   MessageSquare,
   LogOut,
-  Leaf,
   Users,
   BookText,
   Droplets,
+  ClipboardCheck,
+  UserPlus,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -45,6 +46,8 @@ const allNavItems = [
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
   { href: '/dashboard/ask', label: 'Chat with Aziaf', icon: MessageSquare, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
+  { href: '/admin/reviews', label: 'Plan Reviews', icon: ClipboardCheck, admin: true },
+  { href: '/admin/team', label: 'Team Members', icon: UserPlus, admin: true },
   { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
 ];
 

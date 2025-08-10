@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type User = {
     id: number;
@@ -17,36 +18,55 @@ type User = {
     screenshotUrl: string;
     status: 'Pending' | 'Approved';
     days?: number;
+    assignedTo?: string;
+};
+
+type TeamMember = {
+    id: string;
+    name: string;
+    email: string;
 };
 
 export default function AdminUsersPage() {
     const { toast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [accessDays, setAccessDays] = useState<{ [key: number]: string }>({});
+    const [assignments, setAssignments] = useState<{ [key: number]: string }>({});
 
     useEffect(() => {
-        // In a real app, this would be an API call.
         const storedUsersString = localStorage.getItem('userSubmissions');
         const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : [];
         setUsers(storedUsers);
+
+        const storedTeamMembersString = localStorage.getItem('teamMembers');
+        const storedTeamMembers = storedTeamMembersString ? JSON.parse(storedTeamMembersString) : [];
+        setTeamMembers(storedTeamMembers);
     }, []);
 
     const handleApprove = (userId: number, userEmail: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
+        const assignedTo = assignments[userId];
+
         if (isNaN(days) || days <= 0) {
-            toast({
-                title: 'Invalid Input',
-                description: 'Please enter a valid number of days.',
-                variant: 'destructive'
-            });
+            toast({ title: 'Invalid Input', description: 'Please enter a valid number of days.', variant: 'destructive' });
+            return;
+        }
+        if (!assignedTo) {
+            toast({ title: 'Assignment Required', description: 'Please assign a team member.', variant: 'destructive' });
             return;
         }
 
-        setUsers(prevUsers => prevUsers.map(user =>
-            user.id === userId ? { ...user, status: 'Approved', days } : user
-        ));
-
+        const updatedUsers = users.map(user =>
+            user.id === userId ? { ...user, status: 'Approved', days, assignedTo } : user
+        );
+        setUsers(updatedUsers);
+        
         try {
+            // Update master list of submissions
+            localStorage.setItem('userSubmissions', JSON.stringify(updatedUsers));
+
+            // Add to approved list for login access
             const approvedUsersString = localStorage.getItem('approvedUsers');
             const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
             
@@ -55,14 +75,17 @@ export default function AdminUsersPage() {
 
             approvedUsers[userEmail] = { 
                 approved: true, 
-                expiry: expiryDate.toISOString() 
+                expiry: expiryDate.toISOString(),
+                planStatus: 'pending_review',
+                assignedTo,
+                dietPlan: null
             };
             
             localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
 
             toast({
-                title: 'User Approved',
-                description: `Access granted to ${userEmail} for ${days} days.`
+                title: 'User Approved & Assigned',
+                description: `${userEmail} assigned to ${assignedTo} for ${days} days.`
             });
         } catch (error) {
              toast({
@@ -77,12 +100,16 @@ export default function AdminUsersPage() {
         setAccessDays(prev => ({ ...prev, [userId]: value }));
     };
 
+    const handleAssignmentChange = (userId: number, value: string) => {
+        setAssignments(prev => ({ ...prev, [userId]: value }));
+    };
+
     return (
         <div className="container mx-auto py-8">
             <Card>
                 <CardHeader>
                     <CardTitle className="text-3xl font-bold font-headline">User Management</CardTitle>
-                    <CardDescription>Review payment submissions and grant access to users.</CardDescription>
+                    <CardDescription>Review payment submissions, assign to team members, and grant access.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <ScrollArea className="w-full whitespace-nowrap">
@@ -112,10 +139,11 @@ export default function AdminUsersPage() {
                                                 <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
                                                     {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
                                                 </Badge>
+                                                {user.assignedTo && <div className="text-xs text-muted-foreground mt-1">Assigned: {user.assignedTo}</div>}
                                             </TableCell>
                                             <TableCell>
-                                                {user.status === 'Pending' && (
-                                                    <div className="flex items-center gap-2">
+                                                {user.status === 'Pending' ? (
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <Input
                                                             type="number"
                                                             placeholder="Days (e.g., 30)"
@@ -123,9 +151,19 @@ export default function AdminUsersPage() {
                                                             value={accessDays[user.id] || ''}
                                                             onChange={(e) => handleDaysChange(user.id, e.target.value)}
                                                         />
-                                                        <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
+                                                        <Select onValueChange={(value) => handleAssignmentChange(user.id, value)}>
+                                                            <SelectTrigger className="w-[180px]">
+                                                                <SelectValue placeholder="Assign to..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {teamMembers.map(member => (
+                                                                    <SelectItem key={member.id} value={member.name}>{member.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve & Assign</Button>
                                                     </div>
-                                                )}
+                                                ) : <span className="text-sm text-muted-foreground">No pending actions.</span>}
                                             </TableCell>
                                         </TableRow>
                                     ))
