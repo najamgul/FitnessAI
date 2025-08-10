@@ -43,6 +43,7 @@ export default function SignupPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
+            const isUserAdmin = email.toLowerCase() === adminEmail;
 
             // Save user data to Firestore
             await setDoc(doc(db, 'users', user.uid), {
@@ -50,16 +51,22 @@ export default function SignupPage() {
                 email,
                 phone,
                 createdAt: serverTimestamp(),
-                role: email.toLowerCase() === adminEmail ? 'admin' : 'user',
+                role: isUserAdmin ? 'admin' : 'user',
                 paymentStatus: 'unpaid', // Initial status
                 planStatus: 'not_started',
             });
 
             toast({
                 title: 'Account Created',
-                description: "Let's get you set up!",
+                description: isUserAdmin ? "Welcome, Admin!" : "Let's get you set up!",
             });
-            router.push('/onboarding');
+            
+            if (isUserAdmin) {
+                router.push('/dashboard');
+            } else {
+                router.push('/onboarding');
+            }
+
         } catch (error: any) {
             let errorMessage = 'An unexpected error occurred.';
             switch (error.code) {
