@@ -12,7 +12,8 @@ import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 type User = {
@@ -42,60 +43,88 @@ export default function AdminUsersPage() {
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchUsersAndPayments = useCallback(async () => {
+    const fetchUsersAndPayments = useCallback(() => {
         setIsLoading(true);
-        // We fetch all documents from the users collection now, not just role=='user'
         const usersQuery = query(collection(db, 'users'));
         const paymentsCollection = collection(db, 'payments');
 
-        try {
-            const usersSnapshot = await getDocs(usersQuery);
-            const userList: User[] = [];
+        const unsubscribe = onSnapshot(usersQuery, async (usersSnapshot) => {
+            try {
+                const userList: User[] = [];
 
-            for (const userDoc of usersSnapshot.docs) {
-                const userData = userDoc.data();
-                let user: User = {
-                    id: userDoc.id,
-                    name: userData.name,
-                    email: userData.email,
-                    paymentStatus: userData.paymentStatus || 'unpaid',
-                    planStatus: userData.planStatus || 'not_started',
-                    assignedTo: userData.assignedTo || '',
-                    role: userData.role || 'user',
-                };
+                for (const userDoc of usersSnapshot.docs) {
+                    const userData = userDoc.data();
+                    let user: User = {
+                        id: userDoc.id,
+                        name: userData.name,
+                        email: userData.email,
+                        paymentStatus: userData.paymentStatus || 'unpaid',
+                        planStatus: userData.planStatus || 'not_started',
+                        assignedTo: userData.assignedTo || '',
+                        role: userData.role || 'user',
+                    };
 
-                if (user.paymentStatus === 'pending') {
-                    const paymentDocRef = doc(paymentsCollection, user.id);
-                    const paymentDoc = await getDoc(paymentDocRef);
-                    if (paymentDoc.exists()) {
-                        user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                    if (user.paymentStatus === 'pending') {
+                        const paymentDocRef = doc(paymentsCollection, user.id);
+                        const paymentDoc = await getDoc(paymentDocRef);
+                        if (paymentDoc.exists()) {
+                            user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                        }
                     }
+                    userList.push(user);
                 }
-                userList.push(user);
-            }
 
-            setUsers(userList);
-        } catch (error) {
-            console.error("Error fetching users and payments:", error);
-            toast({ title: "Error", description: "Could not fetch user data.", variant: "destructive" });
-        } finally {
+                setUsers(userList);
+            } catch (error) {
+                 console.error("Error processing user data:", error);
+                 if (error.code !== 'permission-denied') {
+                    toast({ title: "Error", description: "Could not process user data.", variant: "destructive" });
+                 }
+            } finally {
+                setIsLoading(false);
+            }
+        }, (error) => {
+            console.error("Error fetching users snapshot:", error);
+            if (error.code !== 'permission-denied') {
+                toast({ title: "Error", description: "Could not fetch user data.", variant: "destructive" });
+            }
             setIsLoading(false);
-        }
+        });
+        
+        return unsubscribe;
     }, [toast]);
 
+
     useEffect(() => {
-        const teamUnsubscribe = onSnapshot(collection(db, 'team'), (snapshot) => {
-            setTeamMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember)));
-        });
+        let teamUnsubscribe: (() => void) | undefined;
+        let usersUnsubscribe: (() => void) | undefined;
 
-        const usersUnsubscribe = onSnapshot(query(collection(db, 'users')), (snapshot) => {
-             fetchUsersAndPayments();
+        const authUnsubscribe = onAuthStateChanged(auth, user => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                getDoc(userDocRef).then(userDoc => {
+                    if(userDoc.exists() && userDoc.data().role === 'admin') {
+                        teamUnsubscribe = onSnapshot(collection(db, 'team'), (snapshot) => {
+                            setTeamMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember)));
+                        });
+                        usersUnsubscribe = fetchUsersAndPayments();
+                    } else {
+                        setIsLoading(false);
+                        setUsers([]);
+                        setTeamMembers([]);
+                    }
+                })
+            } else {
+                 setIsLoading(false);
+                 setUsers([]);
+                 setTeamMembers([]);
+            }
         });
-
 
         return () => {
-            teamUnsubscribe();
-            usersUnsubscribe();
+            authUnsubscribe();
+            teamUnsubscribe && teamUnsubscribe();
+            usersUnsubscribe && usersUnsubscribe();
         };
     }, [fetchUsersAndPayments]);
 

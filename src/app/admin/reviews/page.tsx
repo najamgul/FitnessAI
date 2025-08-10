@@ -12,7 +12,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import NextImage from 'next/image';
@@ -63,6 +64,7 @@ For each meal, provide:
 2.  'hint': A 2-3 word hint for an image search.
 3.  'calories': The approximate calorie count.
 4.  'description': A brief 1-2 sentence description of the meal's benefits.
+5.  'imageUrl': The URL of a relevant image for the meal (fetched from Pexels).
 
 If fasting is requested (e.g., Intermittent Fasting), adjust the meal content accordingly (e.g., 'Breakfast' can be 'Water/Green Tea' with 0 calories), but still include all seven meal slots.
 `;
@@ -130,7 +132,10 @@ export default function AdminReviewsPage() {
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching review queue: ", error);
-            toast({ title: "Error", description: "Could not fetch review queue.", variant: "destructive" });
+            // Don't toast on permission errors which are expected before auth is ready
+            if (error.code !== 'permission-denied') {
+                toast({ title: "Error", description: "Could not fetch review queue.", variant: "destructive" });
+            }
             setIsLoading(false);
         });
 
@@ -138,9 +143,34 @@ export default function AdminReviewsPage() {
     }, [toast]);
 
     useEffect(() => {
-        const unsubscribe = fetchReviewQueue();
-        return () => unsubscribe && unsubscribe();
+        let unsubscribe: (() => void) | undefined;
+    
+        const authUnsubscribe = onAuthStateChanged(auth, user => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                getDoc(userDocRef).then(userDoc => {
+                    if(userDoc.exists() && userDoc.data().role === 'admin') {
+                        // Only fetch data if the user is an admin
+                        unsubscribe = fetchReviewQueue();
+                    } else {
+                        // Not an admin or user doc doesn't exist
+                        setIsLoading(false);
+                        setReviewQueue([]); // Clear queue if not admin
+                    }
+                })
+            } else {
+                 // No user logged in
+                 setIsLoading(false);
+                 setReviewQueue([]);
+            }
+        });
+    
+        return () => {
+            authUnsubscribe();
+            unsubscribe && unsubscribe();
+        };
     }, [fetchReviewQueue]);
+
 
     const handleDuplicateDay = (reviewId: string, dayIndex: number) => {
         setEditablePlans(prev => {

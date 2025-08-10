@@ -11,7 +11,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import type { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
 import { collection, query, where, onSnapshot, doc, getDocs, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import NextImage from 'next/image';
@@ -65,7 +66,9 @@ export default function AdminClientsPage() {
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching clients: ", error);
-            toast({ title: "Error", description: "Could not fetch client list.", variant: "destructive" });
+             if (error.code !== 'permission-denied') {
+                toast({ title: "Error", description: "Could not fetch client list.", variant: "destructive" });
+             }
             setIsLoading(false);
         });
 
@@ -89,8 +92,32 @@ export default function AdminClientsPage() {
 
 
     useEffect(() => {
-        const unsubscribe = fetchClients();
-        return () => unsubscribe && unsubscribe();
+        let unsubscribe: (() => void) | undefined;
+    
+        const authUnsubscribe = onAuthStateChanged(auth, user => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                getDoc(userDocRef).then(userDoc => {
+                    if(userDoc.exists() && userDoc.data().role === 'admin') {
+                        // Only fetch data if the user is an admin
+                        unsubscribe = fetchClients();
+                    } else {
+                        // Not an admin or user doc doesn't exist
+                        setIsLoading(false);
+                        setClients([]); // Clear clients if not admin
+                    }
+                })
+            } else {
+                 // No user logged in
+                 setIsLoading(false);
+                 setClients([]);
+            }
+        });
+    
+        return () => {
+            authUnsubscribe();
+            unsubscribe && unsubscribe();
+        };
     }, [fetchClients]);
 
     const handleDuplicateDay = (clientId: string, dayIndex: number) => {
