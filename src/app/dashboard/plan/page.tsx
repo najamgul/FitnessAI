@@ -6,8 +6,7 @@ import {
   Apple, Brain, CheckCircle2, Clock, Download, 
   TrendingUp, Utensils, Zap, AlertTriangle, Target, 
   RefreshCw, ShoppingCart, Star, Moon,
-  Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock, Image as ImageIcon,
-  ChevronLeft, ChevronRight
+  Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock, Image as ImageIcon
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
@@ -202,29 +201,15 @@ const SmartDietPlanner = () => {
 
                 <div className="p-4 md:p-6">
                     <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full">
-                        <Carousel
-                            opts={{
-                                align: "start",
-                                slidesToScroll: 1,
-                                dragFree: true,
-                            }}
-                            className="w-full"
-                        >
-                            <CarouselContent className="-ml-1">
-                                <TabsList className="relative z-0 h-auto p-1 bg-transparent justify-start">
-                                    {plan.map((dayPlan) => (
-                                        <CarouselItem key={dayPlan.day} className="pl-1 basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-[12.5%]">
-                                            <TabsTrigger value={`day-${dayPlan.day}`} className="w-full">
-                                                Day {dayPlan.day}
-                                            </TabsTrigger>
-                                        </CarouselItem>
-                                    ))}
-                                </TabsList>
-                            </CarouselContent>
-                            <CarouselPrevious className="absolute -left-2 top-1/2 -translate-y-1/2 z-10" />
-                            <CarouselNext className="absolute -right-2 top-1/2 -translate-y-1/2 z-10" />
-                        </Carousel>
-
+                         <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                            <TabsList className="relative z-10 bg-background/80 backdrop-blur-sm">
+                                {plan.map((dayPlan) => (
+                                    <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`}>
+                                        Day {dayPlan.day}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </ScrollArea>
                         {plan.map((dayData, dayIndex) => (
                             <TabsContent key={dayIndex} value={`day-${dayData.day}`} className="space-y-4 mt-4">
                                 {dayData.meals.map((meal, mealIndex) => (
@@ -275,5 +260,3 @@ const SmartDietPlanner = () => {
 };
 
 export default SmartDietPlanner;
-
-    
