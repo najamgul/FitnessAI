@@ -14,9 +14,11 @@ import {z} from 'genkit';
 
 const MealSchema = z.object({
     meal: z.string(),
+    quantity: z.string(),
     hint: z.string(),
     calories: z.number(),
     description: z.string(),
+    imageUrl: z.string().optional(),
 });
 
 const MealsSchema = z.object({
