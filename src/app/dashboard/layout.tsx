@@ -118,7 +118,7 @@ export default function DashboardLayout({
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true)} tooltip={item.label}>
                     <div>
                       <item.icon />
                       <span>{item.label}</span>
@@ -154,7 +154,7 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm lg:hidden">
           <SidebarTrigger className="lg:hidden" />
           <h2 className="text-xl font-semibold font-headline lg:hidden">
-            {navItems.find(item => pathname.startsWith(item.href))?.label}
+            {navItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard'}
           </h2>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
