@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { UtensilsCrossed, LineChart, MessageSquareQuote, Sparkles, Weight, Zap, Target, GlassWater, Loader2, Bot } from 'lucide-react';
+import { UtensilsCrossed, LineChart, MessageSquareQuote, Sparkles, Weight, Zap, Target, Loader2, Bot } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -17,25 +17,12 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogFooter,
-    DialogClose,
-} from '@/components/ui/dialog';
-import {
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
     ChartConfig,
 } from '@/components/ui/chart';
 import { LineChart as RechartsLineChart, CartesianGrid, XAxis, Tooltip, Line, PieChart, Pie, Cell } from 'recharts';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { getHydrationAdvice } from '@/ai/flows/get-hydration-advice';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -44,7 +31,6 @@ type ProgressEntry = {
     weight: number;
     energy: number;
     completion: number;
-    waterIntake: number;
 };
 
 const chartConfig = {
@@ -71,11 +57,6 @@ export default function DashboardPage() {
     const [name, setName] = useState('User');
     const [tips, setTips] = useState('');
     const [showMotivationalDialog, setShowMotivationalDialog] = useState(false);
-    const [hydrationDialogOpen, setHydrationDialogOpen] = useState(false);
-    const [hydrationTarget, setHydrationTarget] = useState('2.5');
-    const [hydrationActual, setHydrationActual] = useState('1.0');
-    const [hydrationAdvice, setHydrationAdvice] = useState('');
-    const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
 
 
     useEffect(() => {
@@ -105,26 +86,6 @@ export default function DashboardPage() {
             console.error("Could not load dashboard data from localStorage", error);
         }
     }, []);
-
-    const handleGetHydrationAdvice = async () => {
-        setIsLoadingAdvice(true);
-        setHydrationAdvice('');
-        try {
-            const target = parseFloat(hydrationTarget);
-            const actual = parseFloat(hydrationActual);
-            if (isNaN(target) || isNaN(actual) || target <= 0 || actual < 0) {
-                 toast({ title: 'Invalid Input', description: 'Please enter valid numbers for water intake.', variant: 'destructive'});
-                 return;
-            }
-            const result = await getHydrationAdvice({ targetIntake: target, actualIntake: actual });
-            setHydrationAdvice(result.advice);
-        } catch (error) {
-            toast({ title: 'Error', description: 'Could not get hydration advice.', variant: 'destructive'});
-        } finally {
-            setIsLoadingAdvice(false);
-        }
-    };
-
 
     const latestProgress = progressHistory.length > 0 ? progressHistory[progressHistory.length - 1] : null;
 
@@ -156,54 +117,13 @@ export default function DashboardPage() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            <Dialog open={hydrationDialogOpen} onOpenChange={setHydrationDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 font-headline"><Bot /> Hydration Helper</DialogTitle>
-                        <DialogDescription>
-                            Tell me your goal and how much you've had so far, and I'll give you a plan to catch up.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="target" className="text-right">Target (L)</Label>
-                            <Input id="target" type="number" value={hydrationTarget} onChange={e => setHydrationTarget(e.target.value)} className="col-span-3" />
-                        </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="actual" className="text-right">Actual (L)</Label>
-                            <Input id="actual" type="number" value={hydrationActual} onChange={e => setHydrationActual(e.target.value)} className="col-span-3" />
-                        </div>
-                    </div>
-                     {isLoadingAdvice && (
-                         <div className="flex items-center justify-center p-4">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                         </div>
-                    )}
-                    {hydrationAdvice && (
-                        <Alert>
-                            <Sparkles className="h-4 w-4" />
-                            <AlertTitle>Your Catch-up Plan</AlertTitle>
-                            <AlertDescription>
-                                {hydrationAdvice}
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                    <DialogFooter>
-                        <Button onClick={handleGetHydrationAdvice} disabled={isLoadingAdvice}>
-                            {isLoadingAdvice ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                            Analyze
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             <div>
                 <h1 className="text-3xl font-bold font-headline">Welcome back, {name}!</h1>
                 <p className="text-muted-foreground">Here's your high-level health and progress analysis.</p>
             </div>
             
             {latestProgress ? (
-                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
@@ -225,18 +145,6 @@ export default function DashboardPage() {
                             <div className="text-2xl font-bold">{latestProgress.energy} / 10</div>
                             <p className="text-xs text-muted-foreground">
                                 How you felt on {latestProgress.date}
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Water Intake</CardTitle>
-                            <GlassWater className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{latestProgress.waterIntake} L</div>
-                            <p className="text-xs text-muted-foreground">
-                                Your hydration on {latestProgress.date}
                             </p>
                         </CardContent>
                     </Card>
@@ -358,20 +266,6 @@ export default function DashboardPage() {
                         ) : (
                             <p className="text-sm text-muted-foreground">Log your progress to receive a personalized tip from our AI assistant.</p>
                         )}
-                         <Alert variant="default" className="border-blue-300">
-                             <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <GlassWater className="h-4 w-4 text-blue-500 mr-2" />
-                                    <AlertTitle className="text-blue-800">Hydration Tip</AlertTitle>
-                                </div>
-                                <Button size="sm" variant="outline" onClick={() => setHydrationDialogOpen(true)}>
-                                    Analyze My Hydration
-                                </Button>
-                            </div>
-                            <AlertDescription className="pt-2">
-                               Aim to drink 8-10 glasses (about 2-2.5 liters) of water daily. Your needs may increase with activity or in warmer weather. Proper hydration is key for energy and metabolism.
-                            </AlertDescription>
-                        </Alert>
                     </CardContent>
                 </Card>
                 <Card>
