@@ -18,7 +18,7 @@ import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 const onboardingSteps = [
@@ -230,10 +230,18 @@ export default function OnboardingPage() {
 
         setIsLoading(true);
         try {
+            // First, "touch" the main user document to ensure our rules can see the user owns it.
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userDocRef, {
+              onboardingComplete: true, // Mark onboarding as complete
+            });
+            
+            // Now, create the onboarding profile document in the subcollection.
             const userOnboardingDocRef = doc(db, 'users', currentUser.uid, 'onboarding', 'profile');
             await setDoc(userOnboardingDocRef, formData);
 
-            localStorage.setItem('onboardingData', JSON.stringify(formData)); // For payment page
+            // Store in local storage for the immediate redirect to the payment page.
+            localStorage.setItem('onboardingData', JSON.stringify(formData));
             
             toast({
                 title: 'Onboarding Complete!',
@@ -242,6 +250,7 @@ export default function OnboardingPage() {
             router.push('/payment');
 
         } catch (error) {
+             console.error("Onboarding save error:", error);
              toast({
                 title: 'Error',
                 description: 'Could not save your information. Please try again.',
