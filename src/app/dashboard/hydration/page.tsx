@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Droplets, Clock, Target, TrendingUp, Sun, Activity, Bell, Zap, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
 
 type ScheduleItem = {
@@ -28,6 +28,62 @@ const SmartWaterTracker = () => {
   const [activityBoost, setActivityBoost] = useState(300); // Default moderate activity boost
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
+  const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
+
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
+  // Schedule notifications
+   useEffect(() => {
+    // Clear any existing notification timeouts
+    notificationTimeouts.current.forEach(clearTimeout);
+    notificationTimeouts.current = [];
+
+    if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+      scheduleItems.forEach(item => {
+        if (!item.completed && !item.skipped) {
+          const now = new Date();
+          const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+          if (!itemTimeParts) return;
+
+          let [, hours, minutes, meridiem] = itemTimeParts;
+          let hour = parseInt(hours, 10);
+
+          if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+          if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+          const itemDate = new Date();
+          itemDate.setHours(hour, parseInt(minutes, 10), 0, 0);
+
+          // Calculate notification time (5 minutes before)
+          const notificationTime = new Date(itemDate.getTime() - 5 * 60 * 1000);
+
+          if (notificationTime > now) {
+            const timeout = setTimeout(() => {
+              new Notification('Hydration Reminder', {
+                body: `Time for your next glass of water at ${item.time}!`,
+                icon: '/logo.png' 
+              });
+            }, notificationTime.getTime() - now.getTime());
+            notificationTimeouts.current.push(timeout);
+          }
+        }
+      });
+    }
+
+    // Cleanup function to clear timeouts when component unmounts or schedule changes
+    return () => {
+      notificationTimeouts.current.forEach(clearTimeout);
+    };
+  }, [scheduleItems]);
+
 
   // Smart schedule generation using useCallback to memoize
   const generateSmartSchedule = useCallback(() => {
@@ -48,8 +104,9 @@ const SmartWaterTracker = () => {
     const baseAmount = Math.floor(adjustedGoal / numSlots);
 
     for (let i = 0; i < numSlots; i++) {
-      const hour = wakeHour + Math.floor((i * awakeHours) / numSlots);
-      const minute = (i * 60 * awakeHours / numSlots) % 60;
+      const hourDecimal = wakeHour + (i * awakeHours) / numSlots;
+      const hour = Math.floor(hourDecimal);
+      const minute = Math.round((hourDecimal % 1) * 60);
       const time = new Date();
       time.setHours(hour, minute, 0, 0);
 
