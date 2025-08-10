@@ -59,6 +59,8 @@ export default function OnboardingPage() {
         occupation: '',
         sleepHours: '',
         stressLevel: 'low',
+        fastingPreference: 'no_fasting',
+        fastingDetails: '',
         
         // Step 4
         goalAction: 'maintain', // 'lose', 'gain', 'maintain'
@@ -166,8 +168,8 @@ export default function OnboardingPage() {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
 
-    const handleRadioChange = (value: string) => {
-        setFormData(prev => ({ ...prev, goalAction: value }));
+    const handleRadioChange = (id: string, value: string) => {
+        setFormData(prev => ({ ...prev, [id]: value }));
     };
 
     const handleCheckboxChange = (id: string, checked: boolean) => {
@@ -252,7 +254,7 @@ export default function OnboardingPage() {
             return !formData.age || !formData.gender || !formData.weight || !formData.heightFt || !formData.heightIn || !formData.waist || !formData.hip || !formData.geographicLocation;
         }
         if (step === 2) {
-            return !formData.activityLevel || !formData.sleepHours;
+            return !formData.activityLevel || !formData.sleepHours || !formData.fastingPreference;
         }
         return false;
     }, [formData, step]);
@@ -371,7 +373,7 @@ export default function OnboardingPage() {
                     {step === 2 && (
                          <>
                             <CardHeader><CardTitle className="font-headline">Your Lifestyle</CardTitle><CardDescription>Your daily habits affect your nutritional needs.</CardDescription></CardHeader>
-                            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2 md:col-span-2">
                                     <Label>Typical Activity Level</Label>
                                     <Select value={formData.activityLevel} onValueChange={(v) => handleSelectChange('activityLevel', v)}>
@@ -392,7 +394,7 @@ export default function OnboardingPage() {
                                     <Label htmlFor="sleepHours">Average Sleep (hours per night)</Label>
                                     <Input id="sleepHours" type="number" placeholder="e.g., 7" value={formData.sleepHours} onChange={handleChange} />
                                 </div>
-                                <div className="space-y-2 md:col-span-2">
+                                <div className="space-y-2">
                                     <Label>Stress Levels</Label>
                                      <Select value={formData.stressLevel} onValueChange={(v) => handleSelectChange('stressLevel', v)}>
                                         <SelectTrigger><SelectValue placeholder="Select stress level" /></SelectTrigger>
@@ -402,6 +404,32 @@ export default function OnboardingPage() {
                                             <SelectItem value="high">High</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="space-y-3 md:col-span-2">
+                                    <Label>Do you have a fasting preference?</Label>
+                                     <RadioGroup value={formData.fastingPreference} onValueChange={(v) => handleRadioChange('fastingPreference', v)} className="flex flex-col gap-2">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="no_fasting" id="no_fasting" />
+                                            <Label htmlFor="no_fasting" className="font-normal cursor-pointer">No Fasting</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="intermittent_fasting" id="intermittent_fasting" />
+                                            <Label htmlFor="intermittent_fasting" className="font-normal cursor-pointer">Intermittent Fasting (e.g., 16:8)</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="other" id="other_fasting" />
+                                            <Label htmlFor="other_fasting" className="font-normal cursor-pointer">Other (Please specify)</Label>
+                                        </div>
+                                    </RadioGroup>
+                                    {formData.fastingPreference === 'other' && (
+                                        <Textarea 
+                                            id="fastingDetails"
+                                            placeholder="Please describe your fasting schedule..." 
+                                            value={formData.fastingDetails}
+                                            onChange={handleChange}
+                                            className="mt-2 animate-in fade-in-50"
+                                        />
+                                    )}
                                 </div>
                             </CardContent>
                         </>
@@ -485,7 +513,7 @@ export default function OnboardingPage() {
                             <CardContent className="space-y-6">
                                 <div>
                                     <Label className="font-semibold">Primary Goal: Weight Management</Label>
-                                    <RadioGroup value={formData.goalAction} onValueChange={handleRadioChange} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                                    <RadioGroup value={formData.goalAction} onValueChange={(v) => handleRadioChange('goalAction', v)} className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
                                         <div className="flex items-center space-x-2">
                                             <RadioGroupItem value="lose" id="lose" />
                                             <Label htmlFor="lose" className="cursor-pointer">Lose Weight</Label>

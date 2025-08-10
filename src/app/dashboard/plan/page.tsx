@@ -82,13 +82,17 @@ export default function DietPlanPage() {
                 planDuration = 7; // Fallback to 7 days if value is invalid
             }
 
+            const dietaryPreferences = `Health goals: ${userData.healthGoals?.join(', ')}. Other notes: ${userData.otherGoal}.`;
+
+            const fastingPreference = `${userData.fastingPreference}${userData.fastingDetails ? `: ${userData.fastingDetails}` : ''}`;
 
             const response = await generateDietPlan({
                 healthInformation: `Age: ${userData.age}, Gender: ${userData.gender}, Weight: ${userData.weight}kg, Height: ${userData.heightFt}'${userData.heightIn}", Activity: ${userData.activityLevel}`,
-                dietaryPreferences: `Health goals: ${userData.healthGoals?.join(', ')}. Other notes: ${userData.otherGoal}`,
+                dietaryPreferences: dietaryPreferences,
                 goals: `${userData.goalAction} weight. Target: ${userData.goalWeightKg || 'N/A'}`,
-                geographicLocation: 'Kashmir, India',
+                geographicLocation: userData.geographicLocation || 'Kashmir, India',
                 planDuration: planDuration,
+                fastingPreference: fastingPreference,
             });
             
             setDietPlan(response.dietPlan);
