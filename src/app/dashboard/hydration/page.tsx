@@ -41,8 +41,8 @@ const calculateRecommendedIntake = (weight: number, activityLevel: string): numb
 export default function HydrationPage() {
     const { toast } = useToast();
     const [goal, setGoal] = useState('2.5'); // Default goal
-    const [wakeUp] = useState('7:00 AM'); // Default wake-up
-    const [bedTime] = useState('11:00 PM'); // Default bedtime
+    const [wakeUp, setWakeUp] = useState('7:00 AM'); // Default wake-up
+    const [bedTime, setBedTime] = useState('11:00 PM'); // Default bedtime
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
     const [explanation, setExplanation] = useState('');
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
@@ -64,10 +64,15 @@ export default function HydrationPage() {
         }
     }, []);
     
-    const handleGenerateSchedule = async (intakeGoal: number, startTime: string) => {
-        if (intakeGoal <= 0) return;
+    const fetchSchedule = async (intakeGoal: number, startTime: string, isRecalc = false) => {
+        if (intakeGoal <= 0) {
+             if (isRecalc) {
+                toast({ title: "Goal Achieved!", description: "You've already met your hydration goal for today. Great job!" });
+             }
+             return;
+        }
         
-        if(!isRecalculating) {
+        if(!isRecalc) {
             setIsLoadingSchedule(true);
             setSchedule([]);
             setExplanation('');
@@ -84,10 +89,8 @@ export default function HydrationPage() {
             setSchedule(newSchedule);
             setExplanation(response.explanation);
 
-            if (isRecalculating) {
+            if (isRecalc) {
                  toast({ title: 'Schedule Updated!', description: 'Your plan for the rest of the day is ready.' });
-            } else {
-                 toast({ title: 'Schedule Generated!', description: 'Your personalized hydration plan is ready.' });
             }
 
         } catch (error) {
@@ -101,8 +104,9 @@ export default function HydrationPage() {
 
     useEffect(() => {
         if (goal) {
-            handleGenerateSchedule(parseFloat(goal), wakeUp);
+            fetchSchedule(parseFloat(goal), wakeUp);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [goal]);
     
     const handleCheckboxChange = (index: number) => {
@@ -120,16 +124,10 @@ export default function HydrationPage() {
         const completedAmountMl = schedule.reduce((acc, entry) => acc + (entry.completed ? entry.amount : 0), 0);
         const remainingIntakeMl = totalGoalMl - completedAmountMl;
         
-        if (remainingIntakeMl <= 0) {
-            toast({ title: "Goal Achieved!", description: "You've already met your hydration goal for today. Great job!" });
-            setIsRecalculating(false);
-            return;
-        }
-        
         const now = new Date();
         const currentTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-        await handleGenerateSchedule(remainingIntakeMl / 1000, currentTime);
+        await fetchSchedule(remainingIntakeMl / 1000, currentTime, true);
     }
     
     const totalCompleted = schedule.reduce((sum, entry) => sum + (entry.completed ? entry.amount : 0), 0);
@@ -208,17 +206,17 @@ export default function HydrationPage() {
                                 <ul className="space-y-3">
                                     {schedule.map((entry, index) => (
                                         <li key={index} className={`flex items-center justify-between p-4 rounded-lg transition-colors ${entry.completed ? 'bg-primary/10' : 'bg-muted'}`}>
-                                            <div className="flex items-center">
+                                            <div className="flex items-center space-x-4">
                                                 <Checkbox 
                                                     id={`item-${index}`}
                                                     checked={entry.completed}
                                                     onCheckedChange={() => handleCheckboxChange(index)}
-                                                    className="mr-4 h-5 w-5"
+                                                    className="h-5 w-5"
                                                 />
-                                                <div className={`cursor-pointer ${entry.completed ? 'line-through text-muted-foreground' : ''}`}>
-                                                    <Label htmlFor={`item-${index}`} className="font-bold text-lg cursor-pointer">{entry.time}</Label>
+                                                <Label htmlFor={`item-${index}`} className={`flex-grow cursor-pointer ${entry.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                                    <span className="font-bold text-lg">{entry.time}</span>
                                                     <p className="text-sm">{entry.amount} ml of water</p>
-                                                </div>
+                                                </Label>
                                             </div>
                                             {entry.completed && <CheckCircle2 className="h-6 w-6 text-primary" />}
                                         </li>
@@ -231,3 +229,4 @@ export default function HydrationPage() {
             </div>
         </div>
     );
+}
