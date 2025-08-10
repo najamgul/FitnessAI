@@ -66,8 +66,8 @@ const SmartDietPlanner = () => {
         let [hours, minutes] = time.split(':').map(Number);
     
         if (hours === 12) {
-            hours = modifier.toUpperCase() === 'AM' ? 0 : 12;
-        } else if (modifier.toUpperCase() === 'PM') {
+            hours = modifier?.toUpperCase() === 'AM' ? 0 : 12;
+        } else if (modifier?.toUpperCase() === 'PM') {
             hours += 12;
         }
     
@@ -104,7 +104,8 @@ const SmartDietPlanner = () => {
                                     ...mealDetails,
                                     mealTime,
                                     completed: storedProgress[dayPlan.day]?.[mealTime]?.completed || false,
-                                    skipped: storedProgress[dayPlan.day]?.[mealTime]?.skipped || false
+                                    skipped: storedProgress[dayPlan.day]?.[mealTime]?.skipped || false,
+                                    time: mealDetails.time,
                                 }));
 
                                 // Sort meals chronologically
@@ -314,8 +315,8 @@ const SmartDietPlanner = () => {
                                                         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                                                             {isAdjusting === mealIndex ? (<Loader2 className="h-5 w-5 animate-spin"/>) : (
                                                                 <>
-                                                                    {!meal.completed && !meal.skipped && (<Button onClick={() => handleSkipMeal(currentDay, mealIndex)} variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive"><XCircle className="w-3 h-3 mr-1"/>Skip</Button>)}
-                                                                    <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm" className="text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{meal.completed ? 'Done' : 'Mark'}</Button>
+                                                                    {!meal.completed && !meal.skipped && (<Button onClick={() => handleSkipMeal(currentDay, mealIndex)} variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive"><XCircle className="w-3 h-3 mr-1"/>Missed</Button>)}
+                                                                    <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm" className="text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{meal.completed ? 'Goal!' : 'Goal!'}</Button>
                                                                 </>
                                                             )}
                                                         </div>
