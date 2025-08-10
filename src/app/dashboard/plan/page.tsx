@@ -202,7 +202,7 @@ const SmartDietPlanner = () => {
                 <div className="p-4 md:p-6">
                     <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full">
                         <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                            <TabsList className="relative z-10 bg-background/80 backdrop-blur-sm">
+                            <TabsList>
                                 {plan.map((dayPlan) => (
                                     <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`}>
                                         Day {dayPlan.day}
@@ -211,48 +211,47 @@ const SmartDietPlanner = () => {
                             </TabsList>
                             <ScrollBar orientation="horizontal" />
                         </ScrollArea>
-                        {plan.map((dayData, dayIndex) => (
-                            <TabsContent key={dayIndex} value={`day-${dayData.day}`} className="space-y-4 mt-4">
-                                {dayData.meals.map((meal, mealIndex) => (
-                                <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                    <div className="flex flex-col sm:flex-row sm:items-start">
-                                        {meal.imageUrl ? (
-                                            <Image 
-                                                src={meal.imageUrl}
-                                                alt={meal.meal}
-                                                width={128}
-                                                height={128}
-                                                className="w-full h-40 sm:w-32 sm:h-auto object-cover"
-                                                unoptimized
-                                            />
-                                        ) : (
-                                            <div className="w-full h-40 sm:w-32 sm:h-full bg-muted flex items-center justify-center flex-shrink-0">
-                                                <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                        
+                        <TabsContent value={`day-${currentDay + 1}`} className="space-y-4 mt-4">
+                            {plan[currentDay]?.meals.map((meal, mealIndex) => (
+                            <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
+                                <div className="flex flex-col sm:flex-row sm:items-start">
+                                    {meal.imageUrl ? (
+                                        <Image 
+                                            src={meal.imageUrl}
+                                            alt={meal.meal}
+                                            width={128}
+                                            height={128}
+                                            className="w-full h-40 sm:w-32 sm:h-auto object-cover"
+                                            unoptimized
+                                        />
+                                    ) : (
+                                        <div className="w-full h-40 sm:w-32 sm:h-full bg-muted flex items-center justify-center flex-shrink-0">
+                                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <div className="p-4 flex-1">
+                                        <div className="flex items-start justify-between flex-wrap gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
+                                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
+                                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                                                </div>
+                                                <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
                                             </div>
-                                        )}
-                                        <div className="p-4 flex-1">
-                                            <div className="flex items-start justify-between flex-wrap gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
-                                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
-                                                    </div>
-                                                    <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
-                                                </div>
-                                                <div className="flex-shrink-0">
-                                                    <Button onClick={() => toggleMealCompletion(dayIndex, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
-                                                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                        {meal.completed ? 'Completed' : 'Mark as Eaten'}
-                                                    </Button>
-                                                </div>
+                                            <div className="flex-shrink-0">
+                                                <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
+                                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                    {meal.completed ? 'Completed' : 'Mark as Eaten'}
+                                                </Button>
                                             </div>
                                         </div>
                                     </div>
-                                </Card>
-                                ))}
-                            </TabsContent>
-                        ))}
+                                </div>
+                            </Card>
+                            ))}
+                        </TabsContent>
                     </Tabs>
                 </div>
             </div>
