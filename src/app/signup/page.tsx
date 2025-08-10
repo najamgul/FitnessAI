@@ -42,14 +42,14 @@ export default function SignupPage() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // All new users are created with the 'user' role by default.
-            // An existing admin must promote them to 'admin' via the admin panel.
+            const isAdmin = email.toLowerCase() === 'care@aziaf.com';
+
             await setDoc(doc(db, 'users', user.uid), {
                 name,
                 email,
                 phone,
                 createdAt: serverTimestamp(),
-                role: 'user', // Default role
+                role: isAdmin ? 'admin' : 'user', // Set role based on email
                 paymentStatus: 'unpaid',
                 planStatus: 'not_started',
             });
@@ -59,8 +59,11 @@ export default function SignupPage() {
                 description: "Welcome! Let's get you set up.",
             });
             
-            // All users are sent to onboarding after signup.
-            router.push('/onboarding');
+            if (isAdmin) {
+                router.push('/dashboard'); // Admins go to dashboard
+            } else {
+                router.push('/onboarding'); // Other users go to onboarding
+            }
 
         } catch (error: any) {
             let errorMessage = 'An unexpected error occurred.';
