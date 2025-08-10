@@ -1,12 +1,13 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { 
   Apple, Brain, CheckCircle2, Clock, Download, 
   TrendingUp, Utensils, Zap, AlertTriangle, Target, 
-  RefreshCw, ShoppingCart, Star, Moon,
+  RefreshCw, ShoppingCart, Star, Moon, XCircle,
   Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock, Image as ImageIcon,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Info
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -14,17 +15,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { generateDietPlan, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
-import { generateShoppingList } from '@/ai/flows/generate-shopping-list';
+import { getMissedMealAdvice } from '@/ai/flows/get-missed-meal-advice';
+import { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
     completed: boolean;
+    skipped?: boolean;
 };
 
 type DayPlan = {
@@ -36,12 +39,14 @@ const SmartDietPlanner = () => {
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const [isAdjusting, setIsAdjusting] = useState<number | null>(null);
     const [planStatus, setPlanStatus] = useState<'loading' | 'pending_review' | 'ready' | 'not_found'>('loading');
-    const [fullPlan, setFullPlan] = useState<GenerateDietPlanOutput | null>(null);
     const [plan, setPlan] = useState<DayPlan[]>([]);
     const [currentDay, setCurrentDay] = useState(0);
     const [currentWeek, setCurrentWeek] = useState(0);
     const [user, setUser] = useState<User | null>(null);
+    const [userGoals, setUserGoals] = useState('');
+    const [adjustmentAdvice, setAdjustmentAdvice] = useState<string | null>(null);
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -56,6 +61,14 @@ const SmartDietPlanner = () => {
 
     useEffect(() => {
         if (!user) return;
+        
+        const onboardingDocRef = doc(db, 'users', user.uid, 'onboarding', 'profile');
+        getDoc(onboardingDocRef).then(doc => {
+            if (doc.exists()) {
+                const data = doc.data();
+                setUserGoals(`To ${data.goalAction} weight, with a target of ${data.goalWeightKg || 'N/A'}. Other goals: ${data.healthGoals?.join(', ')}`);
+            }
+        });
 
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
@@ -68,14 +81,14 @@ const SmartDietPlanner = () => {
                     const unsubscribePlan = onSnapshot(dietPlanDocRef, (planDoc) => {
                         if (planDoc.exists()) {
                             const fetchedPlan = planDoc.data() as GenerateDietPlanOutput;
-                            setFullPlan(fetchedPlan);
                             const storedProgress = getStoredProgress();
                             const transformedPlan = fetchedPlan.dietPlan.map(dayPlan => ({
                                 day: dayPlan.day,
                                 meals: Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
                                     ...mealDetails,
                                     mealTime,
-                                    completed: storedProgress[dayPlan.day]?.[mealTime] || false
+                                    completed: storedProgress[dayPlan.day]?.[mealTime]?.completed || false,
+                                    skipped: storedProgress[dayPlan.day]?.[mealTime]?.skipped || false
                                 }))
                             }));
                             setPlan(transformedPlan);
@@ -102,21 +115,16 @@ const SmartDietPlanner = () => {
             const today = new Date().toISOString().split('T')[0];
             const progressString = localStorage.getItem(`mealProgress_${today}`);
             return progressString ? JSON.parse(progressString) : {};
-        } catch (e) {
-            return {};
-        }
+        } catch (e) { return {}; }
     };
 
-    const saveProgress = (dayIndex: number, mealTime: string, isCompleted: boolean) => {
+    const saveProgress = (dayIndex: number, mealTime: string, status: { completed?: boolean, skipped?: boolean }) => {
         try {
             const today = new Date().toISOString().split('T')[0];
             const progress = getStoredProgress();
             const day = plan[dayIndex].day;
-
-            if (!progress[day]) {
-                progress[day] = {};
-            }
-            progress[day][mealTime] = isCompleted;
+            if (!progress[day]) progress[day] = {};
+            progress[day][mealTime] = { ...progress[day][mealTime], ...status };
             localStorage.setItem(`mealProgress_${today}`, JSON.stringify(progress));
         } catch(e) {
             console.error("Could not save meal progress to localStorage");
@@ -125,15 +133,72 @@ const SmartDietPlanner = () => {
 
     const toggleMealCompletion = (dayIndex: number, mealIndex: number) => {
         setPlan(prevPlan => {
-            const newPlan = JSON.parse(JSON.stringify(prevPlan)); // Deep copy
-            const isCompleted = !newPlan[dayIndex].meals[mealIndex].completed;
-            newPlan[dayIndex].meals[mealIndex].completed = isCompleted;
-
-            const mealTime = newPlan[dayIndex].meals[mealIndex].mealTime;
-            saveProgress(dayIndex, mealTime, isCompleted);
-            
+            const newPlan = JSON.parse(JSON.stringify(prevPlan));
+            const meal = newPlan[dayIndex].meals[mealIndex];
+            meal.completed = !meal.completed;
+            meal.skipped = false; // Cannot be skipped and completed
+            saveProgress(dayIndex, meal.mealTime, { completed: meal.completed, skipped: meal.skipped });
             return newPlan;
         });
+    };
+
+    const handleSkipMeal = async (dayIndex: number, mealIndex: number) => {
+        const skippedMeal = plan[dayIndex].meals[mealIndex];
+        // Prevent skipping if already completed or skipped
+        if (skippedMeal.completed || skippedMeal.skipped) return;
+
+        setIsAdjusting(mealIndex);
+        setAdjustmentAdvice(null);
+
+        try {
+             // First, mark the meal as skipped locally
+            setPlan(prevPlan => {
+                const newPlan = JSON.parse(JSON.stringify(prevPlan));
+                const meal = newPlan[dayIndex].meals[mealIndex];
+                meal.skipped = true;
+                meal.completed = false;
+                saveProgress(dayIndex, meal.mealTime, { completed: false, skipped: true });
+                return newPlan;
+            });
+
+            const remainingMeals = plan[dayIndex].meals.slice(mealIndex + 1);
+
+            const response = await getMissedMealAdvice({
+                missedMeal: skippedMeal,
+                remainingMeals: remainingMeals,
+                userGoals: userGoals,
+            });
+
+            setAdjustmentAdvice(response.advice);
+
+            // Update the rest of the day's plan with adjustments
+            setPlan(prevPlan => {
+                const newPlan = JSON.parse(JSON.stringify(prevPlan));
+                response.adjustedMeals.forEach(adjustedMeal => {
+                    const mealToUpdate = newPlan[dayIndex].meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
+                    if (mealToUpdate) {
+                        mealToUpdate.quantity = adjustedMeal.quantity;
+                        mealToUpdate.calories = adjustedMeal.calories;
+                        mealToUpdate.description += ` (Adjusted for skipped ${skippedMeal.mealTime})`;
+                    }
+                });
+                return newPlan;
+            });
+
+             toast({ title: "Plan Adjusted", description: "Your remaining meals for today have been updated." });
+
+        } catch (error) {
+            console.error("Failed to adjust plan:", error);
+            toast({ title: "Adjustment Failed", description: "Could not get updated advice from AI.", variant: "destructive" });
+            // Revert optimistic update
+             setPlan(prevPlan => {
+                const newPlan = JSON.parse(JSON.stringify(prevPlan));
+                newPlan[dayIndex].meals[mealIndex].skipped = false;
+                return newPlan;
+            });
+        } finally {
+            setIsAdjusting(null);
+        }
     };
     
     if (isLoading) {
@@ -149,20 +214,8 @@ const SmartDietPlanner = () => {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <Card className="text-center max-w-md w-full">
-                    <CardHeader>
-                        <div className="mx-auto bg-primary text-primary-foreground rounded-full h-20 w-20 flex items-center justify-center mb-4">
-                            <FileClock className="h-10 w-10" />
-                        </div>
-                        <CardTitle className="text-3xl font-headline">Plan Under Review</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-lg text-muted-foreground">
-                            Your personalized diet plan has been generated and is now being reviewed by one of our nutrition experts.
-                        </p>
-                        <p className="mt-2 text-muted-foreground">
-                            This ensures your plan is perfectly tailored and safe. We will notify you as soon as it's ready!
-                        </p>
-                    </CardContent>
+                    <CardHeader><div className="mx-auto bg-primary text-primary-foreground rounded-full h-20 w-20 flex items-center justify-center mb-4"><FileClock className="h-10 w-10" /></div><CardTitle className="text-3xl font-headline">Plan Under Review</CardTitle></CardHeader>
+                    <CardContent><p className="text-lg text-muted-foreground">Your personalized diet plan has been generated and is now being reviewed by one of our nutrition experts.</p><p className="mt-2 text-muted-foreground">This ensures your plan is perfectly tailored and safe. We will notify you as soon as it's ready!</p></CardContent>
                 </Card>
             </div>
         );
@@ -183,7 +236,6 @@ const SmartDietPlanner = () => {
     const weekStartDay = currentWeek * 7;
     const weekEndDay = weekStartDay + 7;
     const daysForCurrentWeek = plan.slice(weekStartDay, weekEndDay);
-
     const currentDayPlan = plan[currentDay];
     const totalCaloriesConsumed = currentDayPlan.meals.filter(m => m.completed).reduce((sum, meal) => sum + meal.calories, 0);
     const dailyGoal = currentDayPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
@@ -193,98 +245,54 @@ const SmartDietPlanner = () => {
         <div className="min-h-screen bg-background overflow-x-hidden">
             <div className="min-h-screen flex flex-col max-w-full">
                 <div className="bg-card rounded-none shadow-lg overflow-hidden border-0 flex-1 flex flex-col max-w-full">
-                    {/* Header */}
                     <div className="bg-gradient-to-r from-primary to-emerald-600 p-4 sm:p-6 text-primary-foreground w-full">
                         <div className="flex items-center justify-between mb-4 flex-wrap gap-4 max-w-full">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0">
-                                    <Brain className="w-6 h-6 sm:w-8 sm:h-8" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-headline leading-tight">Your Personalized Diet Plan</h1>
-                                    <p className="text-green-100 mt-1 text-sm sm:text-base">Curated by Aziaf & approved by our experts</p>
-                                </div>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{completionRate}%</div>
-                                <div className="text-green-100 text-xs sm:text-sm">Daily Progress</div>
-                            </div>
+                            <div className="flex items-center gap-3 min-w-0 flex-1"><div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0"><Brain className="w-6 h-6 sm:w-8 sm:h-8" /></div><div className="min-w-0 flex-1"><h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-headline leading-tight">Your Personalized Diet Plan</h1><p className="text-green-100 mt-1 text-sm sm:text-base">Curated by Aziaf & approved by our experts</p></div></div>
+                            <div className="text-right flex-shrink-0"><div className="text-2xl sm:text-3xl lg:text-4xl font-bold">{completionRate}%</div><div className="text-green-100 text-xs sm:text-sm">Daily Progress</div></div>
                         </div>
                     </div>
-
                     <div className="p-3 sm:p-4 md:p-6 flex-1 w-full max-w-full overflow-x-hidden">
                         <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full h-full flex flex-col max-w-full">
                              <div className="flex items-center justify-center gap-2 mb-4">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setCurrentWeek(w => Math.max(0, w - 1))}
-                                    disabled={currentWeek === 0}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <div className="text-sm font-medium text-muted-foreground">
-                                    Week {currentWeek + 1} of {totalWeeks}
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setCurrentWeek(w => Math.min(totalWeeks - 1, w + 1))}
-                                    disabled={currentWeek >= totalWeeks - 1}
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(w => Math.max(0, w - 1))} disabled={currentWeek === 0}><ChevronLeft className="h-4 w-4" /></Button>
+                                <div className="text-sm font-medium text-muted-foreground">Week {currentWeek + 1} of {totalWeeks}</div>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(w => Math.min(totalWeeks - 1, w + 1))} disabled={currentWeek >= totalWeeks - 1}><ChevronRight className="h-4 w-4" /></Button>
                             </div>
-                            <TabsList className="grid w-full grid-cols-7 h-auto p-1">
-                                {daysForCurrentWeek.map((dayPlan, index) => (
-                                    <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`} className="text-xs sm:text-sm px-2 py-2 sm:px-4 sm:py-2 flex flex-col h-full">
-                                        <span>Day</span>
-                                        <span className="font-bold text-base">{dayPlan.day}</span>
-                                    </TabsTrigger>
-                                ))}
-                                {Array.from({ length: 7 - daysForCurrentWeek.length }).map((_, i) => <div key={`placeholder-${i}`} className="p-1"></div>)}
-                            </TabsList>
-                            
-                            <TabsContent value={`day-${currentDay + 1}`} className="mt-4 flex-1 w-full max-w-full">
+                            <ScrollArea className="w-full whitespace-nowrap rounded-md mb-4 max-w-full">
+                                <TabsList className="w-full justify-start h-auto p-1 max-w-full">
+                                    {daysForCurrentWeek.map((dayPlan) => (<TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`} className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2">Day {dayPlan.day}</TabsTrigger>))}
+                                </TabsList><ScrollBar orientation="horizontal" />
+                            </ScrollArea>
+                            <TabsContent value={`day-${currentDay + 1}`} className="mt-0 flex-1 w-full max-w-full">
                                 <ScrollArea className="h-full w-full">
-                                    <div className="space-y-3 sm:space-y-4 pb-4 w-full max-w-full pr-4">
+                                    {adjustmentAdvice && (<Alert className="mb-4 bg-blue-50 border-blue-200"><Info className="h-4 w-4 text-blue-600" /><AlertTitle className="text-blue-800 font-semibold">Aziaf's Advice</AlertTitle><AlertDescription className="text-blue-700">{adjustmentAdvice}</AlertDescription></Alert>)}
+                                    <div className="space-y-3 sm:space-y-4 pb-4 w-full max-w-full">
                                         {plan[currentDay]?.meals.map((meal, mealIndex) => (
-                                        <Card key={mealIndex} className={`w-full max-w-full overflow-hidden rounded-lg border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                            <div className="flex flex-row w-full">
-                                                {meal.imageUrl ? (
-                                                    <Image 
-                                                        src={meal.imageUrl}
-                                                        alt={meal.meal}
-                                                        width={80}
-                                                        height={80}
-                                                        className="w-16 sm:w-20 h-full object-cover flex-shrink-0"
-                                                        unoptimized
-                                                    />
-                                                ) : (
-                                                    <div className="w-16 sm:w-20 h-auto flex-shrink-0 bg-muted flex items-center justify-center">
-                                                        <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                                                    </div>
-                                                )}
+                                        <Card key={mealIndex} className={`w-full max-w-full overflow-hidden rounded-lg border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : meal.skipped ? 'bg-red-50 border-red-200' : 'bg-background border-border hover:border-primary'}`}>
+                                            <div className="flex flex-row items-center">
                                                 <div className="flex-1 p-3 min-w-0">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight truncate pr-2">{meal.meal}</h3>
-                                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.calories}cal</span>
-                                                                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full whitespace-nowrap">{meal.mealTime}</span>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                            {meal.imageUrl ? (<Image src={meal.imageUrl} alt={meal.meal} width={64} height={64} className="w-16 h-16 rounded-md object-cover flex-shrink-0" unoptimized/>) : (<div className="w-16 h-16 rounded-md flex-shrink-0 bg-muted flex items-center justify-center"><ImageIcon className="w-6 h-6 text-muted-foreground" /></div>)}
+                                                            <div className="flex-1 min-w-0">
+                                                                <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight truncate">{meal.meal}</h3>
+                                                                <p className="text-xs text-muted-foreground font-semibold">{meal.quantity}</p>
+                                                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.calories}cal</span>
+                                                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full whitespace-nowrap">{meal.mealTime}</span>
+                                                                </div>
                                                             </div>
-                                                            <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed line-clamp-2 mt-2 pr-2">{meal.description}</p>
                                                         </div>
-                                                        <Button 
-                                                            onClick={() => toggleMealCompletion(currentDay, mealIndex)} 
-                                                            variant={meal.completed ? 'default' : 'secondary'} 
-                                                            size="sm"
-                                                            className="flex-shrink-0 text-xs px-2 py-1 h-auto ml-2 whitespace-nowrap"
-                                                        >
-                                                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                            {meal.completed ? 'Done' : 'Mark'}
-                                                        </Button>
+                                                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                                                            {isAdjusting === mealIndex ? (<Loader2 className="h-5 w-5 animate-spin"/>) : (
+                                                                <>
+                                                                    {!meal.completed && !meal.skipped && (<Button onClick={() => handleSkipMeal(currentDay, mealIndex)} variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive"><XCircle className="w-3 h-3 mr-1"/>Skip</Button>)}
+                                                                    <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm" className="text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{meal.completed ? 'Done' : 'Mark'}</Button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    <p className="text-muted-foreground text-xs leading-relaxed line-clamp-2 mt-2 pl-[76px]">{meal.description}</p>
                                                 </div>
                                             </div>
                                         </Card>

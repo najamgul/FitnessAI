@@ -30,6 +30,7 @@ export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const MealSchema = z.object({
     meal: z.string().describe("The name of the meal to be eaten."),
+    quantity: z.string().describe("The quantity of the main ingredients in grams or other appropriate units (e.g., '100g chicken breast', '1 cup cooked lentils')."),
     hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
     calories: z.number().describe("The approximate calorie count for this meal."),
     description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences)."),
@@ -87,7 +88,7 @@ const defaultPromptTemplate = `You are a master nutritionist specializing in cre
 
   It is critical that each day's 'meals' object includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed. If fasting is requested, you must still provide all seven meal slots, but you can adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
 
-  For each meal, provide the meal name and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'). You must also include the approximate calorie count for the meal, and a brief 1-2 sentence description of the meal's benefits and importance within the diet plan.
+  For each meal, provide the meal name, the quantity of the main ingredients (e.g., '100g', '1 cup'), and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'). You must also include the approximate calorie count for the meal, and a brief 1-2 sentence description of the meal's benefits and importance within the diet plan.
 
   User Details:
   - Health Information: {{{healthInformation}}}
