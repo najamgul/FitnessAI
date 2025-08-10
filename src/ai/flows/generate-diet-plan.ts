@@ -128,6 +128,35 @@ const generateDietPlanFlow = ai.defineFlow(
     if (!basePlan) {
         throw new Error("Failed to generate the base diet plan.");
     }
+    
+    // Step 1.5: Validate and complete the generated plan
+    const mealKeys: (keyof z.infer<typeof MealsSchema>)[] = ["Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"];
+    const placeholderMeal: z.infer<typeof MealSchema> = {
+        meal: "Not specified",
+        quantity: "N/A",
+        hint: "question mark",
+        calories: 0,
+        description: "This meal was not specified by the AI. Please review or regenerate the plan."
+    };
+
+    basePlan.dietPlan.forEach(day => {
+        let needsCompletion = false;
+        for (const key of mealKeys) {
+            if (!day.meals[key]) {
+                needsCompletion = true;
+                break;
+            }
+        }
+        if (needsCompletion) {
+            const completedMeals = { ...day.meals };
+            for (const key of mealKeys) {
+                if (!completedMeals[key]) {
+                    completedMeals[key] = placeholderMeal;
+                }
+            }
+            day.meals = completedMeals as z.infer<typeof MealsSchema>;
+        }
+    });
 
     // Step 2: Create a list of all image queries to be fetched
     const imagePromises: Promise<{dayIndex: number, mealTime: string, imageUrl: string}>[] = [];
