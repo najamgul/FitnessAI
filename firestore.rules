@@ -1,74 +1,39 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check for admin role with better error handling
-    function isAdmin() {
-      // Check if user is authenticated first
-      return request.auth != null && 
-        // Use exists() to check if the user document exists before accessing it
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if user document exists
-    function userExists(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId));
-    }
+    // TEMPORARY DEBUG RULES - DO NOT USE IN PRODUCTION
+    // This will help identify which specific query is failing
     
     match /users/{userId} {
-      // Any authenticated user can read/write their own document
-      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // Allow all authenticated users to read/write for debugging
+      allow read, write, list: if request.auth != null;
       
-      // Allow create for new users (during registration)
-      allow create: if request.auth != null && request.auth.uid == userId;
-      
-      // Admins can list and read all user documents
-      allow list, read: if isAdmin();
-      
-      // Admins can also write to any user document
-      allow write: if isAdmin();
-      
-      // Rules for subcollections (onboarding, dietPlan, etc.)
+      // Allow all operations for subcollections temporarily
       match /{subcollection}/{docId} {
-        // Allow read/write if user owns the parent document or is admin
-        allow read, write: if (request.auth != null && request.auth.uid == userId) || isAdmin();
-        
-        // Allow list operations for the document owner
-        allow list: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+        allow read, write, list: if request.auth != null;
       }
     }
     
     match /team/{memberId} {
-      // Admins can manage the team collection
-      allow list, read, write: if isAdmin();
+      // Allow all authenticated users temporarily
+      allow read, write, list: if request.auth != null;
     }
     
     match /reviews/{reviewId} {
-      // Admins can manage the reviews collection
-      allow list, read, write: if isAdmin();
-      
-      // Optional: Allow users to read reviews (if they should be public)
-      // allow read: if request.auth != null;
+      // Allow all authenticated users temporarily
+      allow read, write, list: if request.auth != null;
     }
     
     match /payments/{paymentId} {
-      // A user can create their own payment document
-      allow create: if request.auth != null && request.auth.uid == paymentId;
-      
-      // Users can read their own payment documents
-      allow read: if request.auth != null && request.auth.uid == paymentId;
-      
-      // Admins can read and update payment documents for verification
-      allow read, update: if isAdmin();
-      
-      // Admins can list all payments
-      allow list: if isAdmin();
+      // Allow all authenticated users temporarily
+      allow read, write, list: if request.auth != null;
     }
     
-    // Default deny rule - explicitly deny everything else
+    // Catch-all rule for debugging - remove after identifying the issue
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write, list: if request.auth != null;
     }
   }
 }
