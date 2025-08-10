@@ -1,56 +1,70 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Admins can read/write anywhere
+
+    // Helper function to check if the requesting user is an admin
     function isAdmin() {
-      return request.auth.token.email == 'care@aziaf.com';
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Users collection
+    // Users Collection
     match /users/{userId} {
-      // A user can read/write their own document
-      allow read, write: if request.auth.uid == userId || isAdmin();
+      // Any authenticated user can create their own user document during signup
+      allow create: if request.auth != null && request.auth.uid == userId;
 
-      // Onboarding subcollection
-      match /onboarding/{docId} {
-        allow read, write: if request.auth.uid == userId || isAdmin();
-      }
-
-      // Diet Plan subcollection
-      match /dietPlan/{docId} {
-        // Users can read their own plan, admins can write it
-        allow read: if request.auth.uid == userId || isAdmin();
-        allow write: if isAdmin();
-      }
-      
-      // Progress subcollection
-      match /progress/{logId} {
-         allow read, write: if request.auth.uid == userId || isAdmin();
-      }
+      // Users can read and update their own document. Admins can read/write any user document.
+      allow read, update: if request.auth.uid == userId || isAdmin();
     }
     
-    // Payments collection
-    match /payments/{userId} {
-        // A user can create their own payment document
-        // Admins can read/update it for verification
-        allow create: if request.auth.uid == userId;
-        allow read, update: if isAdmin();
+    // Onboarding Subcollection
+    match /users/{userId}/onboarding/{docId} {
+        // A user can create/update their own onboarding profile
+        allow write: if request.auth.uid == userId;
+        // A user can read their own profile, Admins can read any profile
+        allow read: if request.auth.uid == userId || isAdmin();
     }
-
-    // Team collection
-    match /team/{memberId} {
-        // Any authenticated user can read the team list (for assignment dropdown)
-        // Only admins can create/update/delete team members
-        allow read: if request.auth != null || isAdmin();
+    
+    // Diet Plan Subcollection
+     match /users/{userId}/dietPlan/{docId} {
+        // Only admins can create/update a diet plan for a user
         allow write: if isAdmin();
+        // A user can read their own diet plan, Admins can read any plan
+        allow read: if request.auth.uid == userId || isAdmin();
+    }
+    
+    // Progress Subcollection
+    match /users/{userId}/progress/{logId} {
+        // A user can create and read their own progress logs
+        allow create, read: if request.auth.uid == userId;
+        // Admins can also read progress logs
+        allow read: if isAdmin(); // This line is redundant but explicit
     }
 
-    // Reviews collection
+    // Team Collection
+    match /team/{memberId} {
+      // Only admins can create, update, or delete team members
+      allow write: if isAdmin();
+      // Any authenticated user can read the team list (e.g., for assignment dropdowns)
+      allow read: if request.auth != null;
+    }
+
+    // Reviews Collection
     match /reviews/{reviewId} {
-        // Only admins/team can read and write reviews
-        allow read, write: if isAdmin();
+      // Only admins can create, update, or delete review tasks
+      allow write, delete: if isAdmin();
+      // Only admins can read the full review queue
+      allow read: if isAdmin();
+    }
+    
+    // Payments Collection
+    match /payments/{userId} {
+        // A user can create their own payment document when submitting a screenshot
+        allow create: if request.auth.uid == userId;
+        // Admins can read/update payment documents for verification
+        allow read, update: if isAdmin();
     }
   }
 }

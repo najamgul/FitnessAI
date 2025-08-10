@@ -15,8 +15,6 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
-const adminEmail = 'care@aziaf.com';
-
 export default function SignupPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -43,29 +41,26 @@ export default function SignupPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            const isUserAdmin = email.toLowerCase() === adminEmail;
 
-            // Save user data to Firestore
+            // All new users are created with the 'user' role by default.
+            // An existing admin must promote them to 'admin' via the admin panel.
             await setDoc(doc(db, 'users', user.uid), {
                 name,
                 email,
                 phone,
                 createdAt: serverTimestamp(),
-                role: isUserAdmin ? 'admin' : 'user',
-                paymentStatus: 'unpaid', // Initial status
+                role: 'user', // Default role
+                paymentStatus: 'unpaid',
                 planStatus: 'not_started',
             });
 
             toast({
                 title: 'Account Created',
-                description: isUserAdmin ? "Welcome, Admin!" : "Let's get you set up!",
+                description: "Welcome! Let's get you set up.",
             });
             
-            if (isUserAdmin) {
-                router.push('/dashboard');
-            } else {
-                router.push('/onboarding');
-            }
+            // All users are sent to onboarding after signup.
+            router.push('/onboarding');
 
         } catch (error: any) {
             let errorMessage = 'An unexpected error occurred.';

@@ -25,6 +25,7 @@ type User = {
     days?: number;
     assignedTo?: string;
     paymentId?: string;
+    role: 'user' | 'admin';
 };
 
 type TeamMember = {
@@ -43,7 +44,8 @@ export default function AdminUsersPage() {
 
     const fetchUsersAndPayments = useCallback(async () => {
         setIsLoading(true);
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'user'));
+        // We fetch all documents from the users collection now, not just role=='user'
+        const usersQuery = query(collection(db, 'users'));
         const paymentsCollection = collection(db, 'payments');
 
         try {
@@ -59,6 +61,7 @@ export default function AdminUsersPage() {
                     paymentStatus: userData.paymentStatus || 'unpaid',
                     planStatus: userData.planStatus || 'not_started',
                     assignedTo: userData.assignedTo || '',
+                    role: userData.role || 'user',
                 };
 
                 if (user.paymentStatus === 'pending') {
@@ -85,10 +88,14 @@ export default function AdminUsersPage() {
             setTeamMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember)));
         });
 
-        fetchUsersAndPayments();
+        const usersUnsubscribe = onSnapshot(query(collection(db, 'users')), (snapshot) => {
+             fetchUsersAndPayments();
+        });
+
 
         return () => {
             teamUnsubscribe();
+            usersUnsubscribe();
         };
     }, [fetchUsersAndPayments]);
 
@@ -118,7 +125,6 @@ export default function AdminUsersPage() {
                 paymentExpiryDate: expiryDate.toISOString(),
             });
 
-            // Create a review task for the assigned team member
             await addDoc(collection(db, 'reviews'), {
                 userId: userId,
                 userName: userName,
@@ -129,7 +135,6 @@ export default function AdminUsersPage() {
                 createdAt: new Date().toISOString(),
             });
 
-            // Update payment document status
             const paymentDocRef = doc(db, 'payments', userId);
             await updateDoc(paymentDocRef, {
                 status: 'verified',
@@ -139,7 +144,7 @@ export default function AdminUsersPage() {
                 title: 'User Approved & Assigned',
                 description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
-            fetchUsersAndPayments(); // Refresh list
+            // The onSnapshot listener will refresh the list automatically
         } catch (error) {
             console.error("Approval Error: ", error);
              toast({
@@ -157,6 +162,18 @@ export default function AdminUsersPage() {
     const handleAssignmentChange = (userId: string, value: string) => {
         setAssignments(prev => ({ ...prev, [userId]: value }));
     };
+    
+    const handleRoleChange = async (userId: string, role: 'user' | 'admin') => {
+        try {
+            const userDocRef = doc(db, 'users', userId);
+            await updateDoc(userDocRef, { role });
+            toast({ title: 'Role Updated', description: `User role has been changed to ${role}.` });
+        } catch (error) {
+            console.error("Role change error: ", error);
+            toast({ title: 'Error', description: 'Failed to update user role.', variant: 'destructive' });
+        }
+    };
+
 
     if (isLoading) {
         return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -167,7 +184,7 @@ export default function AdminUsersPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-3xl font-bold font-headline">User Management</CardTitle>
-                    <CardDescription>Review payment submissions, assign to team members, and grant access.</CardDescription>
+                    <CardDescription>Review payment submissions, assign team members, and manage user roles.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <ScrollArea className="w-full whitespace-nowrap">
@@ -175,6 +192,7 @@ export default function AdminUsersPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User</TableHead>
+                                    <TableHead>Role</TableHead>
                                     <TableHead>Screenshot</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Actions</TableHead>
@@ -187,6 +205,17 @@ export default function AdminUsersPage() {
                                             <TableCell>
                                                 <div className="font-medium">{user.name}</div>
                                                 <div className="text-sm text-muted-foreground">{user.email}</div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select value={user.role} onValueChange={(value: 'user' | 'admin') => handleRoleChange(user.id, value)}>
+                                                    <SelectTrigger className="w-28">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="user">User</SelectItem>
+                                                        <SelectItem value="admin">Admin</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
                                             <TableCell>
                                                 {user.screenshotUrl ? (
@@ -229,7 +258,7 @@ export default function AdminUsersPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">No user submissions yet.</TableCell>
+                                        <TableCell colSpan={5} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
