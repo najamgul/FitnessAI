@@ -44,7 +44,7 @@ export default function AdminReviewsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
     const [approvingFor, setApprovingFor] = useState<string | null>(null);
-    const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: GenerateDietPlanOutput['dietPlan'] }>({});
+    const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: DietPlanDay[] }>({});
     const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
 
@@ -54,6 +54,8 @@ export default function AdminReviewsPage() {
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const queue: ReviewTask[] = [];
+            const newEditablePlans = {...editablePlans};
+
             const planPromises = snapshot.docs.map(async (reviewDoc) => {
                 const reviewData = reviewDoc.data();
                 
@@ -70,13 +72,14 @@ export default function AdminReviewsPage() {
                     generatedPlan: reviewData.generatedPlan || undefined,
                 };
                 
-                if (task.generatedPlan && !editablePlans[task.id]) {
-                    setEditablePlans(prev => ({...prev, [task.id]: task.generatedPlan!.dietPlan }));
+                if (task.generatedPlan && !newEditablePlans[task.id]) {
+                     newEditablePlans[task.id] = task.generatedPlan.dietPlan;
                 }
                 return task;
             });
-
+            
             const resolvedQueue = await Promise.all(planPromises);
+            setEditablePlans(newEditablePlans);
             setReviewQueue(resolvedQueue);
             setIsLoading(false);
         }, (error) => {
@@ -86,7 +89,7 @@ export default function AdminReviewsPage() {
         });
 
         return unsubscribe;
-    }, [toast, editablePlans]);
+    }, [toast]);
 
     useEffect(() => {
         const unsubscribe = fetchReviewQueue();
@@ -114,7 +117,8 @@ export default function AdminReviewsPage() {
                 generatedPlan: result,
                 status: 'pending_approval'
             });
-
+            
+            // This will trigger the onSnapshot listener to update the state
             toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
 
         } catch (error: any) {
@@ -271,7 +275,7 @@ export default function AdminReviewsPage() {
                                         {/* Diet Plan Table or Generate Button */}
                                         <div className="flex-1">
                                             <h4 className="font-semibold mb-2">Diet Plan</h4>
-                                            {!task.generatedPlan ? (
+                                            {!editablePlans[task.id] ? (
                                                 <div className="h-full flex items-center justify-center bg-background rounded-md p-8">
                                                     <Button onClick={() => handleGeneratePlan(task)} disabled={generatingFor === task.id} size="lg">
                                                         {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
