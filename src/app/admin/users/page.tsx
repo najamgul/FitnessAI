@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const mockUsers = [
     { id: 1, name: 'John Doe', email: 'john.doe@example.com', screenshotUrl: 'https://placehold.co/150x300.png', status: 'Pending' },
@@ -68,50 +69,53 @@ export default function AdminUsersPage() {
                     <CardDescription>Review payment submissions and grant access to users.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Screenshot</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {users.map(user => (
-                                <TableRow key={user.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{user.name}</div>
-                                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
-                                            <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
-                                        </a>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
-                                            {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {user.status === 'Pending' && (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Days (e.g., 30)"
-                                                    className="w-32"
-                                                    value={accessDays[user.id] || ''}
-                                                    onChange={(e) => handleDaysChange(user.id, e.target.value)}
-                                                />
-                                                <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
-                                            </div>
-                                        )}
-                                    </TableCell>
+                    <ScrollArea className="w-full whitespace-nowrap">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Screenshot</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Actions</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {users.map(user => (
+                                    <TableRow key={user.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{user.name}</div>
+                                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                                <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
+                                            </a>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
+                                                {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {user.status === 'Pending' && (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="Days (e.g., 30)"
+                                                        className="w-32"
+                                                        value={accessDays[user.id] || ''}
+                                                        onChange={(e) => handleDaysChange(user.id, e.target.value)}
+                                                    />
+                                                    <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve</Button>
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                         <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                 </CardContent>
             </Card>
         </div>

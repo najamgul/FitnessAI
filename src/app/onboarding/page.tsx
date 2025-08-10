@@ -288,7 +288,7 @@ export default function OnboardingPage() {
                     {step === 1 && (
                         <>
                             <CardHeader><CardTitle className="font-headline">About You</CardTitle><CardDescription>This helps us calculate your basic health metrics.</CardDescription></CardHeader>
-                            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="age">Age</Label>
                                     <Input id="age" type="number" placeholder="e.g., 28" value={formData.age} onChange={handleChange} />
@@ -323,7 +323,7 @@ export default function OnboardingPage() {
                                     <Label htmlFor="hip">Hip (inches)</Label>
                                     <Input id="hip" type="number" placeholder="e.g., 38" value={formData.hip} onChange={handleChange} />
                                 </div>
-                                 <div className="space-y-2 md:col-span-2">
+                                 <div className="space-y-2 sm:col-span-2">
                                     <Label htmlFor="geographicLocation">Current Location</Label>
                                     <Input id="geographicLocation" placeholder="e.g., Srinagar, Kashmir or Delhi, India" value={formData.geographicLocation} onChange={handleChange} />
                                     <p className="text-xs text-muted-foreground">This helps us tailor content (e.g., using the Kashmir knowledge base).</p>
@@ -348,7 +348,7 @@ export default function OnboardingPage() {
                                         </div>
                                     </>
                                 )}
-                                 <div className="space-y-2 md:col-span-2">
+                                 <div className="space-y-2 sm:col-span-2">
                                     <Label htmlFor="photo-upload">Full Body Photo (Optional)</Label>
                                     <p className="text-xs text-muted-foreground -mt-1">
                                         This helps us track progress visually. You can wear a mask for privacy.
@@ -373,8 +373,8 @@ export default function OnboardingPage() {
                     {step === 2 && (
                          <>
                             <CardHeader><CardTitle className="font-headline">Your Lifestyle</CardTitle><CardDescription>Your daily habits affect your nutritional needs.</CardDescription></CardHeader>
-                            <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <div className="space-y-2 md:col-span-2">
+                            <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                                <div className="space-y-2 sm:col-span-2">
                                     <Label>Typical Activity Level</Label>
                                     <Select value={formData.activityLevel} onValueChange={(v) => handleSelectChange('activityLevel', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -405,7 +405,7 @@ export default function OnboardingPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="space-y-3 md:col-span-2">
+                                <div className="space-y-3 sm:col-span-2">
                                     <Label>Do you have a fasting preference?</Label>
                                      <RadioGroup value={formData.fastingPreference} onValueChange={(v) => handleRadioChange('fastingPreference', v)} className="flex flex-col gap-2">
                                         <div className="flex items-center space-x-2">

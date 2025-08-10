@@ -17,6 +17,7 @@ import 'jspdf-autotable';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toPng } from 'html-to-image';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 type ProgressEntry = {
     date: string;
@@ -249,12 +250,12 @@ export default function ProgressPage() {
             )}
 
              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle className="font-headline">Progress History</CardTitle>
                         <CardDescription>Review your past entries and visualize your journey.</CardDescription>
                     </div>
-                    <Button onClick={handleDownloadReport} disabled={isDownloading || progressHistory.length === 0}>
+                    <Button onClick={handleDownloadReport} disabled={isDownloading || progressHistory.length === 0} className="mt-4 sm:mt-0">
                         {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                         Download Report
                     </Button>
@@ -294,7 +295,7 @@ export default function ProgressPage() {
                                 </ResponsiveContainer>
                             </div>
                             
-                            <div className="max-h-[300px] overflow-auto">
+                            <ScrollArea className="w-full whitespace-nowrap">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -317,7 +318,8 @@ export default function ProgressPage() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                            </div>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
 
                         </>
                     ) : (

@@ -120,7 +120,7 @@ export default function DashboardPage() {
             </div>
             
             {latestProgress ? (
-                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 </Alert>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-6 lg:grid-cols-5">
                 <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle className="font-headline">Weight Trend (Last 7 Entries)</CardTitle>
