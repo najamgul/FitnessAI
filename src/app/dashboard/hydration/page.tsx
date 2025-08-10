@@ -256,20 +256,50 @@ const SmartWaterTracker = () => {
       </div>
 
       <div className="p-6">
-        <div className="text-center mb-8">
-          <div className="relative inline-block">
-            <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 200 200">
-              <circle cx="100" cy="100" r="80" stroke="hsl(var(--muted))" strokeWidth="12" fill="transparent" />
-              <circle cx="100" cy="100" r="80" stroke="url(#gradient)" strokeWidth="12" fill="transparent" strokeDasharray={`${completionRate * 5.03} 503`} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-              <defs><linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="hsl(var(--primary))" /><stop offset="100%" stopColor="hsl(var(--accent))" /></linearGradient></defs>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <div className="text-4xl font-bold text-foreground">{completedWater}</div>
-              <div className="text-muted-foreground">of {adjustedGoal} ml</div>
-              {nextDrink && <div className="mt-2 text-sm text-primary font-medium">Next: {nextDrink.amount}ml at {nextDrink.time}</div>}
+        {/* Progress Ring */}
+          <div className="text-center mb-8">
+            <div className="relative inline-block">
+              <svg className="w-56 h-56 transform -rotate-90" viewBox="0 0 200 200">
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="80"
+                  stroke="hsl(var(--muted))"
+                  strokeWidth="12"
+                  fill="transparent"
+                />
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="80"
+                  stroke="url(#gradient)"
+                  strokeWidth="12"
+                  fill="transparent"
+                  strokeDasharray={`${completionRate * 5.03} 503`}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+                <defs>
+                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center flex-col px-4">
+                <div className="text-5xl font-bold text-foreground leading-tight">{completedWater}</div>
+                <div className="text-muted-foreground text-lg mt-1">of {adjustedGoal} ml</div>
+                {nextDrink && (
+                  <div className="mt-3 text-center">
+                    <div className="text-sm text-primary font-medium">Next:</div>
+                    <div className="text-base text-primary font-semibold">
+                      {nextDrink.amount}ml at {nextDrink.time}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
         <div className="flex justify-center gap-4 mb-8">
           {[100, 250, 500].map(amount => (
