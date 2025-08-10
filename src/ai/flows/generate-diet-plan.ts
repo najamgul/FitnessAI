@@ -88,7 +88,7 @@ const defaultPromptTemplate = `You are a master nutritionist specializing in cre
 
   It is critical that each day's 'meals' object includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed. If fasting is requested, you must still provide all seven meal slots, but you can adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
 
-  For each meal, provide the meal name, the quantity of the main ingredients (e.g., '100g', '1 cup'), and a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'). You must also include the approximate calorie count for the meal, and a brief 1-2 sentence description of the meal's benefits and importance within the diet plan.
+  For each meal, provide the meal name, the quantity of the main ingredients (e.g., '100g', '1 cup'), a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'), the approximate calorie count, and a brief 1-2 sentence description of the meal's benefits.
 
   User Details:
   - Health Information: {{{healthInformation}}}
@@ -129,7 +129,7 @@ const generateDietPlanFlow = ai.defineFlow(
         throw new Error("Failed to generate the base diet plan.");
     }
     
-    // Step 1.5: Validate and complete the generated plan
+    // Step 1.5: Validate and complete the generated plan to prevent schema errors
     const mealKeys: (keyof z.infer<typeof MealsSchema>)[] = ["Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"];
     const placeholderMeal: z.infer<typeof MealSchema> = {
         meal: "Not specified",
@@ -140,22 +140,14 @@ const generateDietPlanFlow = ai.defineFlow(
     };
 
     basePlan.dietPlan.forEach(day => {
-        let needsCompletion = false;
+        const completedMeals = { ...day.meals };
         for (const key of mealKeys) {
-            if (!day.meals[key]) {
-                needsCompletion = true;
-                break;
+            if (!completedMeals[key]) {
+                // If a required meal slot is missing, add the placeholder.
+                completedMeals[key] = placeholderMeal;
             }
         }
-        if (needsCompletion) {
-            const completedMeals = { ...day.meals };
-            for (const key of mealKeys) {
-                if (!completedMeals[key]) {
-                    completedMeals[key] = placeholderMeal;
-                }
-            }
-            day.meals = completedMeals as z.infer<typeof MealsSchema>;
-        }
+        day.meals = completedMeals as z.infer<typeof MealsSchema>;
     });
 
     // Step 2: Create a list of all image queries to be fetched
