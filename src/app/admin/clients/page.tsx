@@ -10,7 +10,7 @@ import { Loader2, User, Edit3, Save, X, Copy, Image as ImageIcon, Trash2, CheckC
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
-import { collection, query, where, onSnapshot, doc, getDocs, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDocs, updateDoc, setDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -50,7 +50,7 @@ export default function AdminClientsPage() {
 
     const fetchClients = useCallback(() => {
         setIsLoading(true);
-        const q = query(collection(db, 'users'), where('planStatus', '==', 'ready'));
+        const q = query(collection(db, 'users'), where('planStatus', '==', 'ready'), orderBy('createdAt', 'desc'));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const clientList: Client[] = [];
@@ -378,3 +378,4 @@ export default function AdminClientsPage() {
         </Card>
     );
 }
+
