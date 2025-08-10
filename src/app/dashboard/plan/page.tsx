@@ -6,8 +6,9 @@ import {
   Apple, Brain, CheckCircle2, Clock, Download, 
   TrendingUp, Utensils, Zap, AlertTriangle, Target, 
   RefreshCw, ShoppingCart, Star, Moon,
-  Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock
+  Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock, Image as ImageIcon
 } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -60,7 +61,7 @@ const SmartDietPlanner = () => {
                 const userData = userDoc.data();
                 setPlanStatus(userData.planStatus || 'not_found');
 
-                if (userData.planStatus === 'approved') {
+                if (userData.planStatus === 'ready') {
                     const dietPlanDocRef = doc(db, 'users', user.uid, 'dietPlan', 'current');
                     const unsubscribePlan = onSnapshot(dietPlanDocRef, (planDoc) => {
                         if (planDoc.exists()) {
@@ -92,7 +93,7 @@ const SmartDietPlanner = () => {
         });
 
         return () => unsubscribeUser();
-    }, [user]);
+    }, [user, router]);
 
     const getStoredProgress = () => {
         try {
@@ -209,23 +210,39 @@ const SmartDietPlanner = () => {
                             {plan.map((dayData, dayIndex) => (
                                 <TabsContent key={dayIndex} value={`day-${dayData.day}`} className="space-y-4 mt-4">
                                     {dayData.meals.map((meal, mealIndex) => (
-                                    <Card key={mealIndex} className={`p-4 rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                        <div className="flex items-center justify-between flex-wrap gap-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
-                                                         <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
-                                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
-                                                    </div>
-                                                    <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
+                                    <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
+                                        <div className="flex items-start">
+                                            {meal.imageUrl ? (
+                                                <Image 
+                                                    src={meal.imageUrl}
+                                                    alt={meal.meal}
+                                                    width={128}
+                                                    height={128}
+                                                    className="w-24 h-24 md:w-32 md:h-32 object-cover"
+                                                    unoptimized
+                                                />
+                                            ) : (
+                                                <div className="w-24 h-24 md:w-32 md:h-32 bg-muted flex items-center justify-center">
+                                                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
                                                 </div>
-                                            </div>
-                                            <div className="flex flex-col gap-2">
-                                                <Button onClick={() => toggleMealCompletion(dayIndex, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
-                                                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                    {meal.completed ? 'Completed' : 'Mark as Eaten'}
-                                                </Button>
+                                            )}
+                                            <div className="p-4 flex-1">
+                                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                            <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
+                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
+                                                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                                                        </div>
+                                                        <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
+                                                    </div>
+                                                    <div className="flex flex-col gap-2">
+                                                        <Button onClick={() => toggleMealCompletion(dayIndex, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
+                                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                            {meal.completed ? 'Completed' : 'Mark as Eaten'}
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </Card>

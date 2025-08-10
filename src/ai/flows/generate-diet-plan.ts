@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { getPexelsImage } from './get-pexels-image';
 
 const GenerateDietPlanInputSchema = z.object({
   dietaryPreferences: z
@@ -27,7 +28,8 @@ const MealSchema = z.object({
     meal: z.string().describe("The name of the meal to be eaten."),
     hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
     calories: z.number().describe("The approximate calorie count for this meal."),
-    description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences).")
+    description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences)."),
+    imageUrl: z.string().url().optional().describe("URL of an image for the meal from Pexels."),
 });
 
 const MealsSchema = z.object({
@@ -88,7 +90,46 @@ const generateDietPlanFlow = ai.defineFlow(
     outputSchema: GenerateDietPlanOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    // Step 1: Generate the base diet plan without images
+    const { output: basePlan } = await prompt(input);
+    if (!basePlan) {
+        throw new Error("Failed to generate the base diet plan.");
+    }
+
+    // Step 2: Create a list of all image queries to be fetched
+    const imagePromises: Promise<{dayIndex: number, mealTime: string, imageUrl: string}>[] = [];
+
+    basePlan.dietPlan.forEach((day, dayIndex) => {
+        Object.entries(day.meals).forEach(([mealTime, mealDetails]) => {
+            if (mealDetails.hint) {
+                const promise = getPexelsImage({ query: mealDetails.hint })
+                    .then(result => ({
+                        dayIndex,
+                        mealTime,
+                        imageUrl: result.imageUrl,
+                    }));
+                imagePromises.push(promise);
+            }
+        });
+    });
+
+    // Step 3: Fetch all images concurrently
+    const settledImages = await Promise.allSettled(imagePromises);
+
+    // Step 4: Augment the plan with the fetched image URLs
+    settledImages.forEach(result => {
+        if (result.status === 'fulfilled') {
+            const { dayIndex, mealTime, imageUrl } = result.value;
+            // This is a safe cast because we know the structure of MealsSchema
+            const meal = (basePlan.dietPlan[dayIndex].meals as any)[mealTime];
+            if (meal) {
+                meal.imageUrl = imageUrl;
+            }
+        } else {
+            console.error("Failed to fetch an image:", result.reason);
+        }
+    });
+
+    return basePlan;
   }
 );
