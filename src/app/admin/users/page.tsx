@@ -27,6 +27,7 @@ type User = {
     assignedTo?: string;
     paymentId?: string;
     role: 'user' | 'admin';
+    planDuration?: string;
 };
 
 type TeamMember = {
@@ -71,11 +72,19 @@ export default function AdminUsersPage() {
                             user.screenshotUrl = paymentDoc.data().screenshotUrl;
                         }
                     }
+                    
+                    // Fetch onboarding data to get plan duration
+                    const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
+                    const onboardingDoc = await getDoc(onboardingDocRef);
+                    if (onboardingDoc.exists()) {
+                        user.planDuration = onboardingDoc.data().planDuration;
+                    }
+                    
                     userList.push(user);
                 }
 
                 setUsers(userList);
-            } catch (error) {
+            } catch (error: any) {
                  console.error("Error processing user data:", error);
                  if (error.code !== 'permission-denied') {
                     toast({ title: "Error", description: "Could not process user data.", variant: "destructive" });
@@ -237,14 +246,19 @@ export default function AdminUsersPage() {
                                             </TableCell>
                                             <TableCell>
                                                 {user.paymentStatus === 'pending' ? (
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <Input
-                                                            type="number"
-                                                            placeholder="Days (e.g., 30)"
-                                                            className="w-32"
-                                                            value={accessDays[user.id] || ''}
-                                                            onChange={(e) => handleDaysChange(user.id, e.target.value)}
-                                                        />
+                                                    <div className="flex items-start gap-4 flex-wrap">
+                                                        <div className="space-y-1">
+                                                             <Input
+                                                                type="number"
+                                                                placeholder="Days (e.g., 30)"
+                                                                className="w-40"
+                                                                value={accessDays[user.id] || ''}
+                                                                onChange={(e) => handleDaysChange(user.id, e.target.value)}
+                                                            />
+                                                            {user.planDuration && (
+                                                                <p className="text-xs text-muted-foreground">Requested: {user.planDuration} days</p>
+                                                            )}
+                                                        </div>
                                                         <Select onValueChange={(value) => handleAssignmentChange(user.id, value)}>
                                                             <SelectTrigger className="w-[180px]">
                                                                 <SelectValue placeholder="Assign to..." />
