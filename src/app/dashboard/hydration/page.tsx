@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -192,47 +193,44 @@ const SmartWaterTracker = () => {
   const redistributeWaterSlots = useCallback((skippedItemId: number) => {
     setRedistributing(true);
     
-    setTimeout(() => {
-      setScheduleItems(prevItems => {
-        const updatedItems = [...prevItems];
-        const skippedItem = updatedItems.find(item => item.id === skippedItemId);
-        
-        if (!skippedItem) {
-          setRedistributing(false);
-          return prevItems;
-        }
+    setScheduleItems(prevItems => {
+      const updatedItems = [...prevItems];
+      const skippedItem = updatedItems.find(item => item.id === skippedItemId);
+      
+      if (!skippedItem) {
+        setRedistributing(false);
+        return prevItems;
+      }
 
-        const skippedAmount = skippedItem.originalAmount || skippedItem.amount;
-        
-        // Find remaining slots (future slots that aren't completed or skipped)
-        const remainingItems = updatedItems.filter(item => 
-          item.id > skippedItemId && 
-          !item.completed && 
-          !item.skipped && 
-          isItemInFuture(item)
-        );
+      const skippedAmount = skippedItem.originalAmount || skippedItem.amount;
+      
+      // Find remaining slots (future slots that aren't completed or skipped)
+      const remainingItems = updatedItems.filter(item => 
+        item.id > skippedItemId && 
+        !item.completed && 
+        !item.skipped
+      );
 
-        if (remainingItems.length === 0) {
-          setRedistributing(false);
-          return updatedItems;
-        }
-
-        // Distribute skipped amount evenly across remaining slots
-        const additionalAmountPerSlot = Math.round(skippedAmount / remainingItems.length / 10) * 10; // Round to nearest 10ml
-        
-        // Apply redistribution
-        updatedItems.forEach(item => {
-          if (remainingItems.some(remaining => remaining.id === item.id)) {
-            const originalAmount = item.originalAmount || item.amount;
-            item.amount = originalAmount + additionalAmountPerSlot;
-            item.reason = `Redistributed - +${additionalAmountPerSlot}ml from missed ${skippedItem.time}`;
-          }
-        });
-
+      if (remainingItems.length === 0) {
         setRedistributing(false);
         return updatedItems;
+      }
+
+      // Distribute skipped amount evenly across remaining slots
+      const additionalAmountPerSlot = Math.round(skippedAmount / remainingItems.length / 10) * 10; // Round to nearest 10ml
+      
+      // Apply redistribution
+      updatedItems.forEach(item => {
+        if (remainingItems.some(remaining => remaining.id === item.id)) {
+          const originalAmount = item.originalAmount || item.amount;
+          item.amount = originalAmount + additionalAmountPerSlot;
+          item.reason = `Redistributed - +${additionalAmountPerSlot}ml from missed ${skippedItem.time}`;
+        }
       });
-    }, 500);
+
+      setTimeout(() => setRedistributing(false), 500);
+      return updatedItems;
+    });
   }, []);
 
   const toggleCompletion = (id: number, completed: boolean) => {
@@ -311,7 +309,7 @@ const SmartWaterTracker = () => {
             <div className="p-3 bg-white/20 rounded-full"><Droplets className="w-8 h-8" /></div>
             <div>
               <h1 className="text-3xl font-bold font-headline text-primary-foreground">Smart Hydration Assistant</h1>
-              <p className="text-blue-100 mt-1">Azai-powered personalized water tracking</p>
+              <p className="text-blue-100 mt-1">AZIAF-powered personalized water tracking</p>
             </div>
           </div>
           <div className="text-right">
@@ -461,7 +459,7 @@ const SmartWaterTracker = () => {
                         <input type="checkbox" checked={item.completed} onChange={(e) => toggleCompletion(item.id, e.target.checked)} className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2" />
                         <span className="text-sm text-muted-foreground">Goal</span>
                       </label>
-                      {!item.completed && !item.skipped && isItemInFuture(item) && (
+                      {!item.completed && !item.skipped && (
                         <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Missed</button>
                       )}
                       {item.skipped && <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Missed</div>}
