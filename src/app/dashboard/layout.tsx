@@ -88,7 +88,9 @@ export default function DashboardLayout({
                     const userIsAdmin = userData.role === 'admin';
                     setIsAdmin(userIsAdmin);
 
-                    if (!userIsAdmin) {
+                    if (userIsAdmin && !pathname.startsWith('/admin')) {
+                        router.push('/admin/users');
+                    } else if (!userIsAdmin) {
                         const paymentStatus = userData.paymentStatus;
                         if (paymentStatus === 'pending') {
                             router.push('/awaiting-approval');
@@ -113,9 +115,9 @@ export default function DashboardLayout({
     });
 
     return () => unsubscribe();
-  }, [router, toast]);
+  }, [router, toast, pathname]);
   
-  const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
+  const navItems = allNavItems.filter(item => item.admin === isAdmin);
 
   const handleLogout = async () => {
     try {
@@ -133,7 +135,7 @@ export default function DashboardLayout({
       .slice()
       .reverse()
       .find(item => pathname.startsWith(item.href));
-    return matchingItem ? matchingItem.label : 'Dashboard';
+    return matchingItem ? matchingItem.label : isAdmin ? 'Admin' : 'Dashboard';
   };
 
   if (isLoading || !isClient) {
@@ -152,7 +154,7 @@ export default function DashboardLayout({
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
-            <Link href="/dashboard">
+            <Link href={isAdmin ? '/admin/users' : '/dashboard'}>
                 <Image src="/logo.png" alt="Aziaf Logo" width={80} height={80} />
             </Link>
           </div>
