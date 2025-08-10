@@ -162,18 +162,6 @@ export default function AdminUsersPage() {
     const handleAssignmentChange = (userId: string, value: string) => {
         setAssignments(prev => ({ ...prev, [userId]: value }));
     };
-    
-    const handleRoleChange = async (userId: string, role: 'user' | 'admin') => {
-        try {
-            const userDocRef = doc(db, 'users', userId);
-            await updateDoc(userDocRef, { role });
-            toast({ title: 'Role Updated', description: `User role has been changed to ${role}.` });
-        } catch (error) {
-            console.error("Role change error: ", error);
-            toast({ title: 'Error', description: 'Failed to update user role.', variant: 'destructive' });
-        }
-    };
-
 
     if (isLoading) {
         return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -192,7 +180,6 @@ export default function AdminUsersPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User</TableHead>
-                                    <TableHead>Role</TableHead>
                                     <TableHead>Screenshot</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Actions</TableHead>
@@ -205,17 +192,6 @@ export default function AdminUsersPage() {
                                             <TableCell>
                                                 <div className="font-medium">{user.name}</div>
                                                 <div className="text-sm text-muted-foreground">{user.email}</div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select value={user.role} onValueChange={(value: 'user' | 'admin') => handleRoleChange(user.id, value)}>
-                                                    <SelectTrigger className="w-28">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="user">User</SelectItem>
-                                                        <SelectItem value="admin">Admin</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
                                             </TableCell>
                                             <TableCell>
                                                 {user.screenshotUrl ? (
@@ -258,7 +234,7 @@ export default function AdminUsersPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24">No user submissions yet.</TableCell>
+                                        <TableCell colSpan={4} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
