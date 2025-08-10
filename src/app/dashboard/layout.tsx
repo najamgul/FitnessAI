@@ -26,6 +26,7 @@ import {
   Leaf,
   Users,
   BookText,
+  GlassWater,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -42,6 +43,7 @@ const allNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
   { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed, admin: false },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
+  { href: '/dashboard/hydration', label: 'Hydration', icon: GlassWater, admin: false },
   { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
   { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
