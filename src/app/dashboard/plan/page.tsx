@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -28,6 +27,7 @@ type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
     completed: boolean;
     skipped?: boolean;
+    time: string;
 };
 
 type DayPlan = {
@@ -58,6 +58,22 @@ const SmartDietPlanner = () => {
         });
         return () => unsubscribeAuth();
     }, [router]);
+    
+    // Function to parse time string (e.g., "8:00 AM") into a date object for comparison
+    const parseTime = (timeStr: string): Date => {
+        const now = new Date();
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+    
+        if (hours === 12) {
+            hours = modifier.toUpperCase() === 'AM' ? 0 : 12;
+        } else if (modifier.toUpperCase() === 'PM') {
+            hours += 12;
+        }
+    
+        now.setHours(hours, minutes, 0, 0);
+        return now;
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -82,15 +98,24 @@ const SmartDietPlanner = () => {
                         if (planDoc.exists()) {
                             const fetchedPlan = planDoc.data() as GenerateDietPlanOutput;
                             const storedProgress = getStoredProgress();
-                            const transformedPlan = fetchedPlan.dietPlan.map(dayPlan => ({
-                                day: dayPlan.day,
-                                meals: Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
+                            
+                            const transformedPlan = fetchedPlan.dietPlan.map(dayPlan => {
+                                const mealsArray = Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
                                     ...mealDetails,
                                     mealTime,
                                     completed: storedProgress[dayPlan.day]?.[mealTime]?.completed || false,
                                     skipped: storedProgress[dayPlan.day]?.[mealTime]?.skipped || false
-                                }))
-                            }));
+                                }));
+
+                                // Sort meals chronologically
+                                mealsArray.sort((a, b) => parseTime(a.time).getTime() - parseTime(b.time).getTime());
+
+                                return {
+                                    day: dayPlan.day,
+                                    meals: mealsArray
+                                };
+                            });
+
                             setPlan(transformedPlan);
                         } else {
                             setPlanStatus('not_found');
