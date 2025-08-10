@@ -88,9 +88,7 @@ export default function DashboardLayout({
                     const userIsAdmin = userData.role === 'admin';
                     setIsAdmin(userIsAdmin);
 
-                    if (userIsAdmin && !pathname.startsWith('/admin')) {
-                        router.push('/admin/users');
-                    } else if (!userIsAdmin) {
+                    if (!userIsAdmin) {
                         const paymentStatus = userData.paymentStatus;
                         if (paymentStatus === 'pending') {
                             router.push('/awaiting-approval');
