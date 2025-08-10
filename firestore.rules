@@ -1,39 +1,44 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
     // Helper function to check for admin role
     function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Check if the user is authenticated and if their user document has role == 'admin'
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Users can only read/write their own data
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid == userId;
+      // Any authenticated user can read/write their own document
+      allow read, update, write: if request.auth.uid == userId;
 
-      // Allow users to manage their own subcollections
+      // Admins can list and read all user documents
+      allow list, read: if isAdmin();
+
+      // Admins can also write to any user document
+      allow write: if isAdmin();
+
+      // Rules for subcollections (onboarding, dietPlan, etc.)
       match /{subcollection}/{docId} {
         allow read, write: if request.auth.uid == userId || isAdmin();
       }
     }
 
-    // Admins can manage team members
     match /team/{memberId} {
-      allow read, list, write, delete: if isAdmin();
+      // Admins can manage the team collection
+      allow list, read, write: if isAdmin();
     }
     
-    // Admins can manage review queue
     match /reviews/{reviewId} {
-        allow read, list, write, delete: if isAdmin();
+      // Admins can manage the reviews collection
+      allow list, read, write: if isAdmin();
     }
-    
-    // Users can create payments for themselves. Admins can manage them.
-    match /payments/{userId} {
-        allow create: if request.auth.uid == userId;
+
+    match /payments/{paymentId} {
+        // A user can create their own payment document
+        allow create: if request.auth.uid == paymentId;
+        // Admins can read and update payment documents for verification
         allow read, update: if isAdmin();
     }
   }
