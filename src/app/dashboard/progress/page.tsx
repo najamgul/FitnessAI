@@ -1,16 +1,17 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   TrendingUp, Brain, Target, Zap, Calendar, Download, 
   Activity, Scale, Battery, Utensils, Award, AlertCircle,
   CheckCircle2, Star, BarChart3, Eye, Lightbulb,
   Heart, Moon, Droplets,
-  ArrowUp, ArrowDown, Minus, Sparkles
+  ArrowUp, ArrowDown, Minus, Sparkles, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 type ProgressMetric = {
     weight: number;
@@ -57,35 +58,61 @@ type Achievement = {
 };
 
 const UltimateProgressTracker = () => {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLogging, setIsLogging] = useState(false);
+
   const [currentMetrics, setCurrentMetrics] = useState<ProgressMetric>({
-    weight: 68.5,
-    energyLevel: 7,
-    mealCompletion: 85,
-    waterIntake: 2100,
-    sleepHours: 7.5,
-    moodScore: 8,
-    exerciseMinutes: 45,
-    stressLevel: 3
+    weight: 0,
+    energyLevel: 5,
+    mealCompletion: 75,
+    waterIntake: 1500,
+    sleepHours: 7,
+    moodScore: 5,
+    exerciseMinutes: 30,
+    stressLevel: 5
   });
 
-  const [progressHistory] = useState<HistoryEntry[]>([
-    { date: '2024-01-08', weight: 69.2, energy: 6, meals: 70, water: 1800, sleep: 6.5, mood: 6, exercise: 30, stress: 5 },
-    { date: '2024-01-07', weight: 69.0, energy: 7, meals: 80, water: 2000, sleep: 7, mood: 7, exercise: 45, stress: 4 },
-    { date: '2024-01-06', weight: 68.8, energy: 8, meals: 90, water: 2200, sleep: 8, mood: 8, exercise: 60, stress: 3 },
-    { date: '2024-01-05', weight: 69.1, energy: 5, meals: 60, water: 1600, sleep: 6, mood: 5, exercise: 20, stress: 6 },
-    { date: '2024-01-04', weight: 69.3, energy: 6, meals: 75, water: 1900, sleep: 7, mood: 6, exercise: 40, stress: 4 },
-    { date: '2024-01-03', weight: 69.5, energy: 7, meals: 85, water: 2100, sleep: 7.5, mood: 7, exercise: 50, stress: 3 },
-    { date: '2024-01-02', weight: 69.8, energy: 4, meals: 50, water: 1400, sleep: 5.5, mood: 4, exercise: 15, stress: 7 }
-  ]);
-
+  const [progressHistory, setProgressHistory] = useState<HistoryEntry[]>([]);
   const [aiInsights, setAiInsights] = useState<Insight[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+
+  useEffect(() => {
+    try {
+        const historyString = localStorage.getItem('progressHistory');
+        if (historyString) {
+            const history = JSON.parse(historyString) as HistoryEntry[];
+            setProgressHistory(history);
+            if (history.length > 0) {
+                 const lastEntry = history[0]; // Assuming history is sorted newest first
+                 setCurrentMetrics({
+                    weight: lastEntry.weight,
+                    energyLevel: lastEntry.energy,
+                    mealCompletion: lastEntry.meals,
+                    waterIntake: lastEntry.water,
+                    sleepHours: lastEntry.sleep,
+                    moodScore: lastEntry.mood,
+                    exerciseMinutes: lastEntry.exercise,
+                    stressLevel: lastEntry.stress
+                 });
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load progress history:", e);
+        toast({ title: 'Error', description: 'Could not load your progress history.', variant: 'destructive'});
+    } finally {
+        setIsLoading(false);
+    }
+  }, [toast]);
+  
 
   const analyzeTrends = useCallback(() => {
     const trends: Record<string, 'increasing' | 'decreasing' | 'stable'> = {};
     const metrics = ['weight', 'energy', 'meals', 'water', 'sleep', 'mood'];
     
+    if (progressHistory.length < 3) return trends; // Not enough data
+
     metrics.forEach(metric => {
         const key = metric as keyof Omit<HistoryEntry, 'date' | 'exercise' | 'stress'>;
         const recent3 = progressHistory.slice(0, 3).map(day => day[key]);
@@ -97,84 +124,79 @@ const UltimateProgressTracker = () => {
   }, [progressHistory]);
 
   const generateAIInsights = useCallback(() => {
-    const insights: Insight[] = [];
-    const recent = progressHistory.slice(0, 3);
-    const trends = analyzeTrends();
+    if (progressHistory.length < 2) return [];
 
-    if (trends.weight === 'decreasing' && progressHistory.length > 6) {
+    const insights: Insight[] = [];
+    const latest = progressHistory[0];
+    const previous = progressHistory[1];
+    
+    if (latest.weight < previous.weight) {
       insights.push({
         type: 'success',
         title: 'Weight Loss Momentum',
-        message: `Excellent! You've lost ${(progressHistory[6].weight - currentMetrics.weight).toFixed(1)}kg this week. Your current approach is working perfectly.`,
+        message: `Excellent! You've lost ${(previous.weight - latest.weight).toFixed(1)}kg since your last entry. Keep it up!`,
         icon: <TrendingUp className="w-5 h-5 text-green-500" />,
         confidence: 95
       });
     }
 
-    const avgSleep = recent.reduce((sum, day) => sum + day.sleep, 0) / recent.length;
-    const avgEnergy = recent.reduce((sum, day) => sum + day.energy, 0) / recent.length;
-    
-    if (avgSleep < 7 && avgEnergy < 6) {
+    if (latest.sleep < 7 && latest.energy < 6) {
       insights.push({
         type: 'warning',
         title: 'Sleep-Energy Connection',
-        message: `Your energy levels correlate strongly with sleep. Aim for 8+ hours tonight to boost tomorrow's energy by ~30%.`,
+        message: `Your energy may be low due to sleeping less than 7 hours. Aim for more rest to boost tomorrow's energy.`,
         icon: <Moon className="w-5 h-5 text-primary" />,
         confidence: 88
       });
     }
 
-    if (currentMetrics.mealCompletion > 80) {
+    if (latest.meals > 80) {
       insights.push({
         type: 'pattern',
         title: 'Nutrition Consistency',
-        message: `High meal completion (${currentMetrics.mealCompletion}%) is accelerating your progress. Your metabolism is optimized.`,
+        message: `High meal completion (${latest.meals}%) is a strong indicator of success. Your metabolism is likely optimized.`,
         icon: <Utensils className="w-5 h-5 text-purple-500" />,
         confidence: 92
       });
     }
-
-    const stressTrend = currentMetrics.stressLevel < recent[0].stress;
-    if (stressTrend && currentMetrics.exerciseMinutes > 30) {
-      insights.push({
-        type: 'discovery',
-        title: 'Exercise-Stress Relief',
-        message: `Your ${currentMetrics.exerciseMinutes}min workout reduced stress by ${recent[0].stress - currentMetrics.stressLevel} points. This is your sweet spot!`,
-        icon: <Activity className="w-5 h-5 text-orange-500" />,
-        confidence: 87
-      });
-    }
-
+    
     return insights;
-  }, [progressHistory, currentMetrics, analyzeTrends]);
+  }, [progressHistory]);
 
   const generatePredictions = useCallback(() => {
+    if (progressHistory.length < 7) return {};
+
     const trends = analyzeTrends();
     const newPredictions: Record<string, Prediction> = {};
     
-    if (trends.weight === 'decreasing' && progressHistory.length > 6) {
-      const weeklyRate = progressHistory[6].weight - currentMetrics.weight;
+    if (trends.weight === 'decreasing') {
+      const weeklyRate = progressHistory[6].weight - progressHistory[0].weight;
       newPredictions.weight = {
-        value: parseFloat(Math.max(65, currentMetrics.weight - weeklyRate).toFixed(1)),
+        value: parseFloat(Math.max(0, progressHistory[0].weight - weeklyRate).toFixed(1)),
         timeframe: '1 week',
         confidence: 89
       };
+    } else {
+        newPredictions.weight = { value: progressHistory[0].weight, timeframe: '1 week', confidence: 70 };
     }
     
-    const consistencyScore = (currentMetrics.mealCompletion + currentMetrics.energyLevel * 10) / 2;
+    const consistencyScore = (progressHistory[0].meals + progressHistory[0].energy * 10) / 2;
     newPredictions.goalAchievement = {
-      value: Math.min(95, consistencyScore + 15),
+      value: Math.min(95, consistencyScore + 5),
       timeframe: '2 weeks',
-      confidence: 92
+      confidence: Math.round(consistencyScore)
     };
     
     return newPredictions;
-  }, [progressHistory, currentMetrics, analyzeTrends]);
+  }, [progressHistory, analyzeTrends]);
 
   const checkAchievements = useCallback(() => {
+    if(progressHistory.length === 0) return [];
+    
+    const latest = progressHistory[0];
     const newAchievements: Achievement[] = [];
     
-    if (currentMetrics.mealCompletion >= 80) {
+    if (latest.meals >= 80) {
       newAchievements.push({
         title: 'Nutrition Master',
         description: '80%+ meal completion achieved!',
@@ -183,7 +205,7 @@ const UltimateProgressTracker = () => {
       });
     }
     
-    if (currentMetrics.energyLevel >= 8) {
+    if (latest.energy >= 8) {
       newAchievements.push({
         title: 'Energy Champion',
         description: 'Peak energy levels maintained',
@@ -192,7 +214,7 @@ const UltimateProgressTracker = () => {
       });
     }
     
-    const weightProgress = progressHistory.length > 6 ? progressHistory[6].weight - currentMetrics.weight : 0;
+    const weightProgress = progressHistory.length > 6 ? progressHistory[6].weight - latest.weight : 0;
     if (weightProgress >= 1) {
       newAchievements.push({
         title: 'Weight Loss Hero',
@@ -203,13 +225,19 @@ const UltimateProgressTracker = () => {
     }
     
     return newAchievements;
-  }, [progressHistory, currentMetrics]);
+  }, [progressHistory]);
+
+  const runFullAnalysis = useCallback(() => {
+     setAiInsights(generateAIInsights());
+     setPredictions(generatePredictions());
+     setAchievements(checkAchievements());
+  }, [generateAIInsights, generatePredictions, checkAchievements]);
 
   useEffect(() => {
-    setAiInsights(generateAIInsights());
-    setPredictions(generatePredictions());
-    setAchievements(checkAchievements());
-  }, [currentMetrics, generateAIInsights, generatePredictions, checkAchievements]);
+    if (!isLoading && progressHistory.length > 0) {
+        runFullAnalysis();
+    }
+  }, [isLoading, progressHistory, runFullAnalysis]);
 
   const updateMetric = (metric: keyof ProgressMetric, value: number) => {
     setCurrentMetrics(prev => ({
@@ -219,8 +247,41 @@ const UltimateProgressTracker = () => {
   };
 
   const logProgress = () => {
-    const newInsights = generateAIInsights();
-    setAiInsights(newInsights);
+    setIsLogging(true);
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if entry for today already exists
+    if (progressHistory.length > 0 && progressHistory[0].date === today) {
+        toast({ title: 'Already Logged', description: 'You have already logged your progress for today.', variant: 'destructive' });
+        setIsLogging(false);
+        return;
+    }
+
+    const newEntry: HistoryEntry = {
+        date: today,
+        weight: currentMetrics.weight,
+        energy: currentMetrics.energyLevel,
+        meals: currentMetrics.mealCompletion,
+        water: currentMetrics.waterIntake,
+        sleep: currentMetrics.sleepHours,
+        mood: currentMetrics.moodScore,
+        exercise: currentMetrics.exerciseMinutes,
+        stress: currentMetrics.stressLevel,
+    };
+
+    const updatedHistory = [newEntry, ...progressHistory];
+    
+    try {
+        localStorage.setItem('progressHistory', JSON.stringify(updatedHistory));
+        setProgressHistory(updatedHistory);
+        runFullAnalysis(); // Run analysis with the new data
+        toast({ title: 'Progress Logged!', description: "Your insights and predictions have been updated."});
+    } catch (e) {
+        console.error("Failed to save progress:", e);
+        toast({ title: 'Error', description: 'Could not save your progress.', variant: 'destructive'});
+    } finally {
+        setIsLogging(false);
+    }
   };
 
   const getTrendIcon = (trend: string) => {
@@ -228,8 +289,12 @@ const UltimateProgressTracker = () => {
     if (trend === 'decreasing') return <ArrowDown className="w-4 h-4 text-red-500" />;
     return <Minus className="w-4 h-4 text-gray-400" />;
   };
+  
+  const trends = useMemo(() => analyzeTrends(), [analyzeTrends]);
 
-  const trends = analyzeTrends();
+  if (isLoading) {
+    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="bg-background">
@@ -247,8 +312,8 @@ const UltimateProgressTracker = () => {
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-3xl font-bold">Day 7</div>
-                    <p className="text-indigo-100">Weekly Journey</p>
+                    <div className="text-3xl font-bold">Day {progressHistory.length + 1}</div>
+                    <p className="text-indigo-100">Your Journey</p>
                 </div>
             </div>
 
@@ -359,10 +424,11 @@ const UltimateProgressTracker = () => {
 
                     <Button
                         onClick={logProgress}
+                        disabled={isLogging}
                         className="w-full bg-gradient-to-r from-primary to-purple-600 text-white py-6 px-8 rounded-2xl font-bold text-xl hover:from-primary/90 hover:to-purple-600/90 transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-3"
                     >
-                        <Brain className="w-6 h-6" />
-                        Log Progress & Get AI Insights
+                        {isLogging ? <Loader2 className="w-6 h-6 animate-spin" /> : <Brain className="w-6 h-6" />}
+                        {isLogging ? 'Logging...' : 'Log Progress & Get AI Insights'}
                     </Button>
                 </div>
 
@@ -373,7 +439,7 @@ const UltimateProgressTracker = () => {
                     </h2>
 
                     <div className="space-y-4">
-                        {aiInsights.map((insight, index) => (
+                        {aiInsights.length > 0 ? aiInsights.map((insight, index) => (
                         <Card key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-l-primary">
                             <CardContent className="pt-6 flex items-start gap-4">
                                 {insight.icon}
@@ -388,7 +454,9 @@ const UltimateProgressTracker = () => {
                                 </div>
                             </CardContent>
                         </Card>
-                        ))}
+                        )) : (
+                            <Card className="bg-gradient-to-r from-gray-50 to-gray-100"><CardContent className="pt-6"><p className="text-muted-foreground text-center">Log your progress to see AI insights here.</p></CardContent></Card>
+                        )}
                     </div>
 
                     <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
@@ -399,7 +467,7 @@ const UltimateProgressTracker = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                        {Object.entries(predictions).map(([key, pred]) => (
+                        {Object.keys(predictions).length > 0 ? Object.entries(predictions).map(([key, pred]) => (
                             <div key={key} className="flex items-center justify-between bg-white p-4 rounded-xl">
                             <div>
                                 <div className="font-semibold text-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</div>
@@ -410,18 +478,20 @@ const UltimateProgressTracker = () => {
                                 <div className="text-xs text-muted-foreground">{pred.confidence}% accurate</div>
                             </div>
                             </div>
-                        ))}
+                        )) : (
+                             <p className="text-muted-foreground text-center text-sm">Not enough data to make predictions. Keep logging!</p>
+                        )}
                         </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200">
                         <CardHeader>
                             <CardTitle className="text-xl flex items-center gap-2">
                                 <Award className="w-6 h-6 text-yellow-600" />
-                                Today's Achievements
+                                Achievements
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                        {achievements.map((achievement, index) => (
+                        {achievements.length > 0 ? achievements.map((achievement, index) => (
                             <div key={index} className="flex items-center gap-4 bg-white p-4 rounded-xl">
                             {achievement.icon}
                             <div>
@@ -430,7 +500,9 @@ const UltimateProgressTracker = () => {
                             </div>
                             <CheckCircle2 className="w-5 h-5 text-green-500 ml-auto" />
                             </div>
-                        ))}
+                        )) : (
+                            <p className="text-muted-foreground text-center text-sm">No achievements yet. You can do it!</p>
+                        )}
                         </CardContent>
                     </Card>
                 </div>
@@ -442,12 +514,9 @@ const UltimateProgressTracker = () => {
                         <BarChart3 className="w-8 h-8 text-purple-600" />
                         Smart Analytics
                     </CardTitle>
-                    <Button variant="secondary">
-                        <Download className="w-5 h-5" />
-                        Download Report
-                    </Button>
                 </CardHeader>
                 <CardContent>
+                    {progressHistory.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-secondary/50">
@@ -463,7 +532,7 @@ const UltimateProgressTracker = () => {
                             </thead>
                             <tbody>
                                 <tr className="border-b bg-green-50 border-green-200">
-                                <td className="p-4 font-semibold text-green-800">Today</td>
+                                <td className="p-4 font-semibold text-green-800">Today's Log</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.weight}kg</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.energyLevel}/10</td>
                                 <td className="text-center p-4 font-bold text-green-700">{currentMetrics.mealCompletion}%</td>
@@ -485,6 +554,9 @@ const UltimateProgressTracker = () => {
                             </tbody>
                         </table>
                     </div>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-8">Your progress history will appear here once you start logging.</p>
+                    )}
                 </CardContent>
             </Card>
             </div>
@@ -494,5 +566,3 @@ const UltimateProgressTracker = () => {
 };
 
 export default UltimateProgressTracker;
-
-    

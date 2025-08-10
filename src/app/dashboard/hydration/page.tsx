@@ -211,7 +211,7 @@ const SmartWaterTracker = () => {
             if (slotIndex !== -1) {
                 return {
                     ...item,
-                    amount: Math.round((baseAmount + (slotIndex < extraAmount ? 1 : 0))/10)*10,
+                    amount: Math.round((baseAmount + (slotIndex < extraAmount ? 10 : 0))/10)*10, // Distribute remainder in 10ml increments
                     reason: 'Redistributed - Catch-up hydration'
                 };
             }
