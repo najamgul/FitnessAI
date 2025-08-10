@@ -25,6 +25,7 @@ import {
   LogOut,
   Leaf,
   Users,
+  BookText,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -35,6 +36,7 @@ const allNavItems = [
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart, admin: false },
   { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare, admin: false },
   { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
+  { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
 ];
 
 const adminEmail = 'care@aziaf.com';
@@ -53,18 +55,21 @@ export default function DashboardLayout({
   useEffect(() => {
     setIsClient(true);
     const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
-    const userIsAdmin = loggedInEmail === adminEmail;
+    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail;
     
     setIsAdmin(userIsAdmin);
     
     if (userIsAdmin) {
-        setMockUser({ name: 'Admin User', email: adminEmail });
+        setMockUser({ name: 'Admin', email: adminEmail });
     } else if (loggedInEmail) {
-        setMockUser({ name: 'John Doe', email: loggedInEmail });
+        const username = loggedInEmail.split('@')[0];
+        const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
+        setMockUser({ name: capitalizedUsername, email: loggedInEmail });
     } else {
-        setMockUser({ name: 'John Doe', email: 'john.doe@example.com' });
+        // Fallback for when no one is logged in (though they should be redirected)
+        router.push('/login');
     }
-  }, []);
+  }, [router]);
   
   const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
 
@@ -102,7 +107,7 @@ export default function DashboardLayout({
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
                     <div>
                       <item.icon />
                       <span>{item.label}</span>
@@ -116,7 +121,7 @@ export default function DashboardLayout({
         <SidebarFooter>
           <div className="flex items-center gap-3 p-2 group-data-[collapsible=icon]:justify-center">
             <Avatar className="h-9 w-9">
-              <AvatarImage src="https://placehold.co/100x100.png" alt="User" data-ai-hint="person avatar"/>
+              <AvatarImage src={`https://i.pravatar.cc/150?u=${mockUser.email}`} alt="User" />
               <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">

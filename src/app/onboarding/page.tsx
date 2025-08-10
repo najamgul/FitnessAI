@@ -49,6 +49,7 @@ export default function OnboardingPage() {
         heightIn: '',
         waist: '',
         hip: '',
+        geographicLocation: '', // Added for KB selection
         isPregnant: 'not_applicable',
         menstrualCycle: '',
         photo: null as File | null,
@@ -248,7 +249,7 @@ export default function OnboardingPage() {
 
     const isNextDisabled = useMemo(() => {
         if (step === 1) {
-            return !formData.age || !formData.gender || !formData.weight || !formData.heightFt || !formData.heightIn || !formData.waist || !formData.hip;
+            return !formData.age || !formData.gender || !formData.weight || !formData.heightFt || !formData.heightIn || !formData.waist || !formData.hip || !formData.geographicLocation;
         }
         if (step === 2) {
             return !formData.activityLevel || !formData.sleepHours;
@@ -319,6 +320,11 @@ export default function OnboardingPage() {
                                 <div className="space-y-2">
                                     <Label htmlFor="hip">Hip (inches)</Label>
                                     <Input id="hip" type="number" placeholder="e.g., 38" value={formData.hip} onChange={handleChange} />
+                                </div>
+                                 <div className="space-y-2 md:col-span-2">
+                                    <Label htmlFor="geographicLocation">Current Location</Label>
+                                    <Input id="geographicLocation" placeholder="e.g., Srinagar, Kashmir or Delhi, India" value={formData.geographicLocation} onChange={handleChange} />
+                                    <p className="text-xs text-muted-foreground">This helps us tailor content (e.g., using the Kashmir knowledge base).</p>
                                 </div>
 
                                 {formData.gender === 'female' && (

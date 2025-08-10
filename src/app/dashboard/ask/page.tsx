@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send, Sparkles, User } from 'lucide-react';
@@ -22,16 +21,35 @@ export default function ChatWithAzaiPage() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [isKashmir, setIsKashmir] = useState(false); // New state for location
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         try {
+            // Restore chat history
             const savedMessages = sessionStorage.getItem('chatHistory');
             if (savedMessages) {
                 setMessages(JSON.parse(savedMessages));
             }
+
+            // Determine user location from onboarding data
+            const onboardingDataString = localStorage.getItem('onboardingData');
+            if (onboardingDataString) {
+                const onboardingData = JSON.parse(onboardingDataString);
+                // Simple check, could be more robust
+                if (onboardingData.geographicLocation?.toLowerCase().includes('kashmir')) {
+                    setIsKashmir(true);
+                }
+            } else {
+                 const loggedInEmail = localStorage.getItem('loggedInEmail');
+                 // For prototype, we can also check admin email to default to one KB
+                 if (loggedInEmail === 'care@aziaf.com') {
+                     setIsKashmir(true);
+                 }
+            }
+
         } catch (error) {
-            console.error("Could not load chat history from sessionStorage", error);
+            console.error("Could not load session data", error);
         }
     }, []);
 
@@ -62,7 +80,7 @@ export default function ChatWithAzaiPage() {
         setIsLoading(true);
 
         try {
-            const response = await selectExpertForQuestion({ question: input });
+            const response = await selectExpertForQuestion({ question: input, isKashmir });
             const aiMessage: Message = { sender: 'ai', text: response.answer };
             setMessages(prev => [...prev, aiMessage]);
         } catch (error) {
@@ -77,11 +95,11 @@ export default function ChatWithAzaiPage() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-5rem)] bg-card rounded-xl border">
-            <CardHeader>
-                <CardTitle className="text-xl font-bold font-headline">Chat with Azai</CardTitle>
-                <CardDescription>Your AI nutrition assistant. Ask me anything!</CardDescription>
-            </CardHeader>
+        <div className="flex flex-col h-[calc(100vh-8rem)] bg-card rounded-xl border shadow-lg">
+             <div className="p-4 border-b">
+                <h2 className="text-xl font-bold font-headline">Chat with Azai</h2>
+                <p className="text-sm text-muted-foreground">Your AI nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{isKashmir ? 'Kashmir' : 'General'}</span></p>
+            </div>
             <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
                 <div className="space-y-6">
                     {messages.map((message, index) => (
@@ -99,10 +117,10 @@ export default function ChatWithAzaiPage() {
                             )}
                             <div
                                 className={cn(
-                                    'max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 whitespace-pre-wrap shadow-sm',
+                                    'max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-4 py-2 whitespace-pre-wrap shadow-sm relative',
                                     message.sender === 'user'
-                                        ? 'bg-primary text-primary-foreground rounded-br-none'
-                                        : 'bg-muted rounded-bl-none'
+                                        ? 'bg-primary text-primary-foreground rounded-br-none before:content-[\'\'] before:absolute before:bottom-0 before:right-[-8px] before:border-b-8 before:border-l-8 before:border-b-transparent before:border-l-primary'
+                                        : 'bg-muted rounded-bl-none before:content-[\'\'] before:absolute before:bottom-0 before:left-[-8px] before:border-b-8 before:border-r-8 before:border-b-transparent before:border-r-muted'
                                 )}
                             >
                                 {message.text}

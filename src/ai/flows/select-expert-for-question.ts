@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview This flow selects the most suitable expert(s) to answer a user's question.
+ * @fileOverview This flow selects the most suitable expert(s) to answer a user's question based on their location.
  *
  * - selectExpertForQuestion - A function that takes a user's question and returns the names of the most suitable experts.
  * - SelectExpertForQuestionInput - The input type for the selectExpertForQuestion function.
@@ -13,6 +13,9 @@ import {z} from 'genkit';
 
 const SelectExpertForQuestionInputSchema = z.object({
   question: z.string().describe("The user's question."),
+  // We'll determine the location on the server-side for security.
+  // For this prototype, we'll use a simple flag. In a real app, this might come from user profile data.
+  isKashmir: z.boolean().describe('Whether the user is located in Kashmir.'),
 });
 export type SelectExpertForQuestionInput = z.infer<typeof SelectExpertForQuestionInputSchema>;
 
@@ -25,10 +28,11 @@ const SelectExpertForQuestionOutputSchema = z.object({
 });
 export type SelectExpertForQuestionOutput = z.infer<typeof SelectExpertForQuestionOutputSchema>;
 
-async function searchKnowledgeBase(question: string): Promise<string> {
+async function searchKnowledgeBase(isKashmir: boolean, question: string): Promise<string> {
+  const fileName = isKashmir ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
   try {
     const knowledgeBase = await fs.readFile(
-      path.join(process.cwd(), 'src', 'ai', 'knowledge-base.txt'),
+      path.join(process.cwd(), 'src', 'ai', fileName),
       'utf-8'
     );
     const paragraphs = knowledgeBase.split('\n\n');
@@ -42,7 +46,7 @@ async function searchKnowledgeBase(question: string): Promise<string> {
 
     return relevantParagraphs.join('\n\n');
   } catch (error) {
-    console.error('Could not read knowledge base:', error);
+    console.error(`Could not read knowledge base (${fileName}):`, error);
     return '';
   }
 }
@@ -50,7 +54,7 @@ async function searchKnowledgeBase(question: string): Promise<string> {
 export async function selectExpertForQuestion(
   input: SelectExpertForQuestionInput
 ): Promise<SelectExpertForQuestionOutput> {
-  const knowledgeContext = await searchKnowledgeBase(input.question);
+  const knowledgeContext = await searchKnowledgeBase(input.isKashmir, input.question);
   
   return selectExpertForQuestionFlow({
     question: input.question,
