@@ -40,6 +40,23 @@ type DietPlanDay = {
     meals: { [key: string]: Meal };
 };
 
+const constructDefaultPrompt = (onboardingData: any) => {
+    if (!onboardingData) return '';
+    return `You are a master nutritionist specializing in creating personalized diet plans.
+
+Based on the user's detailed information, generate a personalized diet plan for ${onboardingData.planDuration} days.
+
+User Details:
+- Health Information: Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}
+- Dietary Preferences & Tastes: ${onboardingData.healthGoals?.join(', ')}. ${onboardingData.otherGoal}
+- Primary Goal: Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}
+- Fasting Preference: ${onboardingData.fastingPreference}
+
+Create a balanced, delicious, and culturally relevant plan. For each meal, provide the meal name, a 2-3 word hint for an image search, the approximate calorie count, and a brief 1-2 sentence description. Ensure the final response for the 'dietPlan' field is only the JSON array and nothing else.
+`;
+};
+
+
 export default function AdminReviewsPage() {
     const { toast } = useToast();
     const [reviewQueue, setReviewQueue] = useState<ReviewTask[]>([]);
@@ -56,6 +73,7 @@ export default function AdminReviewsPage() {
         const q = query(collection(db, 'reviews'), where('status', 'in', ['pending_generation', 'pending_approval']));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
+            const newCustomPrompts = {...customPrompts};
             const queue: ReviewTask[] = [];
             const newEditablePlans = {...editablePlans};
 
@@ -78,6 +96,9 @@ export default function AdminReviewsPage() {
                 if (task.generatedPlan && !newEditablePlans[task.id]) {
                      newEditablePlans[task.id] = task.generatedPlan.dietPlan;
                 }
+                if (task.onboardingData && !newCustomPrompts[task.id]) {
+                    newCustomPrompts[task.id] = constructDefaultPrompt(task.onboardingData);
+                }
                 return task;
             });
             
@@ -91,6 +112,16 @@ export default function AdminReviewsPage() {
                     }
                 });
                 return updatedPlans;
+            });
+
+            setCustomPrompts(prev => {
+                const updatedPrompts = {...prev};
+                resolvedQueue.forEach(task => {
+                    if(task.onboardingData && !updatedPrompts[task.id]) {
+                        updatedPrompts[task.id] = constructDefaultPrompt(task.onboardingData);
+                    }
+                })
+                return updatedPrompts;
             });
 
             setReviewQueue(resolvedQueue);
@@ -398,6 +429,7 @@ export default function AdminReviewsPage() {
                                                            placeholder="Optional: Enter a new prompt to regenerate the plan. For example: 'Create a 7-day vegetarian plan with a focus on high protein and low carbs...'"
                                                            value={customPrompts[task.id] || ''}
                                                            onChange={(e) => setCustomPrompts(prev => ({...prev, [task.id]: e.target.value}))}
+                                                           className="min-h-[120px]"
                                                         />
                                                         <Button onClick={() => handleGeneratePlan(task, customPrompts[task.id])} disabled={generatingFor === task.id || !customPrompts[task.id]}>
                                                             {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}

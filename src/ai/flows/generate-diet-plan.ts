@@ -30,7 +30,7 @@ const MealSchema = z.object({
     hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
     calories: z.number().describe("The approximate calorie count for this meal."),
     description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences)."),
-    imageUrl: z.string().url().optional().describe("URL of an image for the meal from Pexels."),
+    imageUrl: z.string().optional().describe("URL of an image for the meal from Pexels."),
 });
 
 const MealsSchema = z.object({
@@ -83,7 +83,7 @@ const prompt = ai.definePrompt({
   name: 'generateDietPlanPrompt',
   input: {schema: GenerateDietPlanInputSchema},
   output: {schema: GenerateDietPlanOutputSchema},
-  prompt: `{{#if customPrompt}}{{customPrompt}}{{else}}${defaultPromptTemplate}{{/if}}`
+  prompt: `{{#if customPrompt}}{{{customPrompt}}}{{else}}${defaultPromptTemplate}{{/if}}`
 });
 
 const generateDietPlanFlow = ai.defineFlow(
