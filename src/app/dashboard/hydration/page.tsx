@@ -16,7 +16,6 @@ type ScheduleItem = {
 };
 
 const SmartWaterTracker = () => {
-  const [currentIntake, setCurrentIntake] = useState(0);
   const [dailyGoal, setDailyGoal] = useState(2500);
   const [profile, setProfile] = useState({
     weight: 70,
@@ -122,7 +121,16 @@ const SmartWaterTracker = () => {
 
         const remainingSlots = scheduleItems.filter(item => {
             if (item.completed || item.skipped) return false;
-            const itemTime = new Date(now.toDateString() + ' ' + item.time);
+            const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+            if (!itemTimeParts) return false;
+            let [ , hours, minutes, meridiem] = itemTimeParts;
+            let hour = parseInt(hours, 10);
+            if (meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+            if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+            
+            const itemTime = new Date(now);
+            itemTime.setHours(hour, parseInt(minutes, 10), 0, 0);
+
             return itemTime >= now;
         });
 
@@ -150,17 +158,11 @@ const SmartWaterTracker = () => {
   }, [scheduleItems, dailyGoal, smartMode, weatherTemp, activityBoost]);
 
   const toggleCompletion = (id: number, completed: boolean) => {
-    let amountChanged = 0;
-    const updatedSchedule = scheduleItems.map(item => {
-      if (item.id === id) {
-        if (completed && !item.completed) amountChanged = item.amount;
-        if (!completed && item.completed) amountChanged = -item.amount;
-        return { ...item, completed, skipped: !completed && item.skipped };
-      }
-      return item;
-    });
-    setScheduleItems(updatedSchedule);
-    setCurrentIntake(prev => Math.max(0, prev + amountChanged));
+    setScheduleItems(prevSchedule =>
+      prevSchedule.map(item =>
+        item.id === id ? { ...item, completed, skipped: !completed && item.skipped } : item
+      )
+    );
   };
 
   const skipSlot = (id: number) => {
@@ -180,8 +182,18 @@ const SmartWaterTracker = () => {
   const completionRate = adjustedGoal > 0 ? Math.round((completedWater / adjustedGoal) * 100) : 0;
   
   const nextDrink = scheduleItems.find(item => {
-    const itemTime = new Date(new Date().toDateString() + ' ' + item.time);
-    return !item.completed && !item.skipped && itemTime >= currentTime;
+    if (item.completed || item.skipped) return false;
+    const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+    if (!itemTimeParts) return false;
+    let [ , hours, minutes, meridiem] = itemTimeParts;
+    let hour = parseInt(hours, 10);
+    if (meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+    if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+    const itemTime = new Date(new Date().toDateString());
+    itemTime.setHours(hour, parseInt(minutes, 10));
+
+    return itemTime >= currentTime;
   });
 
   const getSmartInsights = useCallback(() => {
@@ -210,6 +222,14 @@ const SmartWaterTracker = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+  
+  const addWater = (amount: number) => {
+    const firstUncompletedSlot = scheduleItems.find(item => !item.completed && !item.skipped);
+    if (firstUncompletedSlot) {
+      toggleCompletion(firstUncompletedSlot.id, true);
+    }
+  };
+
 
   return (
     <div className="bg-background rounded-3xl shadow-xl overflow-hidden border">
@@ -253,7 +273,7 @@ const SmartWaterTracker = () => {
 
         <div className="flex justify-center gap-4 mb-8">
           {[100, 250, 500].map(amount => (
-            <button key={amount} onClick={() => setCurrentIntake(prev => Math.min(prev + amount, adjustedGoal + 1000))} className="bg-gradient-to-r from-primary to-cyan-500 text-primary-foreground px-8 py-4 rounded-xl hover:from-primary/90 hover:to-cyan-400 transition-all transform hover:scale-105 shadow-lg">
+            <button key={amount} onClick={() => addWater(amount)} className="bg-gradient-to-r from-primary to-cyan-500 text-primary-foreground px-8 py-4 rounded-xl hover:from-primary/90 hover:to-cyan-400 transition-all transform hover:scale-105 shadow-lg">
               +{amount}ml
             </button>
           ))}
@@ -340,3 +360,5 @@ const SmartWaterTracker = () => {
 };
 
 export default SmartWaterTracker;
+
+    
