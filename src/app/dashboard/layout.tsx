@@ -29,6 +29,14 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const allNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
@@ -98,7 +106,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href="/dashboard">
-                <Image src="/logo.png" alt="Aziaf Logo" width={40} height={40} />
+                <Image src="/logo.png" alt="Aziaf Logo" width={80} height={80} />
             </Link>
           </div>
         </SidebarHeader>
@@ -145,7 +153,22 @@ export default function DashboardLayout({
           <h2 className="text-xl font-semibold font-headline lg:hidden">
             {navItems.find(item => pathname.startsWith(item.href))?.label}
           </h2>
-          <div></div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Avatar className="h-9 w-9 cursor-pointer">
+                    <AvatarImage src={`https://i.pravatar.cc/150?u=${mockUser.email}`} alt="User" />
+                    <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{mockUser.name}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
