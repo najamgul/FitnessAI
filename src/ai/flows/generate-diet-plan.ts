@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -72,54 +73,54 @@ async function getKnowledgeContext(knowledgeBaseId?: 'kashmir' | 'general'): Pro
   }
 }
 
-// Helper function to create a complete placeholder meal
+// Helper function to create a complete placeholder meal with detailed quantities
 function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typeof MealSchema> {
   const mealOptions = {
     "Breakfast": {
-      meal: "Oatmeal with Berries",
-      quantity: "40g rolled oats, 200ml almond milk, 50g mixed berries",
+      meal: "Oatmeal with Berries and Nuts",
+      quantity: "40g rolled oats, 200ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey",
       hint: "oatmeal berries",
-      calories: 280,
+      calories: 320,
       description: "A nutritious breakfast providing fiber, vitamins, and sustained energy to start your day."
     },
     "Morning Snack": {
-      meal: "Mixed Nuts",
-      quantity: "30g mixed almonds and walnuts",
+      meal: "Mixed Nuts and Fruit",
+      quantity: "20g almonds, 10g walnuts, 1 medium apple (150g)",
       hint: "mixed nuts",
-      calories: 180,
+      calories: 200,
       description: "Healthy fats and protein to keep you satisfied until lunch."
     },
     "Lunch": {
-      meal: "Grilled Chicken Salad",
-      quantity: "150g grilled chicken breast, 2 cups mixed greens, 1 tbsp olive oil dressing",
+      meal: "Grilled Chicken Salad Bowl",
+      quantity: "150g grilled chicken breast, 100g mixed greens, 50g cherry tomatoes, 30g cucumber, 20g avocado, 1 tbsp olive oil dressing",
       hint: "chicken salad",
-      calories: 380,
+      calories: 420,
       description: "Lean protein with fresh vegetables providing essential nutrients and fiber."
     },
     "Afternoon Snack": {
-      meal: "Greek Yogurt",
-      quantity: "150g plain Greek yogurt",
+      meal: "Greek Yogurt with Berries",
+      quantity: "150g plain Greek yogurt (2% fat), 30g blueberries",
       hint: "greek yogurt",
-      calories: 130,
+      calories: 150,
       description: "High-protein snack that supports muscle maintenance and provides probiotics."
     },
     "Dinner": {
-      meal: "Baked Fish with Vegetables",
-      quantity: "150g baked white fish, 200g steamed mixed vegetables, 100g brown rice",
+      meal: "Baked Fish with Quinoa and Vegetables",
+      quantity: "150g baked salmon fillet, 80g cooked quinoa, 100g steamed broccoli, 50g roasted bell peppers, 1 tsp olive oil",
       hint: "baked fish",
-      calories: 450,
+      calories: 480,
       description: "Light yet satisfying dinner with omega-3 fatty acids and complex carbohydrates."
     },
     "Evening Snack": {
       meal: "Apple with Almond Butter",
-      quantity: "1 medium apple, 1 tbsp almond butter",
+      quantity: "1 medium apple (150g), 1 tbsp natural almond butter (15g)",
       hint: "apple almonds",
       calories: 180,
       description: "Natural sugars paired with healthy fats for a balanced evening snack."
     },
     "Before Bed": {
-      meal: "Herbal Tea",
-      quantity: "1 cup chamomile tea",
+      meal: "Chamomile Tea",
+      quantity: "1 cup (250ml) chamomile tea, no added sugar",
       hint: "herbal tea",
       calories: 5,
       description: "Calming herbal tea to promote relaxation and better sleep quality."
@@ -128,14 +129,14 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
 
   return mealOptions[mealType as keyof typeof mealOptions] || {
     meal: `Day ${dayNumber} ${mealType}`,
-    quantity: "Portion to be determined based on dietary needs",
+    quantity: "Portion to be determined based on dietary needs - consult nutritionist",
     hint: "healthy meal",
     calories: 200,
     description: "A balanced meal providing essential nutrients for your health goals."
   };
 }
 
-// Helper function to ensure complete meal structure
+// Helper function to ensure complete meal structure with proper quantity validation
 function ensureCompleteDayStructure(
   incompletePlan: any, 
   targetDays: number
@@ -180,20 +181,26 @@ function ensureCompleteDayStructure(
       } else {
         // Validate and fix existing meal
         const meal = day.meals[mealKey];
+        const placeholder = createPlaceholderMeal(mealKey, day.day);
+        
         if (!meal.meal || typeof meal.meal !== 'string') {
-          meal.meal = createPlaceholderMeal(mealKey, day.day).meal;
+          meal.meal = placeholder.meal;
         }
-        if (!meal.quantity || typeof meal.quantity !== 'string') {
-          meal.quantity = createPlaceholderMeal(mealKey, day.day).quantity;
+        
+        // Enhanced quantity validation - ensure it's detailed and specific
+        if (!meal.quantity || typeof meal.quantity !== 'string' || meal.quantity.trim().length < 10) {
+          meal.quantity = placeholder.quantity;
+          console.warn(`Using placeholder quantity for ${mealKey} on day ${day.day}: ${meal.quantity}`);
         }
+        
         if (!meal.hint || typeof meal.hint !== 'string') {
-          meal.hint = createPlaceholderMeal(mealKey, day.day).hint;
+          meal.hint = placeholder.hint;
         }
         if (typeof meal.calories !== 'number' || isNaN(meal.calories)) {
-          meal.calories = createPlaceholderMeal(mealKey, day.day).calories;
+          meal.calories = placeholder.calories;
         }
         if (!meal.description || typeof meal.description !== 'string') {
-          meal.description = createPlaceholderMeal(mealKey, day.day).description;
+          meal.description = placeholder.description;
         }
         // imageUrl is optional, so we don't need to validate it
       }
@@ -223,11 +230,21 @@ CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
 1. Generate exactly 3 complete days - NO MORE, NO LESS.
 2. Each day MUST have ALL 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
 3. Every meal must have all required fields: meal, quantity, hint, calories, description.
-4. The 'quantity' field MUST contain specific measurements in grams (g), cups, tablespoons, or pieces (e.g., '150g grilled chicken, 100g rice, 1 tbsp olive oil').
-5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with appropriate calories and quantities.
+4. The 'quantity' field is ABSOLUTELY CRITICAL and MUST contain specific, detailed measurements:
+   - Use exact weights in grams (g) for solids: "150g grilled chicken breast"
+   - Use volume measurements for liquids: "250ml almond milk", "1 tbsp olive oil"  
+   - Use pieces/units where appropriate: "1 medium apple", "2 slices whole grain bread"
+   - Include ALL ingredients with their quantities: "150g grilled chicken, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil"
+   - NEVER use vague terms like "portion" or "serving" - always be specific
+5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with appropriate calories and exact quantities like "250ml chamomile tea".
 6. NEVER leave any meal slot empty or incomplete.
 
-Your response must be complete and valid JSON. Generate ALL 3 days completely.
+QUANTITY EXAMPLES (follow this format exactly):
+- "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey"
+- "150g grilled salmon fillet, 100g quinoa, 80g steamed asparagus, 1 tbsp lemon juice, 1 tsp olive oil"
+- "200g plain Greek yogurt, 30g blueberries, 20g chopped walnuts, 1 tsp maple syrup"
+
+Your response must be complete and valid JSON. Generate ALL 3 days completely with detailed quantities for every meal.
 
 User Details:
 - Health Information: {{{healthInformation}}}
@@ -247,12 +264,18 @@ Return only valid JSON in this exact format with exactly 3 days:
       "meals": {
         "Breakfast": {
           "meal": "Oatmeal with Berries and Nuts",
-          "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds",
+          "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey",
           "hint": "oatmeal berries",
           "calories": 350,
           "description": "Rich in fiber and antioxidants to start your day with sustained energy and protein."
         },
-        "Morning Snack": { ... },
+        "Morning Snack": { 
+          "meal": "Apple with Almond Butter",
+          "quantity": "1 medium apple (150g), 1 tbsp natural almond butter (15g)",
+          "hint": "apple almonds",
+          "calories": 180,
+          "description": "Natural sugars paired with healthy fats for sustained energy."
+        },
         "Lunch": { ... },
         "Afternoon Snack": { ... },
         "Dinner": { ... },
@@ -263,13 +286,13 @@ Return only valid JSON in this exact format with exactly 3 days:
     {
       "day": 2,
       "meals": {
-        // All 7 meals for day 2
+        // All 7 meals for day 2 with detailed quantities
       }
     },
     {
       "day": 3,
       "meals": {
-        // All 7 meals for day 3
+        // All 7 meals for day 3 with detailed quantities
       }
     }
   ]
@@ -296,7 +319,7 @@ const generateDietPlanFlow = ai.defineFlow(
   },
   async input => {
     try {
-      console.log(`Generating diet plan for exactly 3 days...`);
+      console.log(`Generating diet plan for exactly 3 days with detailed quantities...`);
       
       // Step 1: Generate the base diet plan without images
       let basePlan: any;
@@ -304,6 +327,7 @@ const generateDietPlanFlow = ai.defineFlow(
       try {
         const { output } = await prompt(input);
         basePlan = output;
+        console.log('AI generation completed successfully');
       } catch (error) {
         console.error('AI generation error:', error);
         // Create a minimal fallback structure
@@ -315,7 +339,19 @@ const generateDietPlanFlow = ai.defineFlow(
       
       console.log(`Plan structure completed. Days: ${completePlan.dietPlan.length} (fixed to 3 days)`);
       
-      // Step 3: Validate the structure matches schema
+      // Step 3: Log quantity information for debugging
+      completePlan.dietPlan.forEach((day, dayIndex) => {
+        console.log(`Day ${day.day} quantities check:`);
+        Object.entries(day.meals).forEach(([mealTime, meal]) => {
+          if (meal && typeof meal === 'object' && 'quantity' in meal) {
+            console.log(`  ${mealTime}: "${meal.quantity}" (${meal.quantity?.length || 0} chars)`);
+          } else {
+            console.warn(`  ${mealTime}: Missing or invalid quantity data`);
+          }
+        });
+      });
+      
+      // Step 4: Validate the structure matches schema
       try {
         GenerateDietPlanOutputSchema.parse(completePlan);
         console.log('Schema validation passed');
@@ -327,7 +363,7 @@ const generateDietPlanFlow = ai.defineFlow(
         return fallbackPlan;
       }
       
-      // Step 4: Fetch images (do this last to avoid interfering with structure)
+      // Step 5: Fetch images (do this last to avoid interfering with structure)
       const imagePromises: Promise<void>[] = [];
       const mealKeys: (keyof z.infer<typeof MealsSchema>)[] = [
         "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", 
@@ -362,6 +398,7 @@ const generateDietPlanFlow = ai.defineFlow(
         console.error('Error during image fetching:', error);
       }
 
+      console.log('Diet plan generation completed successfully with quantities');
       return completePlan;
       
     } catch (error) {
