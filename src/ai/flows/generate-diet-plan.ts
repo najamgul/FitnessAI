@@ -230,6 +230,20 @@ const generateDietPlanFlow = ai.defineFlow(
         description: "This meal was not specified. Please review or regenerate the plan."
       };
 
+      // **FIX**: Ensure the plan has the correct number of days before validation
+      while (basePlan.dietPlan.length < input.planDuration) {
+          const missingDayIndex = basePlan.dietPlan.length;
+          const placeholderMeals = mealKeys.reduce((acc, key) => {
+              acc[key] = { ...placeholderMeal };
+              return acc;
+          }, {} as z.infer<typeof MealsSchema>);
+
+          basePlan.dietPlan.push({
+              day: missingDayIndex + 1,
+              meals: placeholderMeals,
+          });
+      }
+
       // Validate and fix each day's structure
       basePlan.dietPlan.forEach((day, dayIndex) => {
         if (!day.meals || typeof day.meals !== 'object') {
