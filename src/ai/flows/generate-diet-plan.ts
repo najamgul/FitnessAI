@@ -21,6 +21,7 @@ const GenerateDietPlanInputSchema = z.object({
   geographicLocation: z.string().describe('The geographic location of the user.'),
   planDuration: z.number().describe('The number of days the diet plan should cover.'),
   fastingPreference: z.string().optional().describe('The user\'s preference for fasting, e.g., "No Fasting", "Intermittent Fasting".'),
+  customPrompt: z.string().optional().describe('An optional custom prompt to override the default generation logic.'),
 });
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
@@ -56,11 +57,7 @@ export async function generateDietPlan(input: GenerateDietPlanInput): Promise<Ge
   return generateDietPlanFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateDietPlanPrompt',
-  input: {schema: GenerateDietPlanInputSchema},
-  output: {schema: GenerateDietPlanOutputSchema},
-  prompt: `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of Kashmiri cuisine.
+const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of Kashmiri cuisine.
 
   Based on the user's detailed information, generate a personalized diet plan for {{{planDuration}}} days. The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object.
   
@@ -80,7 +77,13 @@ const prompt = ai.definePrompt({
   - Fasting Preference: {{{fastingPreference}}}
 
   Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the final response for the 'dietPlan' field is only the JSON array and nothing else.
-  `,
+  `;
+
+const prompt = ai.definePrompt({
+  name: 'generateDietPlanPrompt',
+  input: {schema: GenerateDietPlanInputSchema},
+  output: {schema: GenerateDietPlanOutputSchema},
+  prompt: `{{#if customPrompt}}{{customPrompt}}{{else}}${defaultPromptTemplate}{{/if}}`
 });
 
 const generateDietPlanFlow = ai.defineFlow(

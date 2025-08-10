@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, deleteDoc
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import NextImage from 'next/image';
 
 type ReviewTask = {
     id: string; // review document ID
@@ -31,6 +32,7 @@ type Meal = {
     hint: string;
     calories: number;
     description: string;
+    imageUrl?: string;
 };
 
 type DietPlanDay = {
@@ -45,8 +47,9 @@ export default function AdminReviewsPage() {
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
     const [approvingFor, setApprovingFor] = useState<string | null>(null);
     const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: DietPlanDay[] }>({});
-    const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal } | null>(null);
+    const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal | 'imageUrl' } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
+    const [customPrompts, setCustomPrompts] = useState<{ [reviewId: string]: string }>({});
 
     const fetchReviewQueue = useCallback(() => {
         setIsLoading(true);
@@ -80,13 +83,11 @@ export default function AdminReviewsPage() {
             
             const resolvedQueue = await Promise.all(planPromises);
             
-            // This needs to be managed carefully to avoid re-renders overwriting edits
             setEditablePlans(prev => {
                 const updatedPlans = {...prev};
-                snapshot.docs.forEach(reviewDoc => {
-                    const reviewData = reviewDoc.data();
-                    if(reviewData.generatedPlan && !updatedPlans[reviewDoc.id]) {
-                        updatedPlans[reviewDoc.id] = reviewData.generatedPlan.dietPlan;
+                resolvedQueue.forEach(task => {
+                    if(task.generatedPlan && !updatedPlans[task.id]) {
+                        updatedPlans[task.id] = task.generatedPlan.dietPlan;
                     }
                 });
                 return updatedPlans;
@@ -121,7 +122,6 @@ export default function AdminReviewsPage() {
                 ...currentPlan.slice(dayIndex + 1)
             ];
 
-            // Re-number all days sequentially
             const renumberedPlan = newPlan.map((day, index) => ({
                 ...day,
                 day: index + 1
@@ -131,7 +131,7 @@ export default function AdminReviewsPage() {
         });
     };
 
-    const handleGeneratePlan = async (task: ReviewTask) => {
+    const handleGeneratePlan = async (task: ReviewTask, customPrompt?: string) => {
         setGeneratingFor(task.id);
         try {
             const { onboardingData } = task;
@@ -143,7 +143,8 @@ export default function AdminReviewsPage() {
                 goals: `Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}`,
                 geographicLocation: onboardingData.geographicLocation,
                 planDuration: parseInt(onboardingData.planDuration, 10),
-                fastingPreference: onboardingData.fastingPreference
+                fastingPreference: onboardingData.fastingPreference,
+                ...(customPrompt && { customPrompt }),
             };
             const result = await generateDietPlan(input);
             
@@ -152,8 +153,10 @@ export default function AdminReviewsPage() {
                 generatedPlan: result,
                 status: 'pending_approval'
             });
+
+            // This direct state update will make the UI refresh instantly
+            setEditablePlans(prev => ({...prev, [task.id]: result.dietPlan}));
             
-            // This will trigger the onSnapshot listener to update the state
             toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
 
         } catch (error: any) {
@@ -163,7 +166,7 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal, currentValue: string | number) => {
+    const handleCellEdit = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', currentValue: string | number) => {
         setEditingCell({ reviewId, dayIndex, mealTime, field });
         setTempValue(currentValue);
     };
@@ -223,11 +226,12 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal, value: string | number) => {
+    const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', value: string | number | undefined) => {
         const isEditing = editingCell?.reviewId === reviewId && editingCell?.dayIndex === dayIndex && editingCell?.mealTime === mealTime && editingCell?.field === field;
         const isTextArea = field === 'description';
         const isNumber = field === 'calories';
-        
+        const isImage = field === 'imageUrl';
+
         if (isEditing) {
             return (
                 <div className="flex flex-col gap-2 p-1">
@@ -257,10 +261,29 @@ export default function AdminReviewsPage() {
             );
         }
 
+        if (isImage) {
+            return (
+                 <div
+                    className="group cursor-pointer hover:bg-muted/50 p-2 rounded min-h-[40px] flex items-center justify-between gap-2"
+                    onClick={() => handleCellEdit(reviewId, dayIndex, mealTime, field, value || '')}
+                 >
+                    <div className="flex-1 flex items-center gap-2">
+                        {value ? (
+                             <NextImage src={value as string} alt="Meal" width={40} height={40} className="rounded object-cover" unoptimized/>
+                        ) : (
+                            <div className="w-10 h-10 bg-muted rounded flex items-center justify-center"><ImageIcon className="w-4 h-4 text-muted-foreground"/></div>
+                        )}
+                        <span className="text-xs text-muted-foreground truncate">{value || 'N/A'}</span>
+                    </div>
+                    <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </div>
+            )
+        }
+
         return (
             <div
                 className="group cursor-pointer hover:bg-muted/50 p-2 rounded min-h-[40px] flex items-start justify-between gap-2"
-                onClick={() => handleCellEdit(reviewId, dayIndex, mealTime, field, value)}
+                onClick={() => handleCellEdit(reviewId, dayIndex, mealTime, field, value || '')}
             >
                 <span className="text-sm flex-1 whitespace-pre-wrap">{value || <span className="text-muted-foreground">N/A</span>}</span>
                 <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -328,6 +351,7 @@ export default function AdminReviewsPage() {
                                                                     <TableHead>Meal</TableHead>
                                                                     <TableHead>Calories</TableHead>
                                                                     <TableHead>Description</TableHead>
+                                                                    <TableHead>Image</TableHead>
                                                                     <TableHead className="w-24">Actions</TableHead>
                                                                 </TableRow>
                                                             </TableHeader>
@@ -350,6 +374,9 @@ export default function AdminReviewsPage() {
                                                                             <TableCell className="min-w-[300px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'description', mealDetails.description)}
                                                                             </TableCell>
+                                                                             <TableCell className="min-w-[250px]">
+                                                                                {renderEditableCell(task.id, dayIndex, mealTime, 'imageUrl', mealDetails.imageUrl)}
+                                                                            </TableCell>
                                                                             {mealIndex === 0 && (
                                                                                 <TableCell rowSpan={Object.keys(dayPlan.meals).length} className="align-middle">
                                                                                     <Button variant="outline" size="icon" onClick={() => handleDuplicateDay(task.id, dayIndex)} title={`Duplicate Day ${dayPlan.day}`}>
@@ -365,6 +392,19 @@ export default function AdminReviewsPage() {
                                                         <ScrollBar orientation="horizontal" />
                                                     </ScrollArea>
                                                     
+                                                    <div className='space-y-2 p-4 border rounded-lg bg-background'>
+                                                        <h5 className='font-semibold'>Regenerate with Custom Prompt</h5>
+                                                        <Textarea 
+                                                           placeholder="Optional: Enter a new prompt to regenerate the plan. For example: 'Create a 7-day vegetarian plan with a focus on high protein and low carbs...'"
+                                                           value={customPrompts[task.id] || ''}
+                                                           onChange={(e) => setCustomPrompts(prev => ({...prev, [task.id]: e.target.value}))}
+                                                        />
+                                                        <Button onClick={() => handleGeneratePlan(task, customPrompts[task.id])} disabled={generatingFor === task.id || !customPrompts[task.id]}>
+                                                            {generatingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                                                            Regenerate
+                                                        </Button>
+                                                    </div>
+
                                                     <Button onClick={() => handleApprovePlan(task)} disabled={approvingFor === task.id} className="w-full">
                                                         {approvingFor === task.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                                                         Approve & Finalize Plan
