@@ -43,7 +43,7 @@ export default function AdminReviewsPage() {
     const [reviewQueue, setReviewQueue] = useState<ReviewTask[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
-    const [approvingFor, setApprovingFor] = useState<string | null>(approvingFor);
+    const [approvingFor, setApprovingFor] = useState<string | null>(null);
     const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: DietPlanDay[] }>({});
     const [editingCell, setEditingCell] = useState<{ reviewId: string; dayIndex: number; mealTime: string; field: keyof Meal } | null>(null);
     const [tempValue, setTempValue] = useState<string | number>('');
@@ -388,5 +388,3 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
-
-    
