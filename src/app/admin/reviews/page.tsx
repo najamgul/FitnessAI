@@ -39,14 +39,14 @@ export default function AdminReviewsPage() {
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const queue: ReviewTask[] = [];
-            for (const reviewDoc of snapshot.docs) {
+            const planPromises = snapshot.docs.map(async (reviewDoc) => {
                 const reviewData = reviewDoc.data();
                 
                 // Fetch onboarding data for the user
                 const onboardingDocRef = doc(db, 'users', reviewData.userId, 'onboarding', 'profile');
                 const onboardingDoc = await getDoc(onboardingDocRef);
 
-                const task = {
+                const task: ReviewTask = {
                     id: reviewDoc.id,
                     userId: reviewData.userId,
                     userName: reviewData.userName,
@@ -55,13 +55,15 @@ export default function AdminReviewsPage() {
                     onboardingData: onboardingDoc.exists() ? onboardingDoc.data() : {},
                     generatedPlan: reviewData.generatedPlan || undefined,
                 };
-                queue.push(task);
-
+                
                 if (task.generatedPlan && !editablePlans[task.id]) {
                      setEditablePlans(prev => ({...prev, [task.id]: JSON.stringify(task.generatedPlan, null, 2)}));
                 }
-            }
-            setReviewQueue(queue);
+                return task;
+            });
+
+            const resolvedQueue = await Promise.all(planPromises);
+            setReviewQueue(resolvedQueue);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching review queue: ", error);
@@ -99,7 +101,8 @@ export default function AdminReviewsPage() {
                 status: 'pending_approval'
             });
 
-            setEditablePlans(prev => ({...prev, [task.id]: JSON.stringify(result, null, 2)}));
+            // This will trigger the onSnapshot listener to update the UI
+            toast({ title: 'Plan Generated!', description: 'The plan is now ready for your review and edits.'});
 
         } catch (error: any) {
             toast({ title: 'Generation Failed', description: error.message || 'Could not generate diet plan.', variant: 'destructive' });
@@ -115,7 +118,7 @@ export default function AdminReviewsPage() {
     const handleApprovePlan = async (task: ReviewTask) => {
         setApprovingFor(task.id);
         try {
-            const finalPlanString = editablePlans[task.id] || JSON.stringify(task.generatedPlan, null, 2);
+            const finalPlanString = editablePlans[task.id];
             if (!finalPlanString) {
                  toast({ title: 'Error', description: 'No plan content to approve.', variant: 'destructive' });
                  setApprovingFor(null);
@@ -180,7 +183,7 @@ export default function AdminReviewsPage() {
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                         <div>
                                             <h4 className="font-semibold mb-2">User Onboarding Data</h4>
-                                            <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap max-h-96 overflow-auto">
+                                            <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap max-h-[450px] overflow-auto">
                                                 {JSON.stringify(task.onboardingData, null, 2)}
                                             </pre>
                                         </div>
@@ -188,7 +191,7 @@ export default function AdminReviewsPage() {
                                             <h4 className="font-semibold mb-2">Aziaf Diet Plan Suggestion</h4>
                                             {task.generatedPlan ? (
                                                  <Textarea
-                                                    className="min-h-[300px] text-xs font-mono"
+                                                    className="min-h-[350px] text-xs font-mono"
                                                     value={editablePlans[task.id] || ''}
                                                     onChange={(e) => handlePlanChange(task.id, e.target.value)}
                                                 />
@@ -231,3 +234,5 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
+
+    
