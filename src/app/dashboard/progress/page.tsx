@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, BarChart, FileText } from 'lucide-react';
+import { Loader2, Download, BarChart, FileText, GlassWater } from 'lucide-react';
 import { providePersonalizedTips } from '@/ai/flows/provide-personalized-tips';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Sparkles } from 'lucide-react';
@@ -23,6 +23,7 @@ type ProgressEntry = {
     weight: number;
     energy: number;
     completion: number;
+    waterIntake: number;
 };
 
 const aziafBrandImageBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAD2APYDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1VZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9k=";
@@ -32,6 +33,7 @@ export default function ProgressPage() {
     const [weight, setWeight] = useState('');
     const [energy, setEnergy] = useState([5]);
     const [completion, setCompletion] = useState([80]);
+    const [waterIntake, setWaterIntake] = useState([2]);
     const [isLoading, setIsLoading] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [tips, setTips] = useState('');
@@ -70,6 +72,7 @@ export default function ProgressPage() {
                 weight: parseFloat(weight),
                 energy: energy[0],
                 completion: completion[0],
+                waterIntake: waterIntake[0],
             };
             
             const updatedHistory = [...progressHistory, newEntry];
@@ -144,11 +147,12 @@ export default function ProgressPage() {
                 `${entry.weight} kg`,
                 `${entry.energy}/10`,
                 `${entry.completion}%`,
+                `${entry.waterIntake} L`,
             ]);
 
             (doc as any).autoTable({
                 startY: 30,
-                head: [['Date', 'Weight', 'Energy Level', 'Meal Completion']],
+                head: [['Date', 'Weight', 'Energy Level', 'Meal Completion', 'Water Intake']],
                 body: tableBody,
                 theme: 'striped',
                 headStyles: { fillColor: [66, 133, 244] }, // Primary color
@@ -197,6 +201,20 @@ export default function ProgressPage() {
                                     onValueChange={setEnergy}
                                 />
                                 <span className="font-semibold text-lg text-primary w-12 text-center">{energy[0]}</span>
+                            </div>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="waterIntake">Water Intake (Liters)</Label>
+                             <div className="flex items-center gap-4">
+                                <Slider
+                                    id="waterIntake"
+                                    min={0}
+                                    max={8}
+                                    step={0.5}
+                                    value={waterIntake}
+                                    onValueChange={setWaterIntake}
+                                />
+                                <span className="font-semibold text-lg text-primary w-12 text-center">{waterIntake[0]} L</span>
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -250,10 +268,12 @@ export default function ProgressPage() {
                                         <LineChart data={progressHistory} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="date" />
-                                            <YAxis domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow/>
+                                            <YAxis yAxisId="left" domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow/>
+                                            <YAxis yAxisId="right" orientation="right" domain={[0, 'dataMax + 1']} />
                                             <Tooltip />
                                             <Legend />
-                                            <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                            <Line yAxisId="left" type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                            <Line yAxisId="right" type="monotone" dataKey="waterIntake" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Water (L)" />
                                         </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -264,10 +284,12 @@ export default function ProgressPage() {
                                     <LineChart data={progressHistory} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="date" />
-                                        <YAxis domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow />
+                                        <YAxis yAxisId="left" domain={['dataMin - 2', 'dataMax + 2']} allowDataOverflow />
+                                        <YAxis yAxisId="right" orientation="right" domain={[0, 'dataMax + 1']} />
                                         <Tooltip />
                                         <Legend />
-                                        <Line type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                        <Line yAxisId="left" type="monotone" dataKey="weight" stroke="hsl(var(--primary))" strokeWidth={2} name="Weight (kg)" />
+                                        <Line yAxisId="right" type="monotone" dataKey="waterIntake" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Water (L)" />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -280,6 +302,7 @@ export default function ProgressPage() {
                                             <TableHead>Weight</TableHead>
                                             <TableHead>Energy</TableHead>
                                             <TableHead>Completion</TableHead>
+                                            <TableHead>Water</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -289,6 +312,7 @@ export default function ProgressPage() {
                                                 <TableCell>{entry.weight} kg</TableCell>
                                                 <TableCell>{entry.energy}/10</TableCell>
                                                 <TableCell>{entry.completion}%</TableCell>
+                                                <TableCell>{entry.waterIntake} L</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

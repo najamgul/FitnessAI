@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { UtensilsCrossed, LineChart, MessageSquareQuote, Sparkles, Weight, Zap, Target } from 'lucide-react';
+import { UtensilsCrossed, LineChart, MessageSquareQuote, Sparkles, Weight, Zap, Target, GlassWater } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     AlertDialog,
@@ -29,6 +29,7 @@ type ProgressEntry = {
     weight: number;
     energy: number;
     completion: number;
+    waterIntake: number;
 };
 
 const chartConfig = {
@@ -119,7 +120,7 @@ export default function DashboardPage() {
             </div>
             
             {latestProgress ? (
-                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Current Weight</CardTitle>
@@ -141,6 +142,18 @@ export default function DashboardPage() {
                             <div className="text-2xl font-bold">{latestProgress.energy} / 10</div>
                             <p className="text-xs text-muted-foreground">
                                 How you felt on {latestProgress.date}
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Water Intake</CardTitle>
+                            <GlassWater className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{latestProgress.waterIntake} L</div>
+                            <p className="text-xs text-muted-foreground">
+                                Your hydration on {latestProgress.date}
                             </p>
                         </CardContent>
                     </Card>
@@ -250,7 +263,7 @@ export default function DashboardPage() {
                         <CardTitle className="font-headline">Today's Tip from Azai</CardTitle>
                         <CardDescription>A little advice to keep you going.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                         {tips ? (
                              <Alert>
                                 <Sparkles className="h-4 w-4" />
@@ -262,6 +275,13 @@ export default function DashboardPage() {
                         ) : (
                             <p className="text-sm text-muted-foreground">Log your progress to receive a personalized tip from our AI assistant.</p>
                         )}
+                         <Alert variant="default" className="border-blue-300">
+                            <GlassWater className="h-4 w-4 text-blue-500" />
+                            <AlertTitle className="text-blue-800">Hydration Tip</AlertTitle>
+                            <AlertDescription>
+                               Aim to drink 8-10 glasses (about 2-2.5 liters) of water daily. Your needs may increase with activity or in warmer weather. Proper hydration is key for energy and metabolism.
+                            </AlertDescription>
+                        </Alert>
                     </CardContent>
                 </Card>
                 <Card>
