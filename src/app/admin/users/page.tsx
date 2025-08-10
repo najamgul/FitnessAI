@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
 
     const fetchUsersAndPayments = useCallback(() => {
         setIsLoading(true);
-        const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+        const usersQuery = query(collection(db, 'users'));
         const paymentsCollection = collection(db, 'payments');
 
         const unsubscribe = onSnapshot(usersQuery, async (usersSnapshot) => {
@@ -87,6 +87,13 @@ export default function AdminUsersPage() {
                     
                     userList.push(user);
                 }
+
+                // Sort users by creation date descending
+                userList.sort((a, b) => {
+                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                    return dateB.getTime() - dateA.getTime();
+                });
 
                 setUsers(userList);
             } catch (error: any) {
@@ -315,3 +322,6 @@ export default function AdminUsersPage() {
         </div>
     );
 }
+
+
+    

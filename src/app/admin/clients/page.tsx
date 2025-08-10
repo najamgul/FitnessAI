@@ -50,7 +50,7 @@ export default function AdminClientsPage() {
 
     const fetchClients = useCallback(() => {
         setIsLoading(true);
-        const q = query(collection(db, 'users'), where('planStatus', '==', 'ready'), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'users'), where('planStatus', '==', 'ready'));
         
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const clientList: Client[] = [];
@@ -379,3 +379,5 @@ export default function AdminClientsPage() {
     );
 }
 
+
+    
