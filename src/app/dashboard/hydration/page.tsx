@@ -14,6 +14,8 @@ type ScheduleItem = {
   reason: string;
 };
 
+const notificationSoundUrl = 'https://cdn.freesound.org/previews/573/573353_10619566-lq.mp3';
+
 const SmartWaterTracker = () => {
   const [dailyGoal, setDailyGoal] = useState(2500);
   const [profile, setProfile] = useState({
@@ -71,6 +73,8 @@ const SmartWaterTracker = () => {
                 body: `Time for your next glass of water at ${item.time}!`,
                 icon: '/logo.png' 
               });
+              const audio = new Audio(notificationSoundUrl);
+              audio.play().catch(error => console.error("Audio playback failed:", error));
             }, notificationTime.getTime() - now.getTime());
             notificationTimeouts.current.push(timeout);
           }
