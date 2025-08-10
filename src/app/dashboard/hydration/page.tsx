@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -259,7 +258,7 @@ const SmartWaterTracker = () => {
         {/* Progress Ring */}
           <div className="text-center mb-8">
             <div className="relative inline-block">
-              <svg className="w-56 h-56 transform -rotate-90" viewBox="0 0 200 200">
+              <svg className="w-80 h-80 transform -rotate-90" viewBox="0 0 200 200">
                 <circle
                   cx="100"
                   cy="100"
