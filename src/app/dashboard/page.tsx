@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -460,5 +459,3 @@ declare module "react" {
       indicatorClassName?: string;
     }
 }
-
-    
