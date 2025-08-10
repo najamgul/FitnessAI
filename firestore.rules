@@ -1,28 +1,56 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is an admin
+    
+    // Admins can read/write anywhere
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return request.auth.token.email == 'care@aziaf.com';
     }
 
-    // Users can only read and write their own documents
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
-    }
+    // Users collection
+    match /users/{userId} {
+      // A user can read/write their own document
+      allow read, write: if request.auth.uid == userId || isAdmin();
 
-    // Team members can be read by any authenticated user, but only admins can modify them
-    match /team/{memberId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+      // Onboarding subcollection
+      match /onboarding/{docId} {
+        allow read, write: if request.auth.uid == userId || isAdmin();
+      }
+
+      // Diet Plan subcollection
+      match /dietPlan/{docId} {
+        // Users can read their own plan, admins can write it
+        allow read: if request.auth.uid == userId || isAdmin();
+        allow write: if isAdmin();
+      }
+      
+      // Progress subcollection
+      match /progress/{logId} {
+         allow read, write: if request.auth.uid == userId || isAdmin();
+      }
     }
     
-    // Reviews can only be accessed by admins
+    // Payments collection
+    match /payments/{userId} {
+        // A user can create their own payment document
+        // Admins can read/update it for verification
+        allow create: if request.auth.uid == userId;
+        allow read, update: if isAdmin();
+    }
+
+    // Team collection
+    match /team/{memberId} {
+        // Any authenticated user can read the team list (for assignment dropdown)
+        // Only admins can create/update/delete team members
+        allow read: if request.auth != null || isAdmin();
+        allow write: if isAdmin();
+    }
+
+    // Reviews collection
     match /reviews/{reviewId} {
-       allow read, write: if isAdmin();
+        // Only admins/team can read and write reviews
+        allow read, write: if isAdmin();
     }
   }
 }
