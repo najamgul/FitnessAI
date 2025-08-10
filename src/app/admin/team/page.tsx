@@ -19,6 +19,8 @@ import { Loader2 } from 'lucide-react';
 const teamMemberSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
+  phone: z.string().min(10, { message: 'Please enter a valid phone number.' }),
+  expertise: z.string().min(3, { message: 'Expertise must be at least 3 characters.' }),
 });
 
 type TeamMember = z.infer<typeof teamMemberSchema> & { id: string };
@@ -50,6 +52,8 @@ export default function AdminTeamPage() {
         defaultValues: {
             name: '',
             email: '',
+            phone: '',
+            expertise: '',
         },
     });
 
@@ -116,6 +120,32 @@ export default function AdminTeamPage() {
                                     </FormItem>
                                 )}
                                 />
+                                <FormField
+                                control={form.control}
+                                name="phone"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Phone Number</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="+91 12345 67890" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <FormField
+                                control={form.control}
+                                name="expertise"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Expertise</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., PCOD/PCOS Specialist" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
                                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                                     {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                                     Add Member
@@ -138,6 +168,8 @@ export default function AdminTeamPage() {
                                 <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Email</TableHead>
+                                    <TableHead>Phone</TableHead>
+                                    <TableHead>Expertise</TableHead>
                                     <TableHead>Action</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -147,6 +179,8 @@ export default function AdminTeamPage() {
                                         <TableRow key={member.id}>
                                             <TableCell className="font-medium">{member.name}</TableCell>
                                             <TableCell>{member.email}</TableCell>
+                                            <TableCell>{member.phone}</TableCell>
+                                            <TableCell>{member.expertise}</TableCell>
                                             <TableCell>
                                                 <Button variant="ghost" size="icon" onClick={() => removeMember(member.id)}>
                                                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -156,7 +190,7 @@ export default function AdminTeamPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             No team members added yet.
                                         </TableCell>
                                     </TableRow>
