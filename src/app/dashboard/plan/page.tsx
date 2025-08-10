@@ -6,7 +6,7 @@ import {
   TrendingUp, Utensils, Zap, AlertTriangle, Target, 
   RefreshCw, ShoppingCart, Star, Moon, XCircle,
   Coffee, UtensilsCrossed, Cookie, Salad, Loader2, FileClock, Image as ImageIcon,
-  ChevronLeft, ChevronRight, Info
+  ChevronLeft, ChevronRight, Info, CalendarDays
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { addDays, differenceInDays, format } from 'date-fns';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
@@ -42,8 +43,8 @@ const SmartDietPlanner = () => {
     const [isAdjusting, setIsAdjusting] = useState<number | null>(null);
     const [planStatus, setPlanStatus] = useState<'loading' | 'pending_review' | 'ready' | 'not_found'>('loading');
     const [plan, setPlan] = useState<DayPlan[]>([]);
-    const [currentDay, setCurrentDay] = useState(0);
-    const [currentWeek, setCurrentWeek] = useState(0);
+    const [planStartDate, setPlanStartDate] = useState<Date | null>(null);
+    const [currentDayIndex, setCurrentDayIndex] = useState(0); // 0-indexed
     const [user, setUser] = useState<User | null>(null);
     const [userGoals, setUserGoals] = useState('');
     const [adjustmentAdvice, setAdjustmentAdvice] = useState<string | null>(null);
@@ -96,10 +97,11 @@ const SmartDietPlanner = () => {
                     const dietPlanDocRef = doc(db, 'users', user.uid, 'dietPlan', 'current');
                     const unsubscribePlan = onSnapshot(dietPlanDocRef, (planDoc) => {
                         if (planDoc.exists()) {
-                            const fetchedPlan = planDoc.data() as GenerateDietPlanOutput;
+                            const fetchedPlanData = planDoc.data() as (GenerateDietPlanOutput & { createdAt: string });
+                            const fetchedPlan = fetchedPlanData.dietPlan;
                             const storedProgress = getStoredProgress();
                             
-                            const transformedPlan = fetchedPlan.dietPlan.map(dayPlan => {
+                            const transformedPlan = fetchedPlan.map(dayPlan => {
                                 const mealsArray = Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
                                     ...mealDetails,
                                     mealTime,
@@ -108,7 +110,6 @@ const SmartDietPlanner = () => {
                                     time: mealDetails.time,
                                 }));
 
-                                // Sort meals chronologically
                                 mealsArray.sort((a, b) => parseTime(a.time).getTime() - parseTime(b.time).getTime());
 
                                 return {
@@ -116,8 +117,19 @@ const SmartDietPlanner = () => {
                                     meals: mealsArray
                                 };
                             });
-
                             setPlan(transformedPlan);
+                            
+                            // Set start date and today's index
+                            if (fetchedPlanData.createdAt) {
+                                const startDate = new Date(fetchedPlanData.createdAt);
+                                setPlanStartDate(startDate);
+                                
+                                const today = new Date();
+                                const dayDifference = differenceInDays(today, startDate);
+                                const todayIndex = dayDifference % transformedPlan.length;
+                                setCurrentDayIndex(todayIndex < 0 ? 0 : todayIndex);
+                            }
+
                         } else {
                             setPlanStatus('not_found');
                         }
@@ -257,11 +269,11 @@ const SmartDietPlanner = () => {
         );
     }
 
-    const totalWeeks = Math.ceil(plan.length / 7);
-    const weekStartDay = currentWeek * 7;
-    const weekEndDay = weekStartDay + 7;
-    const daysForCurrentWeek = plan.slice(weekStartDay, weekEndDay);
-    const currentDayPlan = plan[currentDay];
+    const currentDayPlan = plan[currentDayIndex];
+    if (!currentDayPlan) {
+        return null; // or a loading/error state if currentDayIndex is out of bounds
+    }
+    
     const totalCaloriesConsumed = currentDayPlan.meals.filter(m => m.completed).reduce((sum, meal) => sum + meal.calories, 0);
     const dailyGoal = currentDayPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
     const completionRate = dailyGoal > 0 ? Math.round((totalCaloriesConsumed / dailyGoal) * 100) : 0;
@@ -277,22 +289,35 @@ const SmartDietPlanner = () => {
                         </div>
                     </div>
                     <div className="p-3 sm:p-4 md:p-6 flex-1 w-full max-w-full overflow-x-hidden">
-                        <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full h-full flex flex-col max-w-full">
-                             <div className="flex items-center justify-center gap-2 mb-4">
-                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(w => Math.max(0, w - 1))} disabled={currentWeek === 0}><ChevronLeft className="h-4 w-4" /></Button>
-                                <div className="text-sm font-medium text-muted-foreground">Week {currentWeek + 1} of {totalWeeks}</div>
-                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(w => Math.min(totalWeeks - 1, w + 1))} disabled={currentWeek >= totalWeeks - 1}><ChevronRight className="h-4 w-4" /></Button>
-                            </div>
+                        <Tabs value={`day-${currentDayIndex}`} onValueChange={(val) => setCurrentDayIndex(parseInt(val.split('-')[1]))} className="w-full h-full flex flex-col max-w-full">
                             <ScrollArea className="w-full whitespace-nowrap rounded-md mb-4 max-w-full">
                                 <TabsList className="w-full justify-start h-auto p-1 max-w-full">
-                                    {daysForCurrentWeek.map((dayPlan) => (<TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`} className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2">Day {dayPlan.day}</TabsTrigger>))}
-                                </TabsList><ScrollBar orientation="horizontal" />
+                                    {plan.map((dayPlan, index) => {
+                                        const dayDate = planStartDate ? addDays(planStartDate, index) : null;
+                                        const isToday = dayDate && format(dayDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                                        return (
+                                            <TabsTrigger 
+                                                key={dayPlan.day} 
+                                                value={`day-${index}`} 
+                                                className="text-xs sm:text-sm px-3 py-2 sm:px-4 sm:py-2 flex flex-col h-auto"
+                                            >
+                                                <span>Day {dayPlan.day}</span>
+                                                {dayDate && (
+                                                    <span className={`text-xs mt-1 ${isToday ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
+                                                        {format(dayDate, 'MMM-dd')}
+                                                    </span>
+                                                )}
+                                            </TabsTrigger>
+                                        )
+                                    })}
+                                </TabsList>
+                                <ScrollBar orientation="horizontal" />
                             </ScrollArea>
-                            <TabsContent value={`day-${currentDay + 1}`} className="mt-0 flex-1 w-full max-w-full">
+                            <TabsContent value={`day-${currentDayIndex}`} className="mt-0 flex-1 w-full max-w-full">
                                 <ScrollArea className="h-full w-full">
                                     {adjustmentAdvice && (<Alert className="mb-4 bg-blue-50 border-blue-200"><Info className="h-4 w-4 text-blue-600" /><AlertTitle className="text-blue-800 font-semibold">Aziaf's Advice</AlertTitle><AlertDescription className="text-blue-700">{adjustmentAdvice}</AlertDescription></Alert>)}
                                     <div className="space-y-3 sm:space-y-4 pb-4 w-full max-w-full">
-                                        {plan[currentDay]?.meals.map((meal, mealIndex) => (
+                                        {plan[currentDayIndex]?.meals.map((meal, mealIndex) => (
                                         <Card key={mealIndex} className={`w-full max-w-full overflow-hidden rounded-lg border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : meal.skipped ? 'bg-red-50 border-red-200' : 'bg-background border-border hover:border-primary'}`}>
                                             <div className="flex flex-row items-center">
                                                 <div className="flex-1 p-3 min-w-0">
@@ -314,8 +339,8 @@ const SmartDietPlanner = () => {
                                                         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                                                             {isAdjusting === mealIndex ? (<Loader2 className="h-5 w-5 animate-spin"/>) : (
                                                                 <>
-                                                                    {!meal.completed && !meal.skipped && (<Button onClick={() => handleSkipMeal(currentDay, mealIndex)} variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive"><XCircle className="w-3 h-3 mr-1"/>Missed</Button>)}
-                                                                    <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm" className="text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{meal.completed ? 'Goal!' : 'Goal!'}</Button>
+                                                                    {!meal.completed && !meal.skipped && (<Button onClick={() => handleSkipMeal(currentDayIndex, mealIndex)} variant="ghost" size="sm" className="text-xs text-destructive hover:text-destructive"><XCircle className="w-3 h-3 mr-1"/>Missed</Button>)}
+                                                                    <Button onClick={() => toggleMealCompletion(currentDayIndex, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm" className="text-xs"><CheckCircle2 className="w-3 h-3 mr-1" />{meal.completed ? 'Goal!' : 'Goal!'}</Button>
                                                                 </>
                                                             )}
                                                         </div>
