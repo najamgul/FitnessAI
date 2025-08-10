@@ -7,19 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, Bot, Droplets, CheckCircle2, Info } from 'lucide-react';
+import { Loader2, Sparkles, Bot, Droplets, CheckCircle2, Info, RefreshCw } from 'lucide-react';
 import { generateHydrationSchedule } from '@/ai/flows/generate-hydration-schedule';
-import { getHydrationAdvice } from '@/ai/flows/get-hydration-advice';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from '@/components/ui/dialog';
 
 type ScheduleEntry = {
     time: string;
@@ -55,10 +46,8 @@ export default function HydrationPage() {
     const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
     const [explanation, setExplanation] = useState('');
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
+    const [isRecalculating, setIsRecalculating] = useState(false);
     
-    const [catchUpDialogOpen, setCatchUpDialogOpen] = useState(false);
-    const [isLoadingAdvice, setIsLoadingAdvice] = useState(false);
-    const [catchUpAdvice, setCatchUpAdvice] = useState('');
 
     useEffect(() => {
         try {
@@ -74,32 +63,45 @@ export default function HydrationPage() {
             console.error("Could not set hydration goal from onboarding data.", e);
         }
     }, []);
-
-    useEffect(() => {
-        const handleGenerateSchedule = async () => {
-            if (parseFloat(goal) <= 0) return; // Don't generate if goal is not set
-            setIsLoadingSchedule(true);
+    
+    const handleGenerateSchedule = async (intakeGoal: number, startTime: string) => {
+        if (intakeGoal <= 0) return;
+        
+        setIsLoadingSchedule(true);
+        if(!isRecalculating) {
             setSchedule([]);
             setExplanation('');
-            try {
-                const totalIntakeLiters = parseFloat(goal);
-                const response = await generateHydrationSchedule({
-                    totalIntakeLiters,
-                    wakeUpTime: wakeUp,
-                    bedTime: bedTime,
-                });
-                setSchedule(response.schedule.map(item => ({...item, completed: false})));
-                setExplanation(response.explanation);
-                toast({ title: 'Schedule Generated!', description: 'Your personalized hydration plan is ready.' });
-            } catch (error) {
-                toast({ title: 'Error', description: 'Could not generate hydration schedule.', variant: 'destructive' });
-            } finally {
-                setIsLoadingSchedule(false);
-            }
-        };
+        }
 
-        handleGenerateSchedule();
-    }, [goal, wakeUp, bedTime, toast]);
+        try {
+            const response = await generateHydrationSchedule({
+                totalIntakeLiters: intakeGoal,
+                wakeUpTime: startTime,
+                bedTime: bedTime,
+            });
+
+            const newSchedule = response.schedule.map(item => ({ ...item, completed: false }));
+            setSchedule(newSchedule);
+            setExplanation(response.explanation);
+
+            if (isRecalculating) {
+                 toast({ title: 'Schedule Updated!', description: 'Your plan for the rest of the day is ready.' });
+            } else {
+                 toast({ title: 'Schedule Generated!', description: 'Your personalized hydration plan is ready.' });
+            }
+
+        } catch (error) {
+            toast({ title: 'Error', description: 'Could not generate hydration schedule.', variant: 'destructive' });
+        } finally {
+            setIsLoadingSchedule(false);
+            setIsRecalculating(false);
+        }
+    };
+
+
+    useEffect(() => {
+        handleGenerateSchedule(parseFloat(goal), wakeUp);
+    }, [goal]);
     
     const handleCheckboxChange = (index: number) => {
         setSchedule(prevSchedule => {
@@ -109,65 +111,32 @@ export default function HydrationPage() {
         });
     };
     
-    const openCatchUpDialog = () => {
-        setCatchUpAdvice(''); // Clear previous advice
-        setCatchUpDialogOpen(true);
-    };
-
-    const handleGetCatchUpAdvice = async () => {
-        setIsLoadingAdvice(true);
-        setCatchUpAdvice('');
-        try {
-            const targetIntake = parseFloat(goal);
-            const completedAmount = schedule.reduce((acc, entry) => acc + (entry.completed ? entry.amount : 0), 0) / 1000;
-            
-            const result = await getHydrationAdvice({ targetIntake: targetIntake, actualIntake: completedAmount });
-            setCatchUpAdvice(result.advice);
-        } catch (error) {
-            toast({ title: 'Error', description: 'Could not get hydration advice.', variant: 'destructive'});
-        } finally {
-            setIsLoadingAdvice(false);
+    const handleRecalculate = async () => {
+        setIsRecalculating(true);
+        
+        const totalGoalMl = parseFloat(goal) * 1000;
+        const completedAmountMl = schedule.reduce((acc, entry) => acc + (entry.completed ? entry.amount : 0), 0);
+        const remainingIntakeMl = totalGoalMl - completedAmountMl;
+        
+        if (remainingIntakeMl <= 0) {
+            toast({ title: "Goal Achieved!", description: "You've already met your hydration goal for today. Great job!" });
+            setIsRecalculating(false);
+            return;
         }
-    };
+        
+        const now = new Date();
+        const currentTime = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+        await handleGenerateSchedule(remainingIntakeMl / 1000, currentTime);
+    }
     
     const totalCompleted = schedule.reduce((sum, entry) => sum + (entry.completed ? entry.amount : 0), 0);
-    const totalScheduled = schedule.reduce((sum, entry) => sum + entry.amount, 0);
-    const progressPercentage = totalScheduled > 0 ? (totalCompleted / totalScheduled) * 100 : 0;
+    const totalGoalMl = parseFloat(goal) * 1000;
+    const progressPercentage = totalGoalMl > 0 ? (totalCompleted / totalGoalMl) * 100 : 0;
 
 
     return (
         <div className="space-y-8">
-             <Dialog open={catchUpDialogOpen} onOpenChange={setCatchUpDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 font-headline"><Bot /> Hydration Helper</DialogTitle>
-                        <DialogDescription>
-                           Let's figure out a plan to get you back on track with your water intake for the rest of the day.
-                        </DialogDescription>
-                    </DialogHeader>
-                     {isLoadingAdvice && (
-                         <div className="flex items-center justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                         </div>
-                    )}
-                    {catchUpAdvice && (
-                        <Alert>
-                            <Sparkles className="h-4 w-4" />
-                            <AlertTitle>Your Catch-up Plan</AlertTitle>
-                            <AlertDescription>
-                                {catchUpAdvice}
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                    <DialogFooter>
-                         <Button onClick={handleGetCatchUpAdvice} disabled={isLoadingAdvice || !!catchUpAdvice}>
-                            {isLoadingAdvice ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Get My Plan
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1 space-y-6">
                     <Card>
@@ -195,16 +164,17 @@ export default function HydrationPage() {
                          <Card>
                             <CardHeader>
                                 <CardTitle className="font-headline">Daily Progress</CardTitle>
+                                <CardDescription>Fallen behind? Recalculate your plan for the rest of the day.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4 text-center">
                                 <div className="text-4xl font-bold text-primary">{totalCompleted.toLocaleString()} ml</div>
-                                <div className="text-sm text-muted-foreground">of {totalScheduled.toLocaleString()} ml goal completed</div>
+                                <div className="text-sm text-muted-foreground">of {totalGoalMl.toLocaleString()} ml goal completed</div>
                                 <div className="w-full bg-muted rounded-full h-2.5">
                                     <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
                                 </div>
-                                 <Button variant="outline" onClick={openCatchUpDialog}>
-                                    <Bot className="mr-2 h-4 w-4"/>
-                                    Help Me Catch Up
+                                 <Button variant="outline" onClick={handleRecalculate} disabled={isRecalculating}>
+                                    {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
+                                    Recalculate Schedule
                                 </Button>
                             </CardContent>
                         </Card>
@@ -221,8 +191,8 @@ export default function HydrationPage() {
                             {isLoadingSchedule && (
                                 <div className="flex flex-col items-center justify-center text-center p-12">
                                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                                    <p className="font-semibold">Generating your plan...</p>
-                                    <p className="text-sm text-muted-foreground">The AI is creating a personalized schedule just for you.</p>
+                                    <p className="font-semibold">{isRecalculating ? 'Recalculating your new plan...' : 'Generating your plan...'}</p>
+                                    <p className="text-sm text-muted-foreground">The AI is creating a schedule just for you.</p>
                                 </div>
                             )}
                             {!isLoadingSchedule && schedule.length === 0 && (
