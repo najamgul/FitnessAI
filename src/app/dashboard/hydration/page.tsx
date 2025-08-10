@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -270,7 +271,7 @@ const SmartWaterTracker = () => {
       }
       if (completionRate < 50 && currentTime.getHours() > 14) {
         const skippedCount = scheduleItems.filter(i => i.skipped).length;
-        insights.push({ icon: <AlertCircle className="w-4 h-4 text-destructive" />, text: skippedCount > 0 ? `Behind schedule with ${skippedCount} skipped slots. Plan redistributed!` : 'Behind schedule. Consider larger portions.' });
+        insights.push({ icon: <AlertCircle className="w-4 h-4 text-destructive" />, text: skippedCount > 0 ? `Behind schedule with ${skippedCount} missed slots. Plan redistributed!` : 'Behind schedule. Consider larger portions.' });
       }
        if (completionRate > 100) {
         insights.push({ icon: <Brain className="w-4 h-4 text-primary" />, text: 'Excellent hydration! Your body is optimally fueled.' });
@@ -418,10 +419,10 @@ const SmartWaterTracker = () => {
                     <div className="flex flex-col items-center gap-2">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={item.completed} onChange={(e) => toggleCompletion(item.id, e.target.checked)} className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2" />
-                        <span className="text-sm text-muted-foreground">Done</span>
+                        <span className="text-sm text-muted-foreground">Goal</span>
                       </label>
-                      {!item.completed && !item.skipped && <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Skip</button>}
-                      {item.skipped && <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Skipped</div>}
+                      {!item.completed && !item.skipped && <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Missed</button>}
+                      {item.skipped && <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Missed</div>}
                     </div>
                     <div className="flex items-center gap-3">
                       {item.completed ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : item.skipped ? <AlertCircle className="w-5 h-5 text-red-500" /> : <Clock className="w-5 h-5 text-muted-foreground" />}
