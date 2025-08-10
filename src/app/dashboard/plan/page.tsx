@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { getMissedMealAdvice } from '@/ai/flows/get-missed-meal-advice';
 import { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -186,60 +185,45 @@ const SmartDietPlanner = () => {
         });
     };
 
-    const handleSkipMeal = async (dayIndex: number, mealIndex: number) => {
+    const handleSkipMeal = (dayIndex: number, mealIndex: number) => {
+        setIsAdjusting(mealIndex);
+        setAdjustmentAdvice(null);
+    
         const planToUpdate = JSON.parse(JSON.stringify(plan));
         const dayPlan = planToUpdate[dayIndex];
         const mealToSkip = dayPlan.meals[mealIndex];
-
-        if (mealToSkip.completed || mealToSkip.skipped) return;
-
-        setIsAdjusting(mealIndex);
-        setAdjustmentAdvice(null);
-        
+    
+        if (mealToSkip.completed || mealToSkip.skipped) {
+            setIsAdjusting(null);
+            return;
+        }
+    
         mealToSkip.skipped = true;
         mealToSkip.completed = false;
         saveProgress(dayIndex, mealToSkip.mealTime, { completed: false, skipped: true });
-        
-        try {
-            const remainingMeals = dayPlan.meals.slice(mealIndex + 1);
-            if(remainingMeals.length === 0) {
-                 setAdjustmentAdvice("You've missed your last meal. Just focus on starting fresh tomorrow!");
-                 setPlan(planToUpdate); // Update state to show skipped status
-                 setIsAdjusting(null);
-                 return;
-            }
-
-            const response = await getMissedMealAdvice({
-                missedMeal: mealToSkip,
-                remainingMeals: remainingMeals.filter(m => !m.completed && !m.skipped),
-                userGoals: userGoals,
-            });
-
-            setAdjustmentAdvice(response.advice);
-
-            // Apply adjustments from AI
-            response.adjustedMeals.forEach(adjustedMeal => {
-                const mealToUpdate = dayPlan.meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
-                if (mealToUpdate) {
-                    mealToUpdate.quantity = adjustedMeal.quantity;
-                    mealToUpdate.calories = adjustedMeal.calories;
-                    const baseDescription = mealToUpdate.originalDescription || mealToUpdate.description.split(' (Adjusted for')[0];
-                    mealToUpdate.description = `${baseDescription} (Adjusted for skipped ${mealToSkip.mealTime})`;
+    
+        const remainingMeals = dayPlan.meals.slice(mealIndex + 1).filter((m: Meal) => !m.completed && !m.skipped);
+    
+        if (remainingMeals.length === 0) {
+            setAdjustmentAdvice("You've missed your last meal. Just focus on starting fresh tomorrow!");
+        } else {
+            const caloriesToRedistribute = mealToSkip.originalCalories || mealToSkip.calories;
+            const perMealIncrease = Math.round(caloriesToRedistribute / remainingMeals.length);
+    
+            remainingMeals.forEach((meal: Meal) => {
+                const mealInPlan = dayPlan.meals.find((m: Meal) => m.mealTime === meal.mealTime);
+                if (mealInPlan) {
+                    const originalCalories = mealInPlan.originalCalories || mealInPlan.calories;
+                    mealInPlan.calories = originalCalories + perMealIncrease;
+                    mealInPlan.description = `${(mealInPlan.description || '').split(' (Adjusted')[0]} (Adjusted for missed ${mealToSkip.mealTime})`;
                 }
             });
-            
-            setPlan(planToUpdate);
-
-            toast({ title: "Plan Adjusted", description: "Your remaining meals for today have been updated." });
-
-        } catch (error) {
-            console.error("Failed to adjust plan:", error);
-            toast({ title: "Adjustment Failed", description: "Could not get updated advice from AI.", variant: "destructive" });
-            // Still update the plan to show the meal as skipped, even if AI fails
-            setPlan(planToUpdate);
-        } finally {
-            setIsAdjusting(null);
+            setAdjustmentAdvice(`To keep you on track, ${caloriesToRedistribute} calories from your skipped meal have been distributed among your remaining meals.`);
+            toast({ title: "Plan Adjusted", description: `Remaining meals updated to meet your daily goal.` });
         }
+    
+        setPlan(planToUpdate);
+        setIsAdjusting(null);
     };
     
     if (isLoading) {
@@ -344,7 +328,7 @@ const SmartDietPlanner = () => {
                             </div>
                             <TabsContent value={`day-${currentDayIndex}`} className="mt-0 flex-1 w-full max-w-full">
                                 <ScrollArea className="h-full w-full">
-                                    {adjustmentAdvice && (<Alert className="mb-4 bg-blue-50 border-blue-200"><Info className="h-4 w-4 text-blue-600" /><AlertTitle className="text-blue-800 font-semibold">Aziaf's Advice</AlertTitle><AlertDescription className="text-blue-700">{adjustmentAdvice}</AlertDescription></Alert>)}
+                                    {adjustmentAdvice && (<Alert className="mb-4 bg-blue-50 border-blue-200"><Info className="h-4 w-4 text-blue-600" /><AlertTitle className="text-blue-800 font-semibold">Plan Adjusted</AlertTitle><AlertDescription className="text-blue-700">{adjustmentAdvice}</AlertDescription></Alert>)}
                                     <div className="space-y-3 sm:space-y-4 pb-4 w-full max-w-full">
                                         {plan[currentDayIndex]?.meals.map((meal, mealIndex) => (
                                         <Card key={mealIndex} className={`w-full max-w-full overflow-hidden rounded-lg border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : meal.skipped ? 'bg-red-50 border-red-200' : 'bg-background border-border hover:border-primary'}`}>
