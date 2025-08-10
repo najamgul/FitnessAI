@@ -32,6 +32,7 @@ type ReviewTask = {
 
 type Meal = {
     meal: string;
+    quantity: string;
     hint: string;
     calories: number;
     description: string;
@@ -211,7 +212,9 @@ export default function AdminReviewsPage() {
         setEditablePlans(prev => {
             const currentPlan = prev[reviewId];
             if (!currentPlan || currentPlan.length <= 1) {
-                toast({ title: "Cannot Delete", description: "You must have at least one day in the plan.", variant: "destructive"});
+                setTimeout(() => {
+                    toast({ title: "Cannot Delete", description: "You must have at least one day in the plan.", variant: "destructive"});
+                }, 0);
                 return prev;
             };
 
@@ -255,7 +258,7 @@ export default function AdminReviewsPage() {
             if (result && result.dietPlan) {
                 const reviewDocRef = doc(db, 'reviews', task.id);
                 await updateDoc(reviewDocRef, {
-                    generatedPlan: result,
+                    generatedPlan: JSON.parse(JSON.stringify(result)), // Use clean data
                     status: 'pending_approval'
                 });
 
@@ -323,7 +326,7 @@ export default function AdminReviewsPage() {
             const finalPlan: GenerateDietPlanOutput = { dietPlan: finalPlanData };
 
             const dietPlanDocRef = doc(db, 'users', task.userId, 'dietPlan', 'current');
-            await setDoc(dietPlanDocRef, { ...finalPlan, createdAt: new Date().toISOString() });
+            await setDoc(dietPlanDocRef, { ...JSON.parse(JSON.stringify(finalPlan)), createdAt: new Date().toISOString() });
 
             const userDocRef = doc(db, 'users', task.userId);
             await updateDoc(userDocRef, { planStatus: 'ready' });
@@ -342,7 +345,7 @@ export default function AdminReviewsPage() {
 
     const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl', value: string | number | undefined) => {
         const isEditing = editingCell?.reviewId === reviewId && editingCell?.dayIndex === dayIndex && editingCell?.mealTime === mealTime && editingCell?.field === field;
-        const isTextArea = field === 'description';
+        const isTextArea = field === 'description' || field === 'meal' || field ==='quantity';
         const isNumber = field === 'calories';
         const isImage = field === 'imageUrl';
 
@@ -441,9 +444,11 @@ export default function AdminReviewsPage() {
                                         {/* User Onboarding Data */}
                                         <div className="lg:w-1/3 xl:w-1/4">
                                             <h4 className="font-semibold mb-2">User Onboarding Data</h4>
-                                            <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap max-h-[600px] overflow-auto">
-                                                {JSON.stringify(task.onboardingData, null, 2)}
-                                            </pre>
+                                            <ScrollArea className="max-h-[600px] overflow-auto">
+                                                <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap">
+                                                    {JSON.stringify(task.onboardingData, null, 2)}
+                                                </pre>
+                                            </ScrollArea>
                                         </div>
                                         
                                         {/* Diet Plan Table or Generate Button */}
@@ -493,6 +498,7 @@ export default function AdminReviewsPage() {
                                                                     <TableHead className="w-16 sticky left-0 bg-muted z-10">Day</TableHead>
                                                                     <TableHead>Meal Time</TableHead>
                                                                     <TableHead>Meal</TableHead>
+                                                                    <TableHead>Quantity</TableHead>
                                                                     <TableHead>Calories</TableHead>
                                                                     <TableHead>Description</TableHead>
                                                                     <TableHead>Image</TableHead>
@@ -511,6 +517,9 @@ export default function AdminReviewsPage() {
                                                                             <TableCell className="font-semibold min-w-[150px]">{mealTime}</TableCell>
                                                                             <TableCell className="min-w-[200px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'meal', mealDetails.meal)}
+                                                                            </TableCell>
+                                                                            <TableCell className="min-w-[200px]">
+                                                                                {renderEditableCell(task.id, dayIndex, mealTime, 'quantity', mealDetails.quantity)}
                                                                             </TableCell>
                                                                              <TableCell className="min-w-[120px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'calories', mealDetails.calories)}
@@ -564,6 +573,3 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
-
-
-    
