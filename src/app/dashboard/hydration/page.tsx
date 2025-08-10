@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,6 +11,7 @@ type ScheduleItem = {
   smart: boolean;
   id: number;
   reason: string;
+  originalAmount?: number; // Store original amount for reference
 };
 
 const notificationSoundUrl = 'https://cdn.pixabay.com/download/audio/2025/05/24/audio_aacf3a51fd.mp3?filename=sound-of-flowing-river-346329.mp3';
@@ -31,7 +31,6 @@ const SmartWaterTracker = () => {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
   const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
-
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -94,7 +93,6 @@ const SmartWaterTracker = () => {
     };
   }, [scheduleItems]);
 
-
   const generateSmartSchedule = useCallback(() => {
     const wakeHour = parseInt(profile.wakeTime.split(':')[0]);
     const sleepHour = parseInt(profile.sleepTime.split(':')[0]);
@@ -139,9 +137,11 @@ const SmartWaterTracker = () => {
         reason = 'Peak activity period';
       }
 
+      const finalAmount = Math.round(amount / 10) * 10;
       schedule.push({
         time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-        amount: Math.round(amount / 10) * 10,
+        amount: finalAmount,
+        originalAmount: finalAmount, // Store original amount
         completed: false,
         skipped: false,
         smart: true,
@@ -157,6 +157,7 @@ const SmartWaterTracker = () => {
       const adjustment = diff > 0 ? 10 : -10;
       if (schedule[i % numSlots].amount + adjustment > 0) {
         schedule[i % numSlots].amount += adjustment;
+        schedule[i % numSlots].originalAmount = schedule[i % numSlots].amount; // Update original amount too
         diff -= adjustment;
       }
       i++;
@@ -170,56 +171,69 @@ const SmartWaterTracker = () => {
     setScheduleItems(generateSmartSchedule());
   }, [generateSmartSchedule]);
 
-  const redistributeSchedule = useCallback(() => {
+  // Function to check if an item is in the future
+  const isItemInFuture = (item: ScheduleItem): boolean => {
+    const now = new Date();
+    const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
+    if (!itemTimeParts) return false;
+    
+    let [, hours, minutes, meridiem] = itemTimeParts;
+    let hour = parseInt(hours, 10);
+    
+    if (meridiem && meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
+    if (meridiem && meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    
+    const itemTime = new Date(now);
+    itemTime.setHours(hour, parseInt(minutes, 10), 0, 0);
+    
+    return itemTime >= now;
+  };
+
+  const redistributeWaterSlots = useCallback((skippedItemId: number) => {
     setRedistributing(true);
+    
     setTimeout(() => {
-        const now = new Date();
-        const completedWater = scheduleItems.filter(item => item.completed).reduce((sum, item) => sum + item.amount, 0);
-        let adjustedGoal = dailyGoal;
-         if (smartMode) {
-            if (weatherTemp > 28) adjustedGoal += 300;
-            if (weatherTemp > 32) adjustedGoal += 500;
-            adjustedGoal += activityBoost;
+      setScheduleItems(prevItems => {
+        const updatedItems = [...prevItems];
+        const skippedItem = updatedItems.find(item => item.id === skippedItemId);
+        
+        if (!skippedItem) {
+          setRedistributing(false);
+          return prevItems;
         }
-        const remainingGoal = adjustedGoal - completedWater;
 
-        const remainingSlots = scheduleItems.filter(item => {
-            if (item.completed || item.skipped) return false;
-            const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
-            if (!itemTimeParts) return false;
-            let [ , hours, minutes, meridiem] = itemTimeParts;
-            let hour = parseInt(hours, 10);
-            if (meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
-            if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-            
-            const itemTime = new Date(now);
-            itemTime.setHours(hour, parseInt(minutes, 10), 0, 0);
+        const skippedAmount = skippedItem.originalAmount || skippedItem.amount;
+        
+        // Find remaining slots (future slots that aren't completed or skipped)
+        const remainingItems = updatedItems.filter(item => 
+          item.id > skippedItemId && 
+          !item.completed && 
+          !item.skipped && 
+          isItemInFuture(item)
+        );
 
-            return itemTime >= now;
+        if (remainingItems.length === 0) {
+          setRedistributing(false);
+          return updatedItems;
+        }
+
+        // Distribute skipped amount evenly across remaining slots
+        const additionalAmountPerSlot = Math.round(skippedAmount / remainingItems.length / 10) * 10; // Round to nearest 10ml
+        
+        // Apply redistribution
+        updatedItems.forEach(item => {
+          if (remainingItems.some(remaining => remaining.id === item.id)) {
+            const originalAmount = item.originalAmount || item.amount;
+            item.amount = originalAmount + additionalAmountPerSlot;
+            item.reason = `Redistributed - +${additionalAmountPerSlot}ml from missed ${skippedItem.time}`;
+          }
         });
 
-        if (remainingSlots.length === 0) {
-            setRedistributing(false);
-            return;
-        }
-
-        const baseAmount = Math.floor(Math.max(remainingGoal, 0) / remainingSlots.length);
-        const extraAmount = Math.max(remainingGoal, 0) % remainingSlots.length;
-
-        setScheduleItems(prev => prev.map(item => {
-            const slotIndex = remainingSlots.findIndex(slot => slot.id === item.id);
-            if (slotIndex !== -1) {
-                return {
-                    ...item,
-                    amount: Math.round((baseAmount + (slotIndex < extraAmount ? 10 : 0))/10)*10, // Distribute remainder in 10ml increments
-                    reason: 'Redistributed - Catch-up hydration'
-                };
-            }
-            return item;
-        }));
         setRedistributing(false);
-    }, 1000);
-  }, [scheduleItems, dailyGoal, smartMode, weatherTemp, activityBoost]);
+        return updatedItems;
+      });
+    }, 500);
+  }, []);
 
   const toggleCompletion = (id: number, completed: boolean) => {
     setScheduleItems(prevSchedule =>
@@ -230,34 +244,29 @@ const SmartWaterTracker = () => {
   };
 
   const skipSlot = (id: number) => {
-    setScheduleItems(prev => prev.map(item => item.id === id ? { ...item, skipped: true, completed: false } : item));
-    redistributeSchedule();
+    setScheduleItems(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, skipped: true, completed: false } : item
+      )
+    );
+    redistributeWaterSlots(id);
   };
 
   const completedWater = scheduleItems.filter(item => item.completed).reduce((sum, item) => sum + item.amount, 0);
   
   let adjustedGoal = dailyGoal;
-    if (smartMode) {
-        if (weatherTemp > 28) adjustedGoal += 300;
-        if (weatherTemp > 32) adjustedGoal += 500;
-        adjustedGoal += activityBoost;
+  if (smartMode) {
+    if (weatherTemp > 28) adjustedGoal += 300;
+    if (weatherTemp > 32) adjustedGoal += 500;
+    adjustedGoal += activityBoost;
   }
   
   const completionRate = adjustedGoal > 0 ? Math.round((completedWater / adjustedGoal) * 100) : 0;
+  const remainingWaterNeeded = Math.max(0, adjustedGoal - completedWater);
   
   const nextDrink = scheduleItems.find(item => {
     if (item.completed || item.skipped) return false;
-    const itemTimeParts = item.time.match(/(\d+):(\d+)\s?(AM|PM)/i);
-    if (!itemTimeParts) return false;
-    let [ , hours, minutes, meridiem] = itemTimeParts;
-    let hour = parseInt(hours, 10);
-    if (meridiem.toUpperCase() === 'PM' && hour < 12) hour += 12;
-    if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-
-    const itemTime = new Date(new Date().toDateString());
-    itemTime.setHours(hour, parseInt(minutes, 10));
-
-    return itemTime >= currentTime;
+    return isItemInFuture(item);
   });
 
   const getSmartInsights = useCallback(() => {
@@ -294,7 +303,6 @@ const SmartWaterTracker = () => {
     }
   };
 
-
   return (
     <div className="bg-background rounded-3xl shadow-xl overflow-hidden border">
       <div className="bg-gradient-to-r from-primary to-cyan-500 p-6 text-white">
@@ -309,6 +317,9 @@ const SmartWaterTracker = () => {
           <div className="text-right">
             <div className="text-4xl font-bold text-primary-foreground">{completionRate}%</div>
             <div className="text-blue-100">Daily Progress</div>
+            {remainingWaterNeeded > 0 && (
+              <div className="text-blue-100 text-sm mt-1">{remainingWaterNeeded}ml remaining</div>
+            )}
           </div>
         </div>
         <div className="mt-6 flex items-center gap-3">
@@ -357,6 +368,9 @@ const SmartWaterTracker = () => {
                     <div className="text-sm text-primary font-medium">Next:</div>
                     <div className="text-base text-primary font-semibold">
                       {nextDrink.amount}ml at {nextDrink.time}
+                      {nextDrink.originalAmount && nextDrink.amount !== nextDrink.originalAmount && (
+                        <span className="text-orange-600 text-sm ml-1">(+{nextDrink.amount - nextDrink.originalAmount}ml)</span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -375,7 +389,7 @@ const SmartWaterTracker = () => {
         {redistributing && (
           <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
             <div className="animate-spin"><Zap className="w-5 h-5 text-yellow-600" /></div>
-            <div className="text-yellow-800"><div className="font-semibold">Redistributing Schedule...</div><div className="text-sm">Aziaf is recalculating remaining hydration slots</div></div>
+            <div className="text-yellow-800"><div className="font-semibold">Redistributing Schedule...</div><div className="text-sm">Recalculating remaining hydration slots</div></div>
           </div>
         )}
 
@@ -387,6 +401,32 @@ const SmartWaterTracker = () => {
             </div>
           </div>
         )}
+
+        {/* Daily Summary Card */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-200">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="font-bold text-2xl text-blue-700">{completedWater}</div>
+                <div className="text-blue-600">Consumed</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-2xl text-cyan-700">{adjustedGoal}</div>
+                <div className="text-cyan-600">Target</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-2xl text-green-700">{remainingWaterNeeded}</div>
+                <div className="text-green-600">Remaining</div>
+              </div>
+            </div>
+            <div className="w-32 bg-gray-200 rounded-full h-3">
+              <div 
+                className="bg-gradient-to-r from-primary to-cyan-500 h-3 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(completionRate, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
 
         <div className="mb-8 p-6 bg-muted/50 rounded-2xl">
           <h3 className="font-semibold text-foreground mb-4 font-headline">Smart Adjustments (Demo)</h3>
@@ -421,20 +461,38 @@ const SmartWaterTracker = () => {
                         <input type="checkbox" checked={item.completed} onChange={(e) => toggleCompletion(item.id, e.target.checked)} className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2" />
                         <span className="text-sm text-muted-foreground">Goal</span>
                       </label>
-                      {!item.completed && !item.skipped && <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Missed</button>}
+                      {!item.completed && !item.skipped && isItemInFuture(item) && (
+                        <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Missed</button>
+                      )}
                       {item.skipped && <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Missed</div>}
                     </div>
                     <div className="flex items-center gap-3">
                       {item.completed ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : item.skipped ? <AlertCircle className="w-5 h-5 text-red-500" /> : <Clock className="w-5 h-5 text-muted-foreground" />}
                       <div>
-                        <div className="font-medium text-foreground">{item.time}</div>
-                        {smartMode && <div className={`text-sm ${item.reason === 'Redistributed - Catch-up hydration' ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>{item.reason}</div>}
+                        <div className="font-medium text-foreground flex items-center gap-2">
+                          {item.time}
+                          {item.originalAmount && item.amount !== item.originalAmount && (
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">Adjusted</span>
+                          )}
+                        </div>
+                        {smartMode && (
+                          <div className={`text-sm ${item.reason.includes('Redistributed') ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
+                            {item.reason}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`font-semibold ${item.completed ? 'text-green-600' : item.skipped ? 'text-destructive' : 'text-primary'}`}>{item.amount} ml</div>
-                    {item.reason === 'Redistributed - Catch-up hydration' && !item.completed && <div className="text-xs text-orange-600 font-medium">Adjusted</div>}
+                    <div className={`font-semibold ${item.completed ? 'text-green-600' : item.skipped ? 'text-destructive' : 'text-primary'}`}>
+                      {item.amount} ml
+                      {item.originalAmount && item.amount !== item.originalAmount && (
+                        <span className="text-muted-foreground text-sm ml-1">(was {item.originalAmount}ml)</span>
+                      )}
+                    </div>
+                    {item.reason.includes('Redistributed') && !item.completed && (
+                      <div className="text-xs text-orange-600 font-medium">+{item.amount - (item.originalAmount || 0)}ml</div>
+                    )}
                   </div>
                 </div>
               </div>
