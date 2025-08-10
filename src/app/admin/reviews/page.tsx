@@ -32,6 +32,7 @@ type ReviewTask = {
 
 type Meal = {
     meal: string;
+    time: string;
     quantity: string;
     hint: string;
     calories: number;
@@ -75,10 +76,11 @@ The output must be an array of day plan objects. Each object must represent a si
 
 For each of the seven meal slots, provide:
 1.  **meal**: The name of the meal.
-2.  **quantity**: Detailed quantities for ALL ingredients in specific units (e.g., '150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil').
-3.  **hint**: A 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
-4.  **calories**: The approximate calorie count for the meal.
-5.  **description**: A brief 1-2 sentence description of the meal's benefits.
+2.  **time**: The specific time for the meal in AM/PM format, e.g., '8:00 AM'.
+3.  **quantity**: Detailed quantities for ALL ingredients in specific units (e.g., '150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil').
+4.  **hint**: A 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries').
+5.  **calories**: The approximate calorie count for the meal.
+6.  **description**: A brief 1-2 sentence description of the meal's benefits.
 
 **Crucially**, if a fasting preference is specified (e.g., Intermittent Fasting), you must still provide all seven meal slots, but adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
 `;
@@ -349,7 +351,7 @@ export default function AdminReviewsPage() {
 
     const renderEditableCell = (reviewId: string, dayIndex: number, mealTime: string, field: keyof Meal | 'imageUrl' | 'quantity', value: string | number | undefined) => {
         const isEditing = editingCell?.reviewId === reviewId && editingCell?.dayIndex === dayIndex && editingCell?.mealTime === mealTime && editingCell?.field === field;
-        const isTextArea = field === 'description' || field === 'meal' || field ==='quantity';
+        const isTextArea = field === 'description' || field === 'meal' || field ==='quantity' || field === 'time';
         const isNumber = field === 'calories';
         const isImage = field === 'imageUrl';
 
@@ -502,6 +504,7 @@ export default function AdminReviewsPage() {
                                                                     <TableHead className="w-16 sticky left-0 bg-muted z-10">Day</TableHead>
                                                                     <TableHead>Meal Time</TableHead>
                                                                     <TableHead>Meal</TableHead>
+                                                                    <TableHead>Time</TableHead>
                                                                     <TableHead>Quantity</TableHead>
                                                                     <TableHead>Calories</TableHead>
                                                                     <TableHead>Description</TableHead>
@@ -521,6 +524,9 @@ export default function AdminReviewsPage() {
                                                                             <TableCell className="font-semibold min-w-[150px]">{mealTime}</TableCell>
                                                                             <TableCell className="min-w-[200px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'meal', mealDetails.meal)}
+                                                                            </TableCell>
+                                                                            <TableCell className="min-w-[120px]">
+                                                                                {renderEditableCell(task.id, dayIndex, mealTime, 'time', mealDetails.time)}
                                                                             </TableCell>
                                                                             <TableCell className="min-w-[200px]">
                                                                                 {renderEditableCell(task.id, dayIndex, mealTime, 'quantity', mealDetails.quantity)}
@@ -577,5 +583,3 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
-
-    
