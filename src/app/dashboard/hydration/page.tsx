@@ -109,6 +109,11 @@ export default function HydrationPage() {
         });
     };
     
+    const openCatchUpDialog = () => {
+        setCatchUpAdvice(''); // Clear previous advice
+        setCatchUpDialogOpen(true);
+    };
+
     const handleGetCatchUpAdvice = async () => {
         setIsLoadingAdvice(true);
         setCatchUpAdvice('');
@@ -155,7 +160,7 @@ export default function HydrationPage() {
                         </Alert>
                     )}
                     <DialogFooter>
-                         <Button onClick={handleGetCatchUpAdvice} disabled={isLoadingAdvice}>
+                         <Button onClick={handleGetCatchUpAdvice} disabled={isLoadingAdvice || !!catchUpAdvice}>
                             {isLoadingAdvice ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
                             Get My Plan
                         </Button>
@@ -197,7 +202,7 @@ export default function HydrationPage() {
                                 <div className="w-full bg-muted rounded-full h-2.5">
                                     <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>
                                 </div>
-                                 <Button variant="outline" onClick={() => setCatchUpDialogOpen(true)}>
+                                 <Button variant="outline" onClick={openCatchUpDialog}>
                                     <Bot className="mr-2 h-4 w-4"/>
                                     Help Me Catch Up
                                 </Button>
