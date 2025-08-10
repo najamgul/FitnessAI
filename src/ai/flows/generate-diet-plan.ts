@@ -30,7 +30,7 @@ export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const MealSchema = z.object({
     meal: z.string().describe("The name of the meal to be eaten."),
-    quantity: z.string().describe("The quantity of the main ingredients in grams or other appropriate units (e.g., '100g chicken breast', '1 cup cooked lentils')."),
+    quantity: z.string().describe("Detailed quantities for ALL ingredients in specific units (e.g., '150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil')."),
     hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
     calories: z.number().describe("The approximate calorie count for this meal."),
     description: z.string().describe("A brief explanation of the meal's benefits, its nutritional importance, and its role in the diet plan (1-2 sentences)."),
@@ -74,34 +74,79 @@ async function getKnowledgeContext(knowledgeBaseId?: 'kashmir' | 'general'): Pro
 }
 
 export async function generateDietPlan(input: GenerateDietPlanInput): Promise<GenerateDietPlanOutput> {
-  const knowledgeContext = await getKnowledgeContext(input.knowledgeBaseId);
-  return generateDietPlanFlow({...input, knowledgeContext});
+  try {
+    const knowledgeContext = await getKnowledgeContext(input.knowledgeBaseId);
+    return await generateDietPlanFlow({...input, knowledgeContext});
+  } catch (error) {
+    console.error('Error in generateDietPlan:', error);
+    throw new Error(`Failed to generate diet plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
 
-  Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for {{{planDuration}}} days. The output must be an array of day plan objects. Each object should represent a single day, containing the day number and a 'meals' object.
-  
-  Crucially, you must adapt the meal timings and structure based on the user's fasting preference.
-  - If Intermittent Fasting is chosen, structure the meals within an 8-hour eating window (e.g., 12 PM to 8 PM). This means some meals like 'Breakfast' or 'Morning Snack' might be combined, shifted, or removed. Adjust the plan accordingly.
-  - If 'No Fasting' is chosen, spread the meals throughout the day.
+Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for {{{planDuration}}} days. The output must be a valid JSON object with a 'dietPlan' field containing an array of day plan objects.
 
-  It is critical that each day's 'meals' object includes exactly seven meals: Breakfast, Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack, and Before Bed. If fasting is requested, you must still provide all seven meal slots, but you can adjust their content. For example, for Intermittent Fasting, 'Breakfast' could be 'Water/Green Tea' with 0 calories and a note that the eating window starts later.
+CRITICAL: Your response must be valid JSON only. Do not include any explanatory text, markdown, or formatting. Return only the JSON object.
 
-  For each meal, provide the meal name, the quantity of the main ingredients (e.g., '100g', '1 cup'), a short 2-3 word hint for an image search (e.g., 'chicken salad', 'oatmeal berries'), the approximate calorie count, and a brief 1-2 sentence description of the meal's benefits.
+Each day object must have:
+- day: number (starting from 1)
+- meals: object with exactly these 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
 
-  User Details:
-  - Health Information: {{{healthInformation}}}
-  - Dietary Preferences & Tastes: {{{dietaryPreferences}}}
-  - Primary Goal: {{{goals}}}
-  - Geographic Location: {{{geographicLocation}}}
-  - Fasting Preference: {{{fastingPreference}}}
+Each meal must have:
+- meal: string (name of the meal)
+- quantity: string (DETAILED quantities for ALL ingredients with specific units in grams/ml/pieces, e.g., "150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp (15ml) olive oil, 5g chopped parsley")
+- hint: string (2-3 words for image search, e.g., "chicken salad")
+- calories: number (approximate calorie count)
+- description: string (1-2 sentences about benefits)
 
-  Knowledge Base Context:
-  {{{knowledgeContext}}}
+IMPORTANT QUANTITY REQUIREMENTS:
+- Provide specific quantities for ALL ingredients in each meal
+- Use precise measurements in grams (g), milliliters (ml), pieces, tablespoons (tbsp), teaspoons (tsp)
+- Include quantities for proteins, carbohydrates, vegetables, fats, seasonings, and garnishes
+- Example: "120g grilled salmon, 100g quinoa, 80g steamed asparagus, 10ml olive oil, 2g lemon zest, salt and pepper to taste"
+- Avoid vague terms like "1 cup" or "handful" - convert to precise measurements
 
-  Create a balanced, delicious, and culturally relevant plan that helps the user achieve their goals. Ensure the final response for the 'dietPlan' field is only the JSON array and nothing else.
-  `;
+Fasting Adaptation:
+- If Intermittent Fasting: Adjust meals for 8-hour eating window (12 PM to 8 PM). For meals outside the window, use "Water/Green Tea" with 0 calories and appropriate descriptions.
+- If No Fasting: Spread meals throughout the day normally.
+
+User Details:
+- Health Information: {{{healthInformation}}}
+- Dietary Preferences & Tastes: {{{dietaryPreferences}}}
+- Primary Goal: {{{goals}}}
+- Geographic Location: {{{geographicLocation}}}
+- Fasting Preference: {{{fastingPreference}}}
+
+Knowledge Base Context:
+{{{knowledgeContext}}}
+
+Example response format:
+{
+  "dietPlan": [
+    {
+      "day": 1,
+      "meals": {
+        "Breakfast": {
+          "meal": "Oatmeal with Berries and Nuts",
+          "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 5g honey",
+          "hint": "oatmeal berries",
+          "calories": 350,
+          "description": "Rich in fiber and antioxidants to start your day with sustained energy and protein."
+        },
+        "Morning Snack": {
+          "meal": "Greek Yogurt with Nuts",
+          "quantity": "150g plain Greek yogurt, 10g walnuts, 3g cinnamon powder",
+          "hint": "greek yogurt",
+          "calories": 180,
+          "description": "High in protein and probiotics to keep you satisfied until lunch."
+        }
+        // ... continue with all 7 meals
+      }
+    }
+    // ... continue for all days
+  ]
+}`;
 
 const prompt = ai.definePrompt({
   name: 'generateDietPlanPrompt',
@@ -123,67 +168,98 @@ const generateDietPlanFlow = ai.defineFlow(
     outputSchema: GenerateDietPlanOutputSchema,
   },
   async input => {
-    // Step 1: Generate the base diet plan without images
-    const { output: basePlan } = await prompt(input);
-    if (!basePlan) {
-        throw new Error("Failed to generate the base diet plan.");
-    }
-    
-    // Step 1.5: Validate and complete the generated plan to prevent schema errors
-    const mealKeys: (keyof z.infer<typeof MealsSchema>)[] = ["Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"];
-    const placeholderMeal: z.infer<typeof MealSchema> = {
+    try {
+      // Step 1: Generate the base diet plan without images
+      const { output: basePlan } = await prompt(input);
+      
+      if (!basePlan || !basePlan.dietPlan || !Array.isArray(basePlan.dietPlan)) {
+        throw new Error("Invalid diet plan structure received from AI");
+      }
+      
+      // Step 2: Validate and complete the generated plan
+      const mealKeys: (keyof z.infer<typeof MealsSchema>)[] = [
+        "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", 
+        "Dinner", "Evening Snack", "Before Bed"
+      ];
+      
+      const placeholderMeal: z.infer<typeof MealSchema> = {
         meal: "Not specified",
-        quantity: "N/A",
+        quantity: "Quantities not specified - please regenerate plan",
         hint: "question mark",
         calories: 0,
-        description: "This meal was not specified by the AI. Please review or regenerate the plan."
-    };
+        description: "This meal was not specified. Please review or regenerate the plan."
+      };
 
-    basePlan.dietPlan.forEach(day => {
-        const completedMeals = { ...day.meals };
-        for (const key of mealKeys) {
-            if (!completedMeals[key]) {
-                // If a required meal slot is missing, add the placeholder.
-                completedMeals[key] = placeholderMeal;
-            }
+      // Validate and fix each day's structure
+      basePlan.dietPlan.forEach((day, dayIndex) => {
+        if (!day.meals || typeof day.meals !== 'object') {
+          day.meals = {} as z.infer<typeof MealsSchema>;
         }
-        day.meals = completedMeals as z.infer<typeof MealsSchema>;
-    });
 
-    // Step 2: Create a list of all image queries to be fetched
-    const imagePromises: Promise<{dayIndex: number, mealTime: string, imageUrl: string}>[] = [];
-
-    basePlan.dietPlan.forEach((day, dayIndex) => {
-        Object.entries(day.meals).forEach(([mealTime, mealDetails]) => {
-            if (mealDetails.hint) {
-                const promise = getPexelsImage({ query: mealDetails.hint })
-                    .then(result => ({
-                        dayIndex,
-                        mealTime,
-                        imageUrl: result.imageUrl,
-                    }));
-                imagePromises.push(promise);
-            }
+        // Ensure all required meal slots exist
+        mealKeys.forEach(mealKey => {
+          if (!day.meals[mealKey]) {
+            day.meals[mealKey] = { ...placeholderMeal };
+          } else {
+            // Validate existing meal structure
+            const meal = day.meals[mealKey];
+            if (!meal.meal) meal.meal = "Not specified";
+            if (!meal.quantity) meal.quantity = "N/A";
+            if (!meal.hint) meal.hint = "question mark";
+            if (typeof meal.calories !== 'number') meal.calories = 0;
+            if (!meal.description) meal.description = "No description provided.";
+          }
         });
-    });
 
-    // Step 3: Fetch all images concurrently
-    const settledImages = await Promise.allSettled(imagePromises);
-
-    // Step 4: Augment the plan with the fetched image URLs
-    settledImages.forEach(result => {
-        if (result.status === 'fulfilled') {
-            const { dayIndex, mealTime, imageUrl } = result.value;
-            // This is a safe cast because we know the structure of MealsSchema
-            const meal = (basePlan.dietPlan[dayIndex].meals as any)[mealTime];
-            if (meal) {
-                meal.imageUrl = imageUrl;
-            }
-        } else {
-            console.error("Failed to fetch an image:", result.reason);
+        // Ensure day number is set
+        if (!day.day) {
+          day.day = dayIndex + 1;
         }
-    });
+      });
 
-    return basePlan;
+      // Step 3: Fetch images concurrently
+      const imagePromises: Promise<{dayIndex: number, mealTime: string, imageUrl: string}>[] = [];
+
+      basePlan.dietPlan.forEach((day, dayIndex) => {
+        mealKeys.forEach(mealTime => {
+          const meal = day.meals[mealTime];
+          if (meal && meal.hint && meal.hint !== "question mark") {
+            const promise = getPexelsImage({ query: meal.hint })
+              .then(result => ({
+                dayIndex,
+                mealTime,
+                imageUrl: result.imageUrl || '',
+              }))
+              .catch(error => {
+                console.error(`Failed to fetch image for ${meal.hint}:`, error);
+                return {
+                  dayIndex,
+                  mealTime,
+                  imageUrl: '',
+                };
+              });
+            imagePromises.push(promise);
+          }
+        });
+      });
+
+      // Step 4: Wait for all images and update the plan
+      const imageResults = await Promise.allSettled(imagePromises);
+
+      imageResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.imageUrl) {
+          const { dayIndex, mealTime, imageUrl } = result.value;
+          if (basePlan.dietPlan[dayIndex] && basePlan.dietPlan[dayIndex].meals[mealTime as keyof z.infer<typeof MealsSchema>]) {
+            basePlan.dietPlan[dayIndex].meals[mealTime as keyof z.infer<typeof MealsSchema>].imageUrl = imageUrl;
+          }
+        }
+      });
+
+      return basePlan;
+      
+    } catch (error) {
+      console.error('Error in generateDietPlanFlow:', error);
+      throw new Error(`Failed to generate diet plan flow: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 );
