@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
@@ -139,7 +140,7 @@ const SmartDietPlanner = () => {
         return (
             <div className="flex items-center justify-center h-full p-4">
                 <Card className="text-center max-w-md w-full">
-                    <CardContent className="pt-6">
+                    <div className="p-6">
                         <div className="mx-auto bg-primary text-primary-foreground rounded-full h-20 w-20 flex items-center justify-center mb-4">
                             <FileClock className="h-10 w-10" />
                         </div>
@@ -147,7 +148,7 @@ const SmartDietPlanner = () => {
                         <p className="text-muted-foreground mt-2">
                             Your personalized plan is being reviewed by our experts. We'll notify you as soon as it's ready!
                         </p>
-                    </CardContent>
+                    </div>
                 </Card>
             </div>
         );
@@ -166,7 +167,6 @@ const SmartDietPlanner = () => {
 
     return (
         <div className="h-full flex flex-col">
-            {/* Header */}
             <div className="bg-gradient-to-r from-primary to-emerald-600 p-4 sm:p-6 text-primary-foreground flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="p-2 sm:p-3 bg-white/20 rounded-full flex-shrink-0">
@@ -197,38 +197,38 @@ const SmartDietPlanner = () => {
                             <div className="space-y-3 sm:space-y-4 pb-4">
                                 {dayPlan.meals.map((meal, mealIndex) => (
                                 <Card key={mealIndex} className={`overflow-hidden rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                    <div className="flex flex-col sm:flex-row">
+                                    <div className="flex flex-col">
                                         {meal.imageUrl ? (
                                             <Image 
                                                 src={meal.imageUrl}
                                                 alt={meal.meal}
-                                                width={128}
-                                                height={128}
-                                                className="w-full sm:w-32 h-40 sm:h-auto object-cover flex-shrink-0"
+                                                width={200}
+                                                height={200}
+                                                className="w-full h-48 object-cover"
                                                 unoptimized
                                             />
                                         ) : (
-                                            <div className="w-full sm:w-32 h-40 sm:h-auto bg-muted flex items-center justify-center flex-shrink-0">
+                                            <div className="w-full h-48 bg-muted flex items-center justify-center">
                                                 <ImageIcon className="w-8 h-8 text-muted-foreground" />
                                             </div>
                                         )}
-                                        <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
+                                        <div className="p-4 flex flex-col flex-1">
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                    <h3 className="font-bold text-base sm:text-lg text-foreground leading-tight">{meal.meal}</h3>
+                                                    <h3 className="font-bold text-lg text-foreground leading-tight">{meal.meal}</h3>
                                                 </div>
                                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
                                                     <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
                                                 </div>
-                                                <p className="text-muted-foreground text-sm leading-relaxed">{meal.description}</p>
+                                                <p className="text-muted-foreground text-sm leading-relaxed mt-2">{meal.description}</p>
                                             </div>
-                                            <div className="flex justify-end mt-3">
+                                            <div className="flex justify-end mt-4">
                                                 <Button 
                                                     onClick={() => toggleMealCompletion(dayIndex, mealIndex)} 
                                                     variant={meal.completed ? 'default' : 'secondary'} 
                                                     size="sm"
-                                                    className="w-full sm:w-auto"
+                                                    className="w-full"
                                                 >
                                                     <CheckCircle2 className="w-4 h-4 mr-2" />
                                                     {meal.completed ? 'Completed' : 'Mark as Eaten'}
