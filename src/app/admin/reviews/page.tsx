@@ -79,7 +79,19 @@ export default function AdminReviewsPage() {
             });
             
             const resolvedQueue = await Promise.all(planPromises);
-            setEditablePlans(newEditablePlans);
+            
+            // This needs to be managed carefully to avoid re-renders overwriting edits
+            setEditablePlans(prev => {
+                const updatedPlans = {...prev};
+                snapshot.docs.forEach(reviewDoc => {
+                    const reviewData = reviewDoc.data();
+                    if(reviewData.generatedPlan && !updatedPlans[reviewDoc.id]) {
+                        updatedPlans[reviewDoc.id] = reviewData.generatedPlan.dietPlan;
+                    }
+                });
+                return updatedPlans;
+            });
+
             setReviewQueue(resolvedQueue);
             setIsLoading(false);
         }, (error) => {
@@ -345,3 +357,5 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
+
+    
