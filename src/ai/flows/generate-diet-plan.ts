@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -87,7 +86,14 @@ const defaultPromptTemplate = `You are a master nutritionist specializing in cre
 
 Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for {{{planDuration}}} days. The output must be a valid JSON object with a 'dietPlan' field containing an array of day plan objects.
 
-CRITICAL: Your response must be valid JSON only. Do not include any explanatory text, markdown, or formatting. Return only the JSON object.
+CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
+1. Generate exactly {{{planDuration}}} complete days
+2. Each day MUST have ALL 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
+3. Every meal must have all required fields: meal, quantity, hint, calories, description
+4. No meal can have empty or null values
+5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with 0 calories
+
+Your response must be complete - do not truncate any days or meals.
 
 Each day object must have:
 - day: number (starting from 1)
@@ -108,8 +114,8 @@ IMPORTANT QUANTITY REQUIREMENTS:
 - Avoid vague terms like "1 cup" or "handful" - convert to precise measurements
 
 Fasting Adaptation:
-- If Intermittent Fasting: Adjust meals for 8-hour eating window (12 PM to 8 PM). For meals outside the window, use "Water/Green Tea" with 0 calories and appropriate descriptions.
-- If No Fasting: Spread meals throughout the day normally.
+- If Intermittent Fasting: Adjust meals for 8-hour eating window (12 PM to 8 PM). For meals outside the window, use "Herbal tea", "Water", or "Black coffee" with 0 calories and appropriate descriptions. Still include all 7 meal slots.
+- If No Fasting: Spread meals throughout the day normally with proper portions.
 
 User Details:
 - Health Information: {{{healthInformation}}}
@@ -140,8 +146,42 @@ Example response format:
           "hint": "greek yogurt",
           "calories": 180,
           "description": "High in protein and probiotics to keep you satisfied until lunch."
+        },
+        "Lunch": {
+          "meal": "Grilled Chicken Salad",
+          "quantity": "120g grilled chicken breast, 100g mixed greens, 50g cherry tomatoes, 10ml olive oil dressing",
+          "hint": "chicken salad",
+          "calories": 320,
+          "description": "Complete protein with fresh vegetables for sustained energy."
+        },
+        "Afternoon Snack": {
+          "meal": "Apple with Almonds",
+          "quantity": "1 medium apple (150g), 15g raw almonds",
+          "hint": "apple almonds",
+          "calories": 200,
+          "description": "Natural sugars and healthy fats for afternoon energy."
+        },
+        "Dinner": {
+          "meal": "Salmon with Quinoa",
+          "quantity": "120g grilled salmon, 80g cooked quinoa, 100g steamed broccoli, 5ml lemon juice",
+          "hint": "salmon quinoa",
+          "calories": 450,
+          "description": "Omega-3 rich meal with complete protein and complex carbohydrates."
+        },
+        "Evening Snack": {
+          "meal": "Herbal Tea with Berries",
+          "quantity": "250ml chamomile tea, 30g fresh berries",
+          "hint": "herbal tea berries",
+          "calories": 25,
+          "description": "Light antioxidants and relaxation before bed."
+        },
+        "Before Bed": {
+          "meal": "Warm Milk",
+          "quantity": "200ml warm low-fat milk, 2g honey",
+          "hint": "warm milk",
+          "calories": 140,
+          "description": "Calcium and tryptophan to promote restful sleep."
         }
-        // ... continue with all 7 meals
       }
     }
     // ... continue for all days
