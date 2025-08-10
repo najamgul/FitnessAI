@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -230,7 +231,7 @@ const generateDietPlanFlow = ai.defineFlow(
         description: "This meal was not specified. Please review or regenerate the plan."
       };
 
-      // **FIX**: Ensure the plan has the correct number of days before validation
+      // **FIX 1**: Ensure the plan has the correct number of days before further validation
       while (basePlan.dietPlan.length < input.planDuration) {
           const missingDayIndex = basePlan.dietPlan.length;
           const placeholderMeals = mealKeys.reduce((acc, key) => {
@@ -244,7 +245,7 @@ const generateDietPlanFlow = ai.defineFlow(
           });
       }
 
-      // Validate and fix each day's structure
+      // **FIX 2**: Validate and fix each day's structure to ensure all meals are present
       basePlan.dietPlan.forEach((day, dayIndex) => {
         if (!day.meals || typeof day.meals !== 'object') {
           day.meals = {} as z.infer<typeof MealsSchema>;
@@ -317,3 +318,4 @@ const generateDietPlanFlow = ai.defineFlow(
     }
   }
 );
+
