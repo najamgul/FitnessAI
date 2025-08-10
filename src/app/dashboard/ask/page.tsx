@@ -26,7 +26,6 @@ export default function ChatWithAzaiPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase>('general');
-    const [isAdmin, setIsAdmin] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -34,11 +33,6 @@ export default function ChatWithAzaiPage() {
             const savedMessages = sessionStorage.getItem('chatHistory');
             if (savedMessages) {
                 setMessages(JSON.parse(savedMessages));
-            }
-
-            const loggedInEmail = localStorage.getItem('loggedInEmail');
-            if (loggedInEmail === 'care@aziaf.com') {
-                setIsAdmin(true);
             }
             
             // Set default knowledge base based on user's location from onboarding
@@ -101,22 +95,8 @@ export default function ChatWithAzaiPage() {
              <div className="p-4 border-b flex justify-between items-center">
                 <div>
                     <h2 className="text-xl font-bold font-headline">Chat with Azai</h2>
-                    <p className="text-sm text-muted-foreground">Your nutrition assistant. Knowledge base: <span className="font-semibold text-primary">{knowledgeBase === 'kashmir' ? 'Kashmir' : 'General'}</span></p>
+                    <p className="text-sm text-muted-foreground">Your personal nutrition assistant.</p>
                 </div>
-                {isAdmin && (
-                    <div className="flex items-center gap-2">
-                         <Label htmlFor="kb-select" className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground"><BookOpen size={14}/> KB:</Label>
-                         <Select value={knowledgeBase} onValueChange={(v) => setKnowledgeBase(v as KnowledgeBase)}>
-                            <SelectTrigger id="kb-select" className="w-[180px]">
-                                <SelectValue placeholder="Select KB" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="kashmir">Kashmir</SelectItem>
-                                <SelectItem value="general">General</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
             </div>
             <ScrollArea className="flex-1 p-4 lg:p-6" ref={scrollAreaRef}>
                 <div className="space-y-6">
