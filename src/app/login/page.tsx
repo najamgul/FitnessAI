@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,9 +11,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
-
-const adminEmail = 'care@aziaf.com';
-const adminPassword = 'Aziaf@1653#';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -23,64 +21,49 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        setTimeout(() => {
-            if (!email || !password) {
-                 toast({
-                    title: 'Login Failed',
-                    description: 'Please enter both email and password.',
-                    variant: 'destructive',
-                });
-                setIsLoading(false);
-                return;
-            }
+        if (!email || !password) {
+            toast({
+                title: 'Login Failed',
+                description: 'Please enter both email and password.',
+                variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+        }
 
-            const isTryingAdminLogin = email.toLowerCase() === adminEmail;
-
-            if (isTryingAdminLogin && password !== adminPassword) {
-                 toast({
-                    title: 'Admin Login Failed',
-                    description: 'Invalid password for admin account.',
-                    variant: 'destructive',
-                });
-                setIsLoading(false);
-                return;
-            }
-            
-            // Store email to simulate a logged-in state
-            localStorage.setItem('loggedInEmail', email);
-
-            // Handle admin-specific logic
-            if (isTryingAdminLogin) {
-                 localStorage.setItem('isAdmin', 'true');
-                 // Ensure admin user is "approved" to access dashboard
-                 const approvedUsersString = localStorage.getItem('approvedUsers');
-                 const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
-                 if (!approvedUsers[adminEmail]) {
-                     const expiryDate = new Date();
-                     expiryDate.setDate(expiryDate.getDate() + 365); // Give admin a long expiry
-                     approvedUsers[adminEmail] = { 
-                         approved: true, 
-                         expiry: expiryDate.toISOString(),
-                         planStatus: 'approved'
-                     };
-                     localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
-                 }
-            } else {
-                localStorage.removeItem('isAdmin');
-            }
-
-
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
             toast({
                 title: 'Login Successful',
                 description: "Welcome back!",
             });
             router.push('/dashboard');
-
-        }, 1500);
+        } catch (error: any) {
+            let errorMessage = 'An unexpected error occurred.';
+            switch (error.code) {
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    errorMessage = 'Invalid email or password.';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Please enter a valid email address.';
+                    break;
+                default:
+                    console.error('Login Error:', error);
+            }
+            toast({
+                title: 'Login Failed',
+                description: errorMessage,
+                variant: 'destructive',
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

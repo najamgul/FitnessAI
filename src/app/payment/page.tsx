@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, IndianRupee, CheckCircle2, FileCheck } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
@@ -30,27 +34,29 @@ export default function PaymentPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [paymentAmount, setPaymentAmount] = useState(0);
-    const [onboardingData, setOnboardingData] = useState<any>(null);
-    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
 
     useEffect(() => {
-        const storedOnboardingData = localStorage.getItem('onboardingData');
-        const storedEmail = localStorage.getItem('loggedInEmail');
-
-        if (storedOnboardingData && storedEmail) {
-            const data = JSON.parse(storedOnboardingData);
-            setOnboardingData(data);
-            setUserEmail(storedEmail);
-
-            const duration = parseInt(data.planDuration, 10);
-            if (!isNaN(duration)) {
-                if (duration >= 7 && duration <= 30) setPaymentAmount(1500);
-                else if (duration >= 31 && duration <= 60) setPaymentAmount(2800);
-                else if (duration >= 61 && duration <= 90) setPaymentAmount(4000);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
+                const storedOnboardingData = localStorage.getItem('onboardingData');
+                if (storedOnboardingData) {
+                    const data = JSON.parse(storedOnboardingData);
+                    const duration = parseInt(data.planDuration, 10);
+                    if (!isNaN(duration)) {
+                        if (duration >= 7 && duration <= 30) setPaymentAmount(1500);
+                        else if (duration >= 31 && duration <= 60) setPaymentAmount(2800);
+                        else if (duration >= 61 && duration <= 90) setPaymentAmount(4000);
+                    }
+                } else {
+                    router.push('/onboarding');
+                }
+            } else {
+                router.push('/login');
             }
-        } else {
-            router.push('/onboarding');
-        }
+        });
+        return () => unsubscribe();
     }, [router]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,7 +66,7 @@ export default function PaymentPage() {
                 toast({ title: 'Invalid File Type', description: 'Please upload an image file.', variant: 'destructive' });
                 return;
             }
-            if (file.size > 5 * 1024 * 1024) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
                  toast({ title: 'File Too Large', description: 'Please upload an image smaller than 5MB.', variant: 'destructive' });
                 return;
             }
@@ -70,10 +76,10 @@ export default function PaymentPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedFile || !onboardingData || !userEmail) {
+        if (!selectedFile || !currentUser) {
             toast({
                 title: 'Error',
-                description: 'Missing required information. Please try again.',
+                description: 'Missing required information. Please ensure you are logged in and have selected a file.',
                 variant: 'destructive',
             });
             return;
@@ -84,23 +90,23 @@ export default function PaymentPage() {
         try {
             const screenshotUrl = await blobToBase64(selectedFile);
             
-            const submission = {
-                id: Date.now(),
-                name: onboardingData.name,
-                email: userEmail,
-                screenshotUrl: screenshotUrl,
-                status: 'Pending',
-            };
+            const paymentDocRef = doc(db, 'payments', currentUser.uid);
+            await setDoc(paymentDocRef, {
+                userId: currentUser.uid,
+                email: currentUser.email,
+                screenshotUrl, // In a real app, upload to Firebase Storage and store the URL
+                status: 'pending_verification',
+                submittedAt: serverTimestamp(),
+                amount: paymentAmount,
+            });
 
-            // Store onboarding data specifically for this user to be retrieved by admin
-            localStorage.setItem(`onboardingData_${userEmail}`, JSON.stringify(onboardingData));
+            // Update user status
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userDocRef, {
+                paymentStatus: 'pending'
+            });
 
-            const storedSubmissionsString = localStorage.getItem('userSubmissions');
-            const storedSubmissions = storedSubmissionsString ? JSON.parse(storedSubmissionsString) : [];
-            storedSubmissions.push(submission);
-            localStorage.setItem('userSubmissions', JSON.stringify(storedSubmissions));
-
-            // Remove general onboarding data now that it's stored for the user
+            // Remove onboarding data from localStorage after successful submission
             localStorage.removeItem('onboardingData'); 
 
             toast({
@@ -110,10 +116,15 @@ export default function PaymentPage() {
             router.push('/awaiting-approval');
 
         } catch (error) {
-            toast({ title: 'File Read Error', description: 'Could not process the image file. Please try another.', variant: 'destructive'});
+            console.error("Payment submission error:", error);
+            toast({ title: 'Submission Error', description: 'Could not submit your payment. Please try again.', variant: 'destructive'});
             setIsLoading(false);
         }
     };
+
+    if (!currentUser) {
+         return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    }
 
     return (
         <AuthLayout>

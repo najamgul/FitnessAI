@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,6 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Trash2, Users } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { collection, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Loader2 } from 'lucide-react';
 
 const teamMemberSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -22,13 +26,24 @@ type TeamMember = z.infer<typeof teamMemberSchema> & { id: string };
 export default function AdminTeamPage() {
     const { toast } = useToast();
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const storedTeamMembers = localStorage.getItem('teamMembers');
-        if (storedTeamMembers) {
-            setTeamMembers(JSON.parse(storedTeamMembers));
-        }
-    }, []);
+        const unsubscribe = onSnapshot(collection(db, 'team'), (snapshot) => {
+            const members: TeamMember[] = [];
+            snapshot.forEach((doc) => {
+                members.push({ id: doc.id, ...doc.data() } as TeamMember);
+            });
+            setTeamMembers(members);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching team members: ", error);
+            toast({ title: 'Error', description: 'Could not fetch team members.', variant: 'destructive'});
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [toast]);
 
     const form = useForm<z.infer<typeof teamMemberSchema>>({
         resolver: zodResolver(teamMemberSchema),
@@ -38,25 +53,31 @@ export default function AdminTeamPage() {
         },
     });
 
-    function onSubmit(values: z.infer<typeof teamMemberSchema>) {
-        const newMember: TeamMember = {
-            id: new Date().toISOString(),
-            ...values,
-        };
-        const updatedTeam = [...teamMembers, newMember];
-        setTeamMembers(updatedTeam);
-        localStorage.setItem('teamMembers', JSON.stringify(updatedTeam));
-        toast({ title: 'Team Member Added', description: `${values.name} has been added to the team.` });
-        form.reset();
+    async function onSubmit(values: z.infer<typeof teamMemberSchema>) {
+        try {
+            await addDoc(collection(db, 'team'), {
+                ...values,
+                role: 'Nutritionist' // Default role
+            });
+            toast({ title: 'Team Member Added', description: `${values.name} has been added to the team.` });
+            form.reset();
+        } catch (error) {
+            console.error("Error adding team member: ", error);
+            toast({ title: 'Error', description: 'Could not add team member.', variant: 'destructive'});
+        }
     }
     
-    function removeMember(id: string) {
-        const updatedTeam = teamMembers.filter(member => member.id !== id);
-        setTeamMembers(updatedTeam);
-        localStorage.setItem('teamMembers', JSON.stringify(updatedTeam));
-        toast({ title: 'Team Member Removed', variant: 'destructive'});
+    async function removeMember(id: string) {
+        if (window.confirm("Are you sure you want to remove this team member?")) {
+            try {
+                await deleteDoc(doc(db, 'team', id));
+                toast({ title: 'Team Member Removed', variant: 'destructive'});
+            } catch (error) {
+                console.error("Error removing team member: ", error);
+                toast({ title: 'Error', description: 'Could not remove team member.', variant: 'destructive'});
+            }
+        }
     }
-
 
     return (
         <div className="grid gap-8 md:grid-cols-3">
@@ -95,8 +116,9 @@ export default function AdminTeamPage() {
                                     </FormItem>
                                 )}
                                 />
-                                <Button type="submit" className="w-full">
-                                    <UserPlus className="mr-2 h-4 w-4" /> Add Member
+                                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                                    Add Member
                                 </Button>
                             </form>
                         </Form>
@@ -110,6 +132,7 @@ export default function AdminTeamPage() {
                         <CardDescription>List of all active team members.</CardDescription>
                     </CardHeader>
                     <CardContent>
+                       {isLoading ? <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin"/></div> : (
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -140,6 +163,7 @@ export default function AdminTeamPage() {
                                 )}
                             </TableBody>
                         </Table>
+                       )}
                     </CardContent>
                 </Card>
             </div>

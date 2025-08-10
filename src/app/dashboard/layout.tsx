@@ -39,6 +39,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 const allNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, admin: false },
@@ -52,8 +56,6 @@ const allNavItems = [
   { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
 ];
 
-const adminEmail = 'care@aziaf.com';
-
 export default function DashboardLayout({
   children,
 }: {
@@ -61,70 +63,67 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mockUser, setMockUser] = useState({ name: '', email: '' });
+  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [userDetails, setUserDetails] = useState({ name: '', email: '' });
   const [isAdmin, setIsAdmin] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
-    const loggedInEmail = localStorage.getItem('loggedInEmail') || '';
-    
-    // Check for user approval and expiry
-    const approvedUsersString = localStorage.getItem('approvedUsers');
-    const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
-    const userApproval = approvedUsers[loggedInEmail];
-    const userIsAdminFromStorage = localStorage.getItem('isAdmin') === 'true';
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+            try {
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const capitalizedUsername = (userData.name || currentUser.email?.split('@')[0] || 'User').replace(/^\w/, (c: string) => c.toUpperCase());
+                    setUserDetails({ name: capitalizedUsername, email: currentUser.email || '' });
+                    
+                    const userIsAdmin = userData.role === 'admin';
+                    setIsAdmin(userIsAdmin);
 
-    if (!loggedInEmail || (!userApproval && !userIsAdminFromStorage)) {
-        if (!loggedInEmail) {
-            router.push('/login');
-        } else {
-            const userSubmissionsString = localStorage.getItem('userSubmissions');
-            const userSubmissions = userSubmissionsString ? JSON.parse(userSubmissionsString) : [];
-            const userHasPendingSubmission = userSubmissions.some((sub: any) => sub.email === loggedInEmail && sub.status === 'Pending');
+                    if (!userIsAdmin) {
+                        const paymentStatus = userData.paymentStatus;
+                        if (paymentStatus === 'pending') {
+                            router.push('/awaiting-approval');
+                        } else if (paymentStatus !== 'approved') {
+                            router.push('/payment');
+                        }
+                    }
 
-            if(userHasPendingSubmission) {
-                router.push('/awaiting-approval');
-            } else {
-                 router.push('/payment');
+                } else {
+                     // Handle case where user exists in Auth but not Firestore
+                    router.push('/login');
+                }
+            } catch (error) {
+                toast({ title: "Error", description: "Could not fetch user details.", variant: "destructive" });
+                router.push('/login');
             }
-        }
-        return;
-    }
-    
-    const userIsAdmin = loggedInEmail.toLowerCase() === adminEmail && userIsAdminFromStorage;
-    setIsAdmin(userIsAdmin);
-    
-    if (userIsAdmin) {
-        setMockUser({ name: 'Admin', email: adminEmail });
-    } else {
-        const onboardingDataString = localStorage.getItem('onboardingData');
-        if (onboardingDataString) {
-             const username = JSON.parse(onboardingDataString).name || loggedInEmail.split('@')[0];
-             const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
-             setMockUser({ name: capitalizedUsername, email: loggedInEmail });
         } else {
-            const storedSubmissionsString = localStorage.getItem('userSubmissions');
-            const storedSubmissions = storedSubmissionsString ? JSON.parse(storedSubmissionsString) : [];
-            const userSubmission = storedSubmissions.find((sub: any) => sub.email === loggedInEmail);
-            const username = userSubmission?.name || loggedInEmail.split('@')[0];
-            const capitalizedUsername = username.charAt(0).toUpperCase() + username.slice(1);
-            setMockUser({ name: capitalizedUsername, email: loggedInEmail });
+            setUser(null);
+            router.push('/login');
         }
-    }
-  }, [router]);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router, toast]);
   
   const navItems = allNavItems.filter(item => !item.admin || (item.admin && isAdmin));
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('loggedInEmail');
-        localStorage.removeItem('isAdmin');
-        localStorage.removeItem('onboardingData');
-        localStorage.removeItem('progressHistory');
+  const handleLogout = async () => {
+    try {
+        await signOut(auth);
+        // Clear sensitive session data if any
         sessionStorage.removeItem('chatHistory');
+        router.push('/login');
+    } catch (error) {
+        toast({ title: 'Logout Failed', description: 'Could not log you out. Please try again.', variant: 'destructive' });
     }
-    router.push('/login');
   }
 
   const getCurrentPageTitle = () => {
@@ -135,7 +134,7 @@ export default function DashboardLayout({
     return matchingItem ? matchingItem.label : 'Dashboard';
   };
 
-  if (!isClient) {
+  if (isLoading || !isClient) {
     return (
         <div className="flex min-h-screen">
             <div className="w-16 md:w-64 bg-muted/40 animate-pulse"></div>
@@ -175,12 +174,12 @@ export default function DashboardLayout({
         <SidebarFooter>
           <div className="flex items-center gap-3 p-2 group-data-[collapsible=icon]:justify-center">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={`https://i.pravatar.cc/150?u=${mockUser.email}`} alt="User" />
-              <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={`https://i.pravatar.cc/150?u=${userDetails.email}`} alt="User" />
+              <AvatarFallback>{userDetails.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold">{mockUser.name}</span>
-              <span className="text-xs text-muted-foreground">{mockUser.email}</span>
+              <span className="text-sm font-semibold">{userDetails.name}</span>
+              <span className="text-xs text-muted-foreground">{userDetails.email}</span>
             </div>
           </div>
           <SidebarMenu>
@@ -202,12 +201,12 @@ export default function DashboardLayout({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Avatar className="h-9 w-9 cursor-pointer">
-                    <AvatarImage src={`https://i.pravatar.cc/150?u=${mockUser.email}`} alt="User" />
-                    <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={`https://i.pravatar.cc/150?u=${userDetails.email}`} alt="User" />
+                    <AvatarFallback>{userDetails.name.charAt(0)}</AvatarFallback>
                 </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{mockUser.name}</DropdownMenuLabel>
+                <DropdownMenuLabel>{userDetails.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,19 +11,24 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Loader2 } from 'lucide-react';
 
 type User = {
-    id: number;
+    id: string; // Firestore document ID
     name: string;
     email: string;
-    screenshotUrl: string;
-    status: 'Pending' | 'Approved';
+    screenshotUrl?: string; // from payments collection
+    paymentStatus: string;
+    planStatus: string;
     days?: number;
     assignedTo?: string;
+    paymentId?: string;
 };
 
 type TeamMember = {
-    id: string;
+    id: string; // Firestore document ID
     name: string;
     email: string;
 };
@@ -31,78 +37,130 @@ export default function AdminUsersPage() {
     const { toast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-    const [accessDays, setAccessDays] = useState<{ [key: number]: string }>({});
-    const [assignments, setAssignments] = useState<{ [key: number]: string }>({});
+    const [accessDays, setAccessDays] = useState<{ [key: string]: string }>({});
+    const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchUsersAndPayments = useCallback(async () => {
+        setIsLoading(true);
+        const usersQuery = query(collection(db, 'users'), where('role', '==', 'user'));
+        const paymentsCollection = collection(db, 'payments');
+
+        try {
+            const usersSnapshot = await getDocs(usersQuery);
+            const userList: User[] = [];
+
+            for (const userDoc of usersSnapshot.docs) {
+                const userData = userDoc.data();
+                let user: User = {
+                    id: userDoc.id,
+                    name: userData.name,
+                    email: userData.email,
+                    paymentStatus: userData.paymentStatus || 'unpaid',
+                    planStatus: userData.planStatus || 'not_started',
+                    assignedTo: userData.assignedTo || '',
+                };
+
+                if (user.paymentStatus === 'pending') {
+                    const paymentDocRef = doc(paymentsCollection, user.id);
+                    const paymentDoc = await getDoc(paymentDocRef);
+                    if (paymentDoc.exists()) {
+                        user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                    }
+                }
+                userList.push(user);
+            }
+
+            setUsers(userList);
+        } catch (error) {
+            console.error("Error fetching users and payments:", error);
+            toast({ title: "Error", description: "Could not fetch user data.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
 
     useEffect(() => {
-        const storedUsersString = localStorage.getItem('userSubmissions');
-        const storedUsers = storedUsersString ? JSON.parse(storedUsersString) : [];
-        setUsers(storedUsers);
+        const teamUnsubscribe = onSnapshot(collection(db, 'team'), (snapshot) => {
+            setTeamMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember)));
+        });
 
-        const storedTeamMembersString = localStorage.getItem('teamMembers');
-        const storedTeamMembers = storedTeamMembersString ? JSON.parse(storedTeamMembersString) : [];
-        setTeamMembers(storedTeamMembers);
-    }, []);
+        fetchUsersAndPayments();
 
-    const handleApprove = (userId: number, userEmail: string) => {
+        return () => {
+            teamUnsubscribe();
+        };
+    }, [fetchUsersAndPayments]);
+
+    const handleApprove = async (userId: string, userEmail: string, userName: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
-        const assignedTo = assignments[userId];
+        const assignedToName = assignments[userId];
+        const assignedToMember = teamMembers.find(m => m.name === assignedToName);
 
         if (isNaN(days) || days <= 0) {
             toast({ title: 'Invalid Input', description: 'Please enter a valid number of days.', variant: 'destructive' });
             return;
         }
-        if (!assignedTo) {
+        if (!assignedToMember) {
             toast({ title: 'Assignment Required', description: 'Please assign a team member.', variant: 'destructive' });
             return;
         }
 
-        const updatedUsers = users.map(user =>
-            user.id === userId ? { ...user, status: 'Approved', days, assignedTo } : user
-        );
-        setUsers(updatedUsers);
-        
         try {
-            // Update master list of submissions
-            localStorage.setItem('userSubmissions', JSON.stringify(updatedUsers));
-
-            // Add to approved list for login access
-            const approvedUsersString = localStorage.getItem('approvedUsers');
-            const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
-            
             const expiryDate = new Date();
             expiryDate.setDate(expiryDate.getDate() + days);
 
-            approvedUsers[userEmail] = { 
-                approved: true, 
-                expiry: expiryDate.toISOString(),
+            const userDocRef = doc(db, 'users', userId);
+            await updateDoc(userDocRef, {
+                paymentStatus: 'approved',
                 planStatus: 'pending_review',
-                assignedTo,
-                dietPlan: null
-            };
-            
-            localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
+                assignedTo: assignedToMember.name,
+                paymentExpiryDate: expiryDate.toISOString(),
+            });
+
+            // Create a review task for the assigned team member
+            await addDoc(collection(db, 'reviews'), {
+                userId: userId,
+                userName: userName,
+                userEmail: userEmail,
+                assignedTo: assignedToMember.name,
+                assignedToId: assignedToMember.id,
+                status: 'pending_generation',
+                createdAt: new Date().toISOString(),
+            });
+
+            // Update payment document status
+            const paymentDocRef = doc(db, 'payments', userId);
+            await updateDoc(paymentDocRef, {
+                status: 'verified',
+            });
 
             toast({
                 title: 'User Approved & Assigned',
-                description: `${userEmail} assigned to ${assignedTo} for ${days} days.`
+                description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
+            fetchUsersAndPayments(); // Refresh list
         } catch (error) {
+            console.error("Approval Error: ", error);
              toast({
-                title: 'Failed to update storage',
-                description: 'Could not save approval status locally.',
+                title: 'Approval Failed',
+                description: 'Could not update user status in the database.',
                 variant: 'destructive'
             });
         }
     };
 
-    const handleDaysChange = (userId: number, value: string) => {
+    const handleDaysChange = (userId: string, value: string) => {
         setAccessDays(prev => ({ ...prev, [userId]: value }));
     };
 
-    const handleAssignmentChange = (userId: number, value: string) => {
+    const handleAssignmentChange = (userId: string, value: string) => {
         setAssignments(prev => ({ ...prev, [userId]: value }));
     };
+
+    if (isLoading) {
+        return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    }
 
     return (
         <div className="container mx-auto py-8">
@@ -131,18 +189,20 @@ export default function AdminUsersPage() {
                                                 <div className="text-sm text-muted-foreground">{user.email}</div>
                                             </TableCell>
                                             <TableCell>
-                                                <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
-                                                    <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
-                                                </a>
+                                                {user.screenshotUrl ? (
+                                                    <a href={user.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Image src={user.screenshotUrl} alt="Payment Screenshot" width={75} height={150} className="rounded-md object-cover"/>
+                                                    </a>
+                                                ) : <span className="text-xs text-muted-foreground">N/A</span>}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={user.status === 'Approved' ? 'default' : 'secondary'}>
-                                                    {user.status === 'Approved' ? `Approved (${user.days} days)` : user.status}
+                                                <Badge variant={user.paymentStatus === 'approved' ? 'default' : 'secondary'}>
+                                                    {user.paymentStatus.charAt(0).toUpperCase() + user.paymentStatus.slice(1)}
                                                 </Badge>
                                                 {user.assignedTo && <div className="text-xs text-muted-foreground mt-1">Assigned: {user.assignedTo}</div>}
                                             </TableCell>
                                             <TableCell>
-                                                {user.status === 'Pending' ? (
+                                                {user.paymentStatus === 'pending' ? (
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <Input
                                                             type="number"
@@ -161,7 +221,7 @@ export default function AdminUsersPage() {
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
-                                                        <Button size="sm" onClick={() => handleApprove(user.id, user.email)}>Approve & Assign</Button>
+                                                        <Button size="sm" onClick={() => handleApprove(user.id, user.email, user.name)}>Approve & Assign</Button>
                                                     </div>
                                                 ) : <span className="text-sm text-muted-foreground">No pending actions.</span>}
                                             </TableCell>

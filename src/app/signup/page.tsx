@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,11 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+
+const adminEmail = 'care@aziaf.com';
 
 export default function SignupPage() {
     const router = useRouter();
@@ -22,26 +26,63 @@ export default function SignupPage() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSignup = (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        setTimeout(() => {
-            if (name && email && password && phone) {
-                toast({
-                    title: 'Account Created',
-                    description: "We've created your account for you.",
-                });
-                router.push('/onboarding');
-            } else {
-                toast({
-                    title: 'Signup Failed',
-                    description: 'Please fill in all required fields.',
-                    variant: 'destructive',
-                });
-                setIsLoading(false);
+        if (!name || !email || !password || !phone) {
+            toast({
+                title: 'Signup Failed',
+                description: 'Please fill in all required fields.',
+                variant: 'destructive',
+            });
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Save user data to Firestore
+            await setDoc(doc(db, 'users', user.uid), {
+                name,
+                email,
+                phone,
+                createdAt: serverTimestamp(),
+                role: email.toLowerCase() === adminEmail ? 'admin' : 'user',
+                paymentStatus: 'unpaid', // Initial status
+                planStatus: 'not_started',
+            });
+
+            toast({
+                title: 'Account Created',
+                description: "Let's get you set up!",
+            });
+            router.push('/onboarding');
+        } catch (error: any) {
+            let errorMessage = 'An unexpected error occurred.';
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    errorMessage = 'This email address is already in use.';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Please enter a valid email address.';
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = 'The password is too weak. Please use at least 6 characters.';
+                    break;
+                default:
+                    console.error('Signup Error:', error);
             }
-        }, 1500);
+            toast({
+                title: 'Signup Failed',
+                description: errorMessage,
+                variant: 'destructive',
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

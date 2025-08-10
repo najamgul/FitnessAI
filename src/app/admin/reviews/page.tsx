@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -5,60 +6,78 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, AlertCircle, User, Clock } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-type ReviewUser = {
-    email: string;
-    name: string;
-    onboardingData: any;
-    dietPlan: GenerateDietPlanOutput | null;
-    planStatus: 'pending_review' | 'approved';
+type ReviewTask = {
+    id: string; // review document ID
+    userId: string;
+    userName: string;
+    userEmail: string;
     assignedTo: string;
+    onboardingData?: any;
+    generatedPlan?: GenerateDietPlanOutput;
 };
 
 export default function AdminReviewsPage() {
     const { toast } = useToast();
-    const [usersForReview, setUsersForReview] = useState<ReviewUser[]>([]);
+    const [reviewQueue, setReviewQueue] = useState<ReviewTask[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [generatingFor, setGeneratingFor] = useState<string | null>(null);
     const [approvingFor, setApprovingFor] = useState<string | null>(null);
-    const [editablePlans, setEditablePlans] = useState<{ [email: string]: string }>({});
+    const [editablePlans, setEditablePlans] = useState<{ [reviewId: string]: string }>({});
 
-    const fetchUsersForReview = useCallback(() => {
+    const fetchReviewQueue = useCallback(() => {
         setIsLoading(true);
-        const approvedUsersString = localStorage.getItem('approvedUsers');
-        const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+        // In a real app, you'd filter by the currently logged-in admin's name/ID
+        // For this prototype, we'll fetch all reviews.
+        const q = query(collection(db, 'reviews'), where('status', 'in', ['pending_generation', 'pending_approval']));
         
-        const reviewList: ReviewUser[] = [];
-        for (const email in approvedUsers) {
-            if (approvedUsers[email].planStatus === 'pending_review') {
-                const onboardingDataString = localStorage.getItem(`onboardingData_${email}`); // Each user's data stored separately
-                const onboardingData = onboardingDataString ? JSON.parse(onboardingDataString) : {};
-                reviewList.push({
-                    email,
-                    name: onboardingData.name || email.split('@')[0],
-                    onboardingData,
-                    dietPlan: approvedUsers[email].dietPlan || null,
-                    planStatus: 'pending_review',
-                    assignedTo: approvedUsers[email].assignedTo
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            const queue: ReviewTask[] = [];
+            for (const reviewDoc of snapshot.docs) {
+                const reviewData = reviewDoc.data();
+                
+                // Fetch onboarding data for the user
+                const onboardingDocRef = doc(db, 'users', reviewData.userId, 'onboarding', 'profile');
+                const onboardingDoc = await getDoc(onboardingDocRef);
+
+                queue.push({
+                    id: reviewDoc.id,
+                    userId: reviewData.userId,
+                    userName: reviewData.userName,
+                    userEmail: reviewData.userEmail,
+                    assignedTo: reviewData.assignedTo,
+                    onboardingData: onboardingDoc.exists() ? onboardingDoc.data() : {},
+                    generatedPlan: reviewData.generatedPlan || undefined,
                 });
             }
-        }
-        setUsersForReview(reviewList);
-        setIsLoading(false);
-    }, []);
+            setReviewQueue(queue);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching review queue: ", error);
+            toast({ title: "Error", description: "Could not fetch review queue.", variant: "destructive" });
+            setIsLoading(false);
+        });
+
+        return unsubscribe;
+    }, [toast]);
 
     useEffect(() => {
-        fetchUsersForReview();
-    }, [fetchUsersForReview]);
+        const unsubscribe = fetchReviewQueue();
+        return () => unsubscribe && unsubscribe();
+    }, [fetchReviewQueue]);
 
-    const handleGeneratePlan = async (user: ReviewUser) => {
-        setGeneratingFor(user.email);
+    const handleGeneratePlan = async (task: ReviewTask) => {
+        setGeneratingFor(task.id);
         try {
-            const { onboardingData } = user;
+            const { onboardingData } = task;
+            if (!onboardingData) throw new Error("Onboarding data not found.");
+
             const input: GenerateDietPlanInput = {
                 dietaryPreferences: onboardingData.otherGoal || 'None',
                 healthInformation: `Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}`,
@@ -69,46 +88,51 @@ export default function AdminReviewsPage() {
             };
             const result = await generateDietPlan(input);
             
-            setUsersForReview(prev => prev.map(u => u.email === user.email ? { ...u, dietPlan: result } : u));
-            setEditablePlans(prev => ({...prev, [user.email]: JSON.stringify(result, null, 2)}));
+            // Update the review document in Firestore with the generated plan
+            const reviewDocRef = doc(db, 'reviews', task.id);
+            await updateDoc(reviewDocRef, {
+                generatedPlan: result,
+                status: 'pending_approval'
+            });
 
-        } catch (error) {
-            toast({ title: 'Generation Failed', description: 'Could not generate diet plan.', variant: 'destructive' });
+            setEditablePlans(prev => ({...prev, [task.id]: JSON.stringify(result, null, 2)}));
+
+        } catch (error: any) {
+            toast({ title: 'Generation Failed', description: error.message || 'Could not generate diet plan.', variant: 'destructive' });
         } finally {
             setGeneratingFor(null);
         }
     };
     
-    const handlePlanChange = (email: string, content: string) => {
-        setEditablePlans(prev => ({...prev, [email]: content}));
+    const handlePlanChange = (reviewId: string, content: string) => {
+        setEditablePlans(prev => ({...prev, [reviewId]: content}));
     };
 
-    const handleApprovePlan = (userEmail: string) => {
-        setApprovingFor(userEmail);
+    const handleApprovePlan = async (task: ReviewTask) => {
+        setApprovingFor(task.id);
         try {
-            const finalPlanString = editablePlans[userEmail];
+            const finalPlanString = editablePlans[task.id] || JSON.stringify(task.generatedPlan, null, 2);
             if (!finalPlanString) {
                  toast({ title: 'Error', description: 'No plan content to approve.', variant: 'destructive' });
                  return;
             }
             const finalPlan = JSON.parse(finalPlanString);
 
-            const approvedUsersString = localStorage.getItem('approvedUsers');
-            const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
+            // Update user's diet plan
+            const dietPlanDocRef = doc(db, 'users', task.userId, 'dietPlan', 'current');
+            await setDoc(dietPlanDocRef, { plan: finalPlan });
 
-            if(approvedUsers[userEmail]) {
-                approvedUsers[userEmail].dietPlan = finalPlan;
-                approvedUsers[userEmail].planStatus = 'approved';
-                localStorage.setItem('approvedUsers', JSON.stringify(approvedUsers));
+            // Update user's plan status
+            const userDocRef = doc(db, 'users', task.userId);
+            await updateDoc(userDocRef, { planStatus: 'approved' });
 
-                toast({ title: 'Plan Approved!', description: `Diet plan for ${userEmail} is now live.`});
-                
-                // Refetch to remove from review queue
-                fetchUsersForReview();
-            }
+            // Delete the review task from the queue
+            await deleteDoc(doc(db, 'reviews', task.id));
+            
+            toast({ title: 'Plan Approved!', description: `Diet plan for ${task.userEmail} is now live.`});
 
         } catch (error) {
-             toast({ title: 'Approval Failed', description: 'The plan has invalid JSON format.', variant: 'destructive' });
+             toast({ title: 'Approval Failed', description: 'The plan may have an invalid format or a database error occurred.', variant: 'destructive' });
         } finally {
              setApprovingFor(null);
         }
@@ -125,20 +149,20 @@ export default function AdminReviewsPage() {
                 <CardDescription>Review, modify, and approve Aziaf-generated diet plans for new users.</CardDescription>
             </CardHeader>
             <CardContent>
-                {usersForReview.length > 0 ? (
+                {reviewQueue.length > 0 ? (
                     <Accordion type="single" collapsible className="w-full">
-                        {usersForReview.map(user => (
-                            <AccordionItem key={user.email} value={user.email}>
+                        {reviewQueue.map(task => (
+                            <AccordionItem key={task.id} value={task.id}>
                                 <AccordionTrigger>
                                     <div className="flex justify-between items-center w-full pr-4">
                                         <div className="flex items-center gap-3">
                                             <User />
                                             <div>
-                                                <div className="font-bold">{user.name}</div>
-                                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                                                <div className="font-bold">{task.userName}</div>
+                                                <div className="text-sm text-muted-foreground">{task.userEmail}</div>
                                             </div>
                                         </div>
-                                        <Badge>Assigned to: {user.assignedTo}</Badge>
+                                        <Badge>Assigned to: {task.assignedTo}</Badge>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 bg-muted/50 rounded-b-lg">
@@ -146,20 +170,20 @@ export default function AdminReviewsPage() {
                                         <div>
                                             <h4 className="font-semibold mb-2">User Onboarding Data</h4>
                                             <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap">
-                                                {JSON.stringify(user.onboardingData, null, 2)}
+                                                {JSON.stringify(task.onboardingData, null, 2)}
                                             </pre>
                                         </div>
                                         <div>
                                             <h4 className="font-semibold mb-2">Aziaf Diet Plan Suggestion</h4>
-                                            {user.dietPlan ? (
+                                            {task.generatedPlan ? (
                                                  <Textarea
                                                     className="min-h-[300px] text-xs font-mono"
-                                                    value={editablePlans[user.email] || ''}
-                                                    onChange={(e) => handlePlanChange(user.email, e.target.value)}
+                                                    value={editablePlans[task.id] || JSON.stringify(task.generatedPlan, null, 2)}
+                                                    onChange={(e) => handlePlanChange(task.id, e.target.value)}
                                                 />
                                             ) : (
-                                                <Button onClick={() => handleGeneratePlan(user)} disabled={generatingFor === user.email}>
-                                                    {generatingFor === user.email ? (
+                                                <Button onClick={() => handleGeneratePlan(task)} disabled={generatingFor === task.id}>
+                                                    {generatingFor === task.id ? (
                                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                     ) : (
                                                         <Sparkles className="mr-2 h-4 w-4" />
@@ -167,9 +191,9 @@ export default function AdminReviewsPage() {
                                                     Generate Plan
                                                 </Button>
                                             )}
-                                            {user.dietPlan && (
-                                                 <Button onClick={() => handleApprovePlan(user.email)} disabled={approvingFor === user.email} className="mt-4 w-full">
-                                                    {approvingFor === user.email ? (
+                                            {task.generatedPlan && (
+                                                 <Button onClick={() => handleApprovePlan(task)} disabled={approvingFor === task.id} className="mt-4 w-full">
+                                                    {approvingFor === task.id ? (
                                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                     ) : (
                                                         <CheckCircle className="mr-2 h-4 w-4" />

@@ -17,6 +17,9 @@ import { Leaf, ChevronRight, ChevronLeft, Loader2, Sparkles, User, TrendingUp, T
 import { generateBodyImage } from '@/ai/flows/generate-body-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 const onboardingSteps = [
     { id: 1, title: 'About You' },
@@ -39,7 +42,19 @@ export default function OnboardingPage() {
     const { toast } = useToast();
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
+    const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
     
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
+            } else {
+                router.push('/login');
+            }
+        });
+        return () => unsubscribe();
+    }, [router]);
+
     const [formData, setFormData] = useState({
         // Step 1
         age: '',
@@ -52,7 +67,7 @@ export default function OnboardingPage() {
         geographicLocation: '', // Added for KB selection
         isPregnant: 'not_applicable',
         menstrualCycle: '',
-        photo: null as File | null,
+        // photo field removed as we will handle uploads differently
 
         // Step 2
         activityLevel: 'sedentary',
@@ -186,21 +201,6 @@ export default function OnboardingPage() {
         setFormData(prev => ({ ...prev, planDuration: duration }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            if (!file.type.startsWith('image/')) {
-                toast({ title: 'Invalid File Type', description: 'Please upload an image.', variant: 'destructive' });
-                return;
-            }
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                 toast({ title: 'File Too Large', description: 'Please upload an image smaller than 5MB.', variant: 'destructive' });
-                return;
-            }
-            setFormData(prev => ({ ...prev, photo: file }));
-        }
-    };
-
     const validatePlanDuration = () => {
         const duration = parseInt(formData.planDuration, 10);
         if (isNaN(duration) || duration < 7) {
@@ -222,13 +222,18 @@ export default function OnboardingPage() {
     const paymentAmount = getPaymentAmount(formData.planDuration);
 
     const handleSubmit = async () => {
+        if (!currentUser) {
+            toast({ title: "Not authenticated", description: "Please log in again.", variant: "destructive" });
+            router.push('/login');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            // Store data to be used on the payment page
-            // We can't store the file object in localStorage, but we can proceed
-            // In a real app, this file would be uploaded to a server here.
-            const { photo, ...serializableFormData } = formData;
-            localStorage.setItem('onboardingData', JSON.stringify(serializableFormData));
+            const userOnboardingDocRef = doc(db, 'users', currentUser.uid, 'onboarding', 'profile');
+            await setDoc(userOnboardingDocRef, formData);
+
+            localStorage.setItem('onboardingData', JSON.stringify(formData)); // For payment page
             
             toast({
                 title: 'Onboarding Complete!',
@@ -239,7 +244,7 @@ export default function OnboardingPage() {
         } catch (error) {
              toast({
                 title: 'Error',
-                description: 'Could not complete onboarding. Please try again.',
+                description: 'Could not save your information. Please try again.',
                 variant: 'destructive',
             });
             setIsLoading(false);
@@ -270,6 +275,14 @@ export default function OnboardingPage() {
         }
         return false;
     }, [isLoading, formData.goalAction, formData.goalWeightKg, formData.planDuration]);
+
+    if (!currentUser) {
+        return (
+             <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+                 <Loader2 className="h-12 w-12 animate-spin" />
+             </div>
+        )
+    }
 
 
     return (
@@ -348,25 +361,6 @@ export default function OnboardingPage() {
                                         </div>
                                     </>
                                 )}
-                                 <div className="space-y-2 sm:col-span-2">
-                                    <Label htmlFor="photo-upload">Full Body Photo (Optional)</Label>
-                                    <p className="text-xs text-muted-foreground -mt-1">
-                                        This helps us track progress visually. You can wear a mask for privacy.
-                                    </p>
-                                    <Label htmlFor="photo-upload" className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 p-6 text-center transition-colors hover:border-primary ${formData.photo ? 'border-green-500 bg-green-500/10' : ''}`}>
-                                        {formData.photo ? <FileCheck className="text-green-500" /> : <Camera />}
-                                        <span className={formData.photo ? 'text-green-600 font-semibold' : 'text-muted-foreground'}>
-                                            {formData.photo ? formData.photo.name : 'Click to upload photo'}
-                                        </span>
-                                    </Label>
-                                    <Input
-                                        id="photo-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                    />
-                                </div>
                             </CardContent>
                         </>
                     )}
