@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -30,6 +29,7 @@ export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
 const MealSchema = z.object({
     meal: z.string().describe("The name of the meal to be eaten."),
+    time: z.string().describe("The specific time for the meal in AM/PM format, e.g., '8:00 AM'."),
     quantity: z.string().describe("Detailed quantities for ALL ingredients in specific units (e.g., '150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil')."),
     hint: z.string().describe("A 2-3 word hint for generating an image for this meal, e.g., 'oatmeal berries'."),
     calories: z.number().describe("The approximate calorie count for this meal."),
@@ -78,6 +78,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
   const mealOptions = {
     "Breakfast": {
       meal: "Oatmeal with Berries and Nuts",
+      time: "8:00 AM",
       quantity: "40g rolled oats, 200ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey",
       hint: "oatmeal berries",
       calories: 320,
@@ -85,6 +86,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Morning Snack": {
       meal: "Mixed Nuts and Fruit",
+      time: "11:00 AM",
       quantity: "20g almonds, 10g walnuts, 1 medium apple (150g)",
       hint: "mixed nuts",
       calories: 200,
@@ -92,6 +94,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Lunch": {
       meal: "Grilled Chicken Salad Bowl",
+      time: "1:00 PM",
       quantity: "150g grilled chicken breast, 100g mixed greens, 50g cherry tomatoes, 30g cucumber, 20g avocado, 1 tbsp olive oil dressing",
       hint: "chicken salad",
       calories: 420,
@@ -99,6 +102,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Afternoon Snack": {
       meal: "Greek Yogurt with Berries",
+      time: "4:00 PM",
       quantity: "150g plain Greek yogurt (2% fat), 30g blueberries",
       hint: "greek yogurt",
       calories: 150,
@@ -106,6 +110,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Dinner": {
       meal: "Baked Fish with Quinoa and Vegetables",
+      time: "7:00 PM",
       quantity: "150g baked salmon fillet, 80g cooked quinoa, 100g steamed broccoli, 50g roasted bell peppers, 1 tsp olive oil",
       hint: "baked fish",
       calories: 480,
@@ -113,6 +118,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Evening Snack": {
       meal: "Apple with Almond Butter",
+      time: "9:00 PM",
       quantity: "1 medium apple (150g), 1 tbsp natural almond butter (15g)",
       hint: "apple almonds",
       calories: 180,
@@ -120,6 +126,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
     },
     "Before Bed": {
       meal: "Chamomile Tea",
+      time: "10:30 PM",
       quantity: "1 cup (250ml) chamomile tea, no added sugar",
       hint: "herbal tea",
       calories: 5,
@@ -129,6 +136,7 @@ function createPlaceholderMeal(mealType: string, dayNumber: number): z.infer<typ
 
   return mealOptions[mealType as keyof typeof mealOptions] || {
     meal: `Day ${dayNumber} ${mealType}`,
+    time: "N/A",
     quantity: "Portion to be determined based on dietary needs - consult nutritionist",
     hint: "healthy meal",
     calories: 200,
@@ -186,6 +194,10 @@ function ensureCompleteDayStructure(
         if (!meal.meal || typeof meal.meal !== 'string') {
           meal.meal = placeholder.meal;
         }
+
+        if (!meal.time || typeof meal.time !== 'string') {
+          meal.time = placeholder.time;
+        }
         
         // Enhanced quantity validation - ensure it's detailed and specific
         if (!meal.quantity || typeof meal.quantity !== 'string' || meal.quantity.trim().length < 10) {
@@ -229,15 +241,16 @@ Based on the user's detailed information and the provided knowledge base, genera
 CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
 1. Generate exactly 3 complete days - NO MORE, NO LESS.
 2. Each day MUST have ALL 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
-3. Every meal must have all required fields: meal, quantity, hint, calories, description.
-4. The 'quantity' field is ABSOLUTELY CRITICAL and MUST contain specific, detailed measurements:
+3. Every meal must have all required fields: meal, time, quantity, hint, calories, description.
+4. The 'time' field MUST be a string in AM/PM format, e.g., "8:00 AM".
+5. The 'quantity' field is ABSOLUTELY CRITICAL and MUST contain specific, detailed measurements:
    - Use exact weights in grams (g) for solids: "150g grilled chicken breast"
    - Use volume measurements for liquids: "250ml almond milk", "1 tbsp olive oil"  
    - Use pieces/units where appropriate: "1 medium apple", "2 slices whole grain bread"
    - Include ALL ingredients with their quantities: "150g grilled chicken, 100g steamed broccoli, 80g brown rice, 1 tbsp olive oil"
    - NEVER use vague terms like "portion" or "serving" - always be specific
-5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with appropriate calories and exact quantities like "250ml chamomile tea".
-6. NEVER leave any meal slot empty or incomplete.
+6. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with appropriate calories and exact quantities like "250ml chamomile tea".
+7. NEVER leave any meal slot empty or incomplete.
 
 QUANTITY EXAMPLES (follow this format exactly):
 - "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey"
@@ -264,6 +277,7 @@ Return only valid JSON in this exact format with exactly 3 days:
       "meals": {
         "Breakfast": {
           "meal": "Oatmeal with Berries and Nuts",
+          "time": "8:00 AM",
           "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 1 tsp honey",
           "hint": "oatmeal berries",
           "calories": 350,
@@ -271,6 +285,7 @@ Return only valid JSON in this exact format with exactly 3 days:
         },
         "Morning Snack": { 
           "meal": "Apple with Almond Butter",
+          "time": "11:00 AM",
           "quantity": "1 medium apple (150g), 1 tbsp natural almond butter (15g)",
           "hint": "apple almonds",
           "calories": 180,
@@ -286,13 +301,13 @@ Return only valid JSON in this exact format with exactly 3 days:
     {
       "day": 2,
       "meals": {
-        // All 7 meals for day 2 with detailed quantities
+        // All 7 meals for day 2 with detailed quantities and times
       }
     },
     {
       "day": 3,
       "meals": {
-        // All 7 meals for day 3 with detailed quantities
+        // All 7 meals for day 3 with detailed quantities and times
       }
     }
   ]
@@ -411,5 +426,3 @@ const generateDietPlanFlow = ai.defineFlow(
     }
   }
 );
-
-    

@@ -14,6 +14,7 @@ import {z} from 'genkit';
 
 const MealSchema = z.object({
   meal: z.string(),
+  time: z.string(),
   quantity: z.string(),
   hint: z.string(),
   calories: z.number(),
@@ -34,6 +35,7 @@ export type GetMissedMealAdviceInput = z.infer<typeof GetMissedMealAdviceInputSc
 
 const AdjustedMealSchema = z.object({
     meal: z.string(),
+    time: z.string(),
     quantity: z.string().describe("The new, adjusted quantity for the meal."),
     calories: z.number().describe("The new, adjusted calorie count for the meal."),
     mealTime: z.string(),
@@ -55,18 +57,18 @@ const prompt = ai.definePrompt({
   output: {schema: GetMissedMealAdviceOutputSchema},
   prompt: `You are a helpful and pragmatic nutrition coach. A user has just skipped a meal and needs advice. Their primary goal is "{{userGoals}}".
 
-The user skipped their {{missedMeal.mealTime}}: "{{missedMeal.meal}}" which was approximately {{missedMeal.calories}} calories.
+The user skipped their {{missedMeal.mealTime}} ({{missedMeal.time}}): "{{missedMeal.meal}}" which was approximately {{missedMeal.calories}} calories.
 
 Here are the remaining meals for their day:
 {{#each remainingMeals}}
-- {{this.mealTime}}: {{this.meal}} ({{this.calories}} cal)
+- {{this.mealTime}} ({{this.time}}): {{this.meal}} ({{this.calories}} cal)
 {{/each}}
 
 1.  **Provide Advice**: First, give brief, reassuring, and actionable advice (1-2 sentences). Should they just move on, or try to make up for it? The advice should be encouraging.
 
 2.  **Adjust Plan**: Recalculate the quantities and calories for the *remaining meals* to help the user stay as close as possible to their daily goal. Distribute the {{missedMeal.calories}} calories from the missed meal among the remaining meals. Be realistic; slightly increase portions of the upcoming meals. For snacks, you can suggest adding a small item like a fruit or some nuts. For main meals, slightly increase the grams of protein or carbs.
 
-Return the advice and the list of adjusted meals with their new quantities and calorie counts.
+Return the advice and the list of adjusted meals with their new quantities, calories, and original meal times.
 `,
 });
 

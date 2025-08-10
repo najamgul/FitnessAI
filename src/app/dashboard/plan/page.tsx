@@ -275,11 +275,14 @@ const SmartDietPlanner = () => {
                                                         <div className="flex items-center gap-3 flex-1 min-w-0">
                                                             {meal.imageUrl ? (<Image src={meal.imageUrl} alt={meal.meal} width={64} height={64} className="w-16 h-16 rounded-md object-cover flex-shrink-0" unoptimized/>) : (<div className="w-16 h-16 rounded-md flex-shrink-0 bg-muted flex items-center justify-center"><ImageIcon className="w-6 h-6 text-muted-foreground" /></div>)}
                                                             <div className="flex-1 min-w-0">
-                                                                <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight truncate">{meal.meal}</h3>
+                                                                <div className="flex items-center gap-2">
+                                                                     <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight truncate">{meal.meal}</h3>
+                                                                     <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.mealTime}</span>
+                                                                </div>
+                                                                <p className="text-sm text-muted-foreground font-semibold">{meal.time}</p>
                                                                 <p className="text-sm text-muted-foreground font-semibold">{meal.quantity}</p>
                                                                 <div className="flex items-center gap-1 mt-1 flex-wrap">
                                                                     <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.calories}cal</span>
-                                                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full whitespace-nowrap">{meal.mealTime}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
