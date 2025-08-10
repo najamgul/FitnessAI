@@ -274,7 +274,7 @@ export default function OnboardingPage() {
             <div className="w-full max-w-2xl">
                  <div className="mb-8 flex flex-col items-center gap-4">
                     <Link href="/">
-                        <Image src="/logo.png" alt="Aziaf Logo" width={128} height={128} />
+                        <Image src="/logo.png" alt="Aziaf Logo" width={256} height={256} />
                     </Link>
                     <p className="text-muted-foreground">Let's get some details to personalize your experience.</p>
                     <Progress value={progress} className="w-full" />
