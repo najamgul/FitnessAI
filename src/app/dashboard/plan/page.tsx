@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,6 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { generateDietPlan, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { generateShoppingList } from '@/ai/flows/generate-shopping-list';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
@@ -27,60 +32,103 @@ type DayPlan = {
 
 const SmartDietPlanner = () => {
     const { toast } = useToast();
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [planStatus, setPlanStatus] = useState<'loading' | 'pending_review' | 'ready' | 'not_found'>('loading');
-    const [fullPlan, setFullPlan] = useState<GenerateDietPlanOutput['dietPlan'] | null>(null);
+    const [fullPlan, setFullPlan] = useState<GenerateDietPlanOutput | null>(null);
     const [plan, setPlan] = useState<DayPlan[]>([]);
     const [currentDay, setCurrentDay] = useState(0);
+    const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
-        const fetchUserPlan = () => {
-            const loggedInEmail = localStorage.getItem('loggedInEmail');
-            if (!loggedInEmail) {
+        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+            if (currentUser) {
+                setUser(currentUser);
+            } else {
+                router.push('/login');
+            }
+        });
+        return () => unsubscribeAuth();
+    }, [router]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setPlanStatus(userData.planStatus || 'not_found');
+
+                if (userData.planStatus === 'approved') {
+                    const dietPlanDocRef = doc(db, 'users', user.uid, 'dietPlan', 'current');
+                    const unsubscribePlan = onSnapshot(dietPlanDocRef, (planDoc) => {
+                        if (planDoc.exists()) {
+                            const fetchedPlan = planDoc.data() as GenerateDietPlanOutput;
+                            setFullPlan(fetchedPlan);
+                            const storedProgress = getStoredProgress();
+                            const transformedPlan = fetchedPlan.dietPlan.map(dayPlan => ({
+                                day: dayPlan.day,
+                                meals: Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
+                                    ...mealDetails,
+                                    mealTime,
+                                    completed: storedProgress[dayPlan.day]?.[mealTime] || false
+                                }))
+                            }));
+                            setPlan(transformedPlan);
+                        } else {
+                            setPlanStatus('not_found');
+                        }
+                        setIsLoading(false);
+                    });
+                     return () => unsubscribePlan();
+                } else {
+                    setIsLoading(false);
+                }
+            } else {
                 setPlanStatus('not_found');
                 setIsLoading(false);
-                return;
             }
+        });
 
-            const approvedUsersString = localStorage.getItem('approvedUsers');
-            const approvedUsers = approvedUsersString ? JSON.parse(approvedUsersString) : {};
-            const userProfile = approvedUsers[loggedInEmail];
+        return () => unsubscribeUser();
+    }, [user]);
 
-            if (!userProfile) {
-                setPlanStatus('not_found');
-                setIsLoading(false);
-                return;
+    const getStoredProgress = () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const progressString = localStorage.getItem(`mealProgress_${today}`);
+            return progressString ? JSON.parse(progressString) : {};
+        } catch (e) {
+            return {};
+        }
+    };
+
+    const saveProgress = (dayIndex: number, mealTime: string, isCompleted: boolean) => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const progress = getStoredProgress();
+            const day = plan[dayIndex].day;
+
+            if (!progress[day]) {
+                progress[day] = {};
             }
-            
-            if (userProfile.planStatus === 'pending_review' || !userProfile.dietPlan) {
-                setPlanStatus('pending_review');
-                setIsLoading(false);
-                return;
-            }
-            
-            if (userProfile.planStatus === 'approved' && userProfile.dietPlan) {
-                const fetchedPlan = userProfile.dietPlan;
-                setFullPlan(fetchedPlan);
-                const transformedPlan = fetchedPlan.map(dayPlan => ({
-                    day: dayPlan.day,
-                    meals: Object.entries(dayPlan.meals).map(([mealTime, mealDetails]) => ({
-                        ...mealDetails,
-                        mealTime,
-                        completed: false // Initialize completion status
-                    }))
-                }));
-                setPlan(transformedPlan);
-                setPlanStatus('ready');
-            }
-            setIsLoading(false);
-        };
-        fetchUserPlan();
-    }, []);
+            progress[day][mealTime] = isCompleted;
+            localStorage.setItem(`mealProgress_${today}`, JSON.stringify(progress));
+        } catch(e) {
+            console.error("Could not save meal progress to localStorage");
+        }
+    }
 
     const toggleMealCompletion = (dayIndex: number, mealIndex: number) => {
         setPlan(prevPlan => {
-            const newPlan = [...prevPlan];
-            newPlan[dayIndex].meals[mealIndex].completed = !newPlan[dayIndex].meals[mealIndex].completed;
+            const newPlan = JSON.parse(JSON.stringify(prevPlan)); // Deep copy
+            const isCompleted = !newPlan[dayIndex].meals[mealIndex].completed;
+            newPlan[dayIndex].meals[mealIndex].completed = isCompleted;
+
+            const mealTime = newPlan[dayIndex].meals[mealIndex].mealTime;
+            saveProgress(dayIndex, mealTime, isCompleted);
+            
             return newPlan;
         });
     };
@@ -116,7 +164,10 @@ const SmartDietPlanner = () => {
     }
     
     if (planStatus !== 'ready' || plan.length === 0) {
-        return <div className="text-center">Could not load diet plan. Please contact support.</div>;
+        return <div className="text-center p-8 bg-card rounded-lg border">
+             <h3 className="text-xl font-semibold">Diet Plan Not Found</h3>
+             <p className="text-muted-foreground mt-2">We could not find an approved diet plan for your account. Please complete the onboarding process or contact support if you believe this is an error.</p>
+        </div>;
     }
 
     const currentDayPlan = plan[currentDay];
@@ -148,37 +199,39 @@ const SmartDietPlanner = () => {
 
                 <div className="p-4 md:p-6">
                     <Tabs value={`day-${currentDay + 1}`} onValueChange={(val) => setCurrentDay(parseInt(val.split('-')[1]) - 1)} className="w-full">
-                        <TabsList>
+                        <TabsList className="grid w-full grid-cols-7">
                             {plan.map((dayPlan) => (
                                 <TabsTrigger key={dayPlan.day} value={`day-${dayPlan.day}`}>
                                     Day {dayPlan.day}
                                 </TabsTrigger>
                             ))}
                         </TabsList>
-                            <TabsContent value={`day-${currentDay + 1}`} className="space-y-4 mt-4">
-                                {currentDayPlan.meals.map((meal, mealIndex) => (
-                                <Card key={mealIndex} className={`p-4 rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
-                                    <div className="flex items-center justify-between flex-wrap gap-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                    <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
-                                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
-                                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                            {plan.map((dayData, dayIndex) => (
+                                <TabsContent key={dayIndex} value={`day-${dayData.day}`} className="space-y-4 mt-4">
+                                    {dayData.meals.map((meal, mealIndex) => (
+                                    <Card key={mealIndex} className={`p-4 rounded-xl border-2 transition-all ${meal.completed ? 'bg-green-50 border-green-200' : 'bg-background border-border hover:border-primary'}`}>
+                                        <div className="flex items-center justify-between flex-wrap gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <h3 className="font-bold text-lg text-foreground">{meal.meal}</h3>
+                                                         <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">{meal.calories} kcal</span>
+                                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">{meal.mealTime}</span>
+                                                    </div>
+                                                    <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
                                                 </div>
-                                                <p className="text-muted-foreground text-sm mb-2">{meal.description}</p>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <Button onClick={() => toggleMealCompletion(dayIndex, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
+                                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                    {meal.completed ? 'Completed' : 'Mark as Eaten'}
+                                                </Button>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-2">
-                                            <Button onClick={() => toggleMealCompletion(currentDay, mealIndex)} variant={meal.completed ? 'default' : 'secondary'} size="sm">
-                                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                {meal.completed ? 'Completed' : 'Mark as Eaten'}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Card>
-                                ))}
-                            </TabsContent>
+                                    </Card>
+                                    ))}
+                                </TabsContent>
+                            ))}
                     </Tabs>
                 </div>
             </div>
