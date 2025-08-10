@@ -29,6 +29,8 @@ type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     completed: boolean;
     skipped?: boolean;
     time: string;
+    originalQuantity?: string;
+    originalCalories?: number;
 };
 
 type DayPlan = {
@@ -61,7 +63,6 @@ const SmartDietPlanner = () => {
         return () => unsubscribeAuth();
     }, [router]);
     
-    // Function to parse time string (e.g., "8:00 AM") into a date object for comparison
     const parseTime = (timeStr: string): Date => {
         const now = new Date();
         const [time, modifier] = timeStr.split(' ');
@@ -109,6 +110,8 @@ const SmartDietPlanner = () => {
                                     completed: storedProgress[dayPlan.day]?.[mealTime]?.completed || false,
                                     skipped: storedProgress[dayPlan.day]?.[mealTime]?.skipped || false,
                                     time: mealDetails.time,
+                                    originalQuantity: mealDetails.quantity,
+                                    originalCalories: mealDetails.calories,
                                 }));
 
                                 mealsArray.sort((a, b) => parseTime(a.time).getTime() - parseTime(b.time).getTime());
@@ -120,7 +123,6 @@ const SmartDietPlanner = () => {
                             });
                             setPlan(transformedPlan);
                             
-                            // Set start date and today's index
                             if (fetchedPlanData.createdAt) {
                                 const startDate = new Date(fetchedPlanData.createdAt);
                                 setPlanStartDate(startDate);
@@ -129,7 +131,7 @@ const SmartDietPlanner = () => {
                                 const dayDifference = differenceInDays(today, startDate);
                                 const todayIndex = dayDifference % transformedPlan.length;
                                 setCurrentDayIndex(todayIndex < 0 ? 0 : todayIndex);
-                                setCurrentWeek(Math.floor(todayIndex / 7));
+                                setCurrentWeek(Math.floor(dayDifference / 7));
                             }
 
                         } else {
@@ -176,7 +178,9 @@ const SmartDietPlanner = () => {
             const newPlan = JSON.parse(JSON.stringify(prevPlan));
             const meal = newPlan[dayIndex].meals[mealIndex];
             meal.completed = !meal.completed;
-            meal.skipped = false; // Cannot be skipped and completed
+            if (meal.completed) {
+                meal.skipped = false;
+            }
             saveProgress(dayIndex, meal.mealTime, { completed: meal.completed, skipped: meal.skipped });
             return newPlan;
         });
@@ -195,46 +199,44 @@ const SmartDietPlanner = () => {
         mealToSkip.skipped = true;
         mealToSkip.completed = false;
         saveProgress(dayIndex, mealToSkip.mealTime, { completed: false, skipped: true });
-        setPlan(planToUpdate);
-
+        
         try {
             const remainingMeals = dayPlan.meals.slice(mealIndex + 1);
             if(remainingMeals.length === 0) {
                  setAdjustmentAdvice("You've missed your last meal. Just focus on starting fresh tomorrow!");
+                 setPlan(planToUpdate); // Update state to show skipped status
                  setIsAdjusting(null);
                  return;
             }
 
             const response = await getMissedMealAdvice({
                 missedMeal: mealToSkip,
-                remainingMeals: remainingMeals,
+                remainingMeals: remainingMeals.filter(m => !m.completed && !m.skipped),
                 userGoals: userGoals,
             });
 
             setAdjustmentAdvice(response.advice);
 
-            // Create a new version of the plan to update state correctly
-            const finalPlanState = JSON.parse(JSON.stringify(planToUpdate));
+            // Apply adjustments from AI
             response.adjustedMeals.forEach(adjustedMeal => {
-                const mealToUpdate = finalPlanState[dayIndex].meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
+                const mealToUpdate = dayPlan.meals.find((m: Meal) => m.mealTime === adjustedMeal.mealTime);
                 if (mealToUpdate) {
                     mealToUpdate.quantity = adjustedMeal.quantity;
                     mealToUpdate.calories = adjustedMeal.calories;
-                    mealToUpdate.description = `${mealToUpdate.description.split(' (Adjusted for')[0]} (Adjusted for skipped ${mealToSkip.mealTime})`;
+                    const baseDescription = mealToUpdate.originalDescription || mealToUpdate.description.split(' (Adjusted for')[0];
+                    mealToUpdate.description = `${baseDescription} (Adjusted for skipped ${mealToSkip.mealTime})`;
                 }
             });
-            setPlan(finalPlanState);
+            
+            setPlan(planToUpdate);
 
             toast({ title: "Plan Adjusted", description: "Your remaining meals for today have been updated." });
 
         } catch (error) {
             console.error("Failed to adjust plan:", error);
             toast({ title: "Adjustment Failed", description: "Could not get updated advice from AI.", variant: "destructive" });
-            
-            // Revert optimistic update on failure
-            const revertedPlan = JSON.parse(JSON.stringify(plan));
-            revertedPlan[dayIndex].meals[mealIndex].skipped = false;
-            setPlan(revertedPlan);
+            // Still update the plan to show the meal as skipped, even if AI fails
+            setPlan(planToUpdate);
         } finally {
             setIsAdjusting(null);
         }
@@ -273,11 +275,11 @@ const SmartDietPlanner = () => {
 
     const currentDayPlan = plan[currentDayIndex];
     if (!currentDayPlan) {
-        return null; // or a loading/error state if currentDayIndex is out of bounds
+        return null;
     }
     
     const totalCaloriesConsumed = currentDayPlan.meals.filter(m => m.completed).reduce((sum, meal) => sum + meal.calories, 0);
-    const dailyGoal = currentDayPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
+    const dailyGoal = currentDayPlan.meals.reduce((sum, meal) => sum + (meal.originalCalories || meal.calories), 0);
     const completionRate = dailyGoal > 0 ? Math.round((totalCaloriesConsumed / dailyGoal) * 100) : 0;
     
     const numWeeks = Math.ceil(plan.length / 7);
@@ -355,11 +357,19 @@ const SmartDietPlanner = () => {
                                                                 <div className="flex items-center gap-2">
                                                                      <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight truncate">{meal.meal}</h3>
                                                                      <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.mealTime}</span>
+                                                                     {meal.calories !== meal.originalCalories && (
+                                                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full font-medium whitespace-nowrap">Adjusted</span>
+                                                                     )}
                                                                 </div>
                                                                 <p className="text-sm text-muted-foreground font-semibold">{meal.time}</p>
                                                                 <p className="text-sm text-muted-foreground font-semibold">{meal.quantity}</p>
                                                                 <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium whitespace-nowrap">{meal.calories}cal</span>
+                                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium whitespace-nowrap">
+                                                                        {meal.calories}cal
+                                                                        {meal.originalCalories && meal.calories !== meal.originalCalories && (
+                                                                            <span className="text-blue-600 ml-1">(was {meal.originalCalories})</span>
+                                                                        )}
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -389,3 +399,5 @@ const SmartDietPlanner = () => {
 };
 
 export default SmartDietPlanner;
+
+    
