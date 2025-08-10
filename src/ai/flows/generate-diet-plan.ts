@@ -75,8 +75,10 @@ async function getKnowledgeContext(knowledgeBaseId?: 'kashmir' | 'general'): Pro
 
 export async function generateDietPlan(input: GenerateDietPlanInput): Promise<GenerateDietPlanOutput> {
   try {
-    const knowledgeContext = await getKnowledgeContext(input.knowledgeBaseId);
-    return await generateDietPlanFlow({...input, knowledgeContext});
+    // Force plan duration to 3 days
+    const modifiedInput = { ...input, planDuration: 3 };
+    const knowledgeContext = await getKnowledgeContext(modifiedInput.knowledgeBaseId);
+    return await generateDietPlanFlow({...modifiedInput, knowledgeContext});
   } catch (error) {
     console.error('Error in generateDietPlan:', error);
     throw new Error(`Failed to generate diet plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -85,38 +87,16 @@ export async function generateDietPlan(input: GenerateDietPlanInput): Promise<Ge
 
 const defaultPromptTemplate = `You are a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
 
-Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for {{{planDuration}}} days. The output must be a valid JSON object with a 'dietPlan' field containing an array of day plan objects.
+Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for 3 days. The output must be a valid JSON object with a 'dietPlan' field containing an array of 3 day plan objects.
 
 CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
-1. Generate exactly {{{planDuration}}} complete days
+1. Generate exactly 3 complete days.
 2. Each day MUST have ALL 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
-3. Every meal must have all required fields: meal, quantity, hint, calories, description
-4. No meal can have empty or null values
-5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with 0 calories
+3. Every meal must have all required fields: meal, quantity, hint, calories, description.
+4. The 'quantity' field MUST contain specific measurements in grams (g), numbers (e.g., '2 eggs'), or milliliters (ml).
+5. If a meal slot should be minimal (like during fasting), use "Herbal tea" or "Water" with 0 calories and a quantity like "1 cup".
 
-Your response must be complete - do not truncate any days or meals.
-
-Each day object must have:
-- day: number (starting from 1)
-- meals: object with exactly these 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
-
-Each meal must have:
-- meal: string (name of the meal)
-- quantity: string (DETAILED quantities for ALL ingredients with specific units in grams/ml/pieces, e.g., "150g grilled chicken breast, 100g steamed broccoli, 80g brown rice, 1 tbsp (15ml) olive oil, 5g chopped parsley")
-- hint: string (2-3 words for image search, e.g., "chicken salad")
-- calories: number (approximate calorie count)
-- description: string (1-2 sentences about benefits)
-
-IMPORTANT QUANTITY REQUIREMENTS:
-- Provide specific quantities for ALL ingredients in each meal
-- Use precise measurements in grams (g), milliliters (ml), pieces, tablespoons (tbsp), teaspoons (tsp)
-- Include quantities for proteins, carbohydrates, vegetables, fats, seasonings, and garnishes
-- Example: "120g grilled salmon, 100g quinoa, 80g steamed asparagus, 10ml olive oil, 2g lemon zest, salt and pepper to taste"
-- Avoid vague terms like "1 cup" or "handful" - convert to precise measurements
-
-Fasting Adaptation:
-- If Intermittent Fasting: Adjust meals for 8-hour eating window (12 PM to 8 PM). For meals outside the window, use "Herbal tea", "Water", or "Black coffee" with 0 calories and appropriate descriptions. Still include all 7 meal slots.
-- If No Fasting: Spread meals throughout the day normally with proper portions.
+Your response must be complete and valid JSON. Do not truncate any days or meals.
 
 User Details:
 - Health Information: {{{healthInformation}}}
@@ -136,56 +116,22 @@ Example response format:
       "meals": {
         "Breakfast": {
           "meal": "Oatmeal with Berries and Nuts",
-          "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds, 5g honey",
+          "quantity": "40g rolled oats, 250ml low-fat milk, 50g mixed berries, 15g chopped almonds",
           "hint": "oatmeal berries",
           "calories": 350,
           "description": "Rich in fiber and antioxidants to start your day with sustained energy and protein."
         },
         "Morning Snack": {
           "meal": "Greek Yogurt with Nuts",
-          "quantity": "150g plain Greek yogurt, 10g walnuts, 3g cinnamon powder",
+          "quantity": "150g plain Greek yogurt, 10g walnuts",
           "hint": "greek yogurt",
           "calories": 180,
           "description": "High in protein and probiotics to keep you satisfied until lunch."
         },
-        "Lunch": {
-          "meal": "Grilled Chicken Salad",
-          "quantity": "120g grilled chicken breast, 100g mixed greens, 50g cherry tomatoes, 10ml olive oil dressing",
-          "hint": "chicken salad",
-          "calories": 320,
-          "description": "Complete protein with fresh vegetables for sustained energy."
-        },
-        "Afternoon Snack": {
-          "meal": "Apple with Almonds",
-          "quantity": "1 medium apple (150g), 15g raw almonds",
-          "hint": "apple almonds",
-          "calories": 200,
-          "description": "Natural sugars and healthy fats for afternoon energy."
-        },
-        "Dinner": {
-          "meal": "Salmon with Quinoa",
-          "quantity": "120g grilled salmon, 80g cooked quinoa, 100g steamed broccoli, 5ml lemon juice",
-          "hint": "salmon quinoa",
-          "calories": 450,
-          "description": "Omega-3 rich meal with complete protein and complex carbohydrates."
-        },
-        "Evening Snack": {
-          "meal": "Herbal Tea with Berries",
-          "quantity": "250ml chamomile tea, 30g fresh berries",
-          "hint": "herbal tea berries",
-          "calories": 25,
-          "description": "Light antioxidants and relaxation before bed."
-        },
-        "Before Bed": {
-          "meal": "Warm Milk",
-          "quantity": "200ml warm low-fat milk, 2g honey",
-          "hint": "warm milk",
-          "calories": 140,
-          "description": "Calcium and tryptophan to promote restful sleep."
-        }
+        // ... continue with all 7 meals
       }
     }
-    // ... continue for all days
+    // ... continue for 2 more days
   ]
 }`;
 
@@ -231,7 +177,7 @@ const generateDietPlanFlow = ai.defineFlow(
         description: "This meal was not specified. Please review or regenerate the plan."
       };
 
-      // **FIX 1**: Ensure the plan has the correct number of days before further validation
+      // Ensure the plan has the correct number of days before further validation
       while (basePlan.dietPlan.length < input.planDuration) {
           const missingDayIndex = basePlan.dietPlan.length;
           const placeholderMeals = mealKeys.reduce((acc, key) => {
@@ -245,7 +191,7 @@ const generateDietPlanFlow = ai.defineFlow(
           });
       }
 
-      // **FIX 2**: Validate and fix each day's structure to ensure all meals are present
+      // Validate and fix each day's structure to ensure all meals are present
       basePlan.dietPlan.forEach((day, dayIndex) => {
         if (!day.meals || typeof day.meals !== 'object') {
           day.meals = {} as z.infer<typeof MealsSchema>;
@@ -318,4 +264,3 @@ const generateDietPlanFlow = ai.defineFlow(
     }
   }
 );
-
