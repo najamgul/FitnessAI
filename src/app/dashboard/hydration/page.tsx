@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -11,10 +12,8 @@ type ScheduleItem = {
   smart: boolean;
   id: number;
   reason: string;
-  originalAmount?: number; // Store original amount for reference
+  originalAmount?: number;
 };
-
-const notificationSoundUrl = 'https://cdn.pixabay.com/download/audio/2025/05/24/audio_aacf3a51fd.mp3?filename=sound-of-flowing-river-346329.mp3';
 
 const SmartWaterTracker = () => {
   const [dailyGoal, setDailyGoal] = useState(2500);
@@ -31,37 +30,44 @@ const SmartWaterTracker = () => {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [redistributing, setRedistributing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const notificationTimeouts = useRef<NodeJS.Timeout[]>([]);
 
-  const saveScheduleToLocalStorage = (schedule: ScheduleItem[]) => {
+  // Safe notification setup for mobile
+  const setupNotifications = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    
     try {
-      localStorage.setItem('hydrationSchedule', JSON.stringify(schedule));
-    } catch (error) {
-      console.error("Could not save hydration schedule to localStorage", error);
-    }
-  };
-
-  useEffect(() => {
-    setIsClient(true);
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        Notification.requestPermission();
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          setNotificationsEnabled(permission === 'granted');
+        } else {
+          setNotificationsEnabled(Notification.permission === 'granted');
+        }
       }
-    }
-    const onboardingDataString = localStorage.getItem('onboardingData');
-    if (onboardingDataString) {
-        const data = JSON.parse(onboardingDataString);
-        setProfile(prev => ({
-            ...prev,
-            weight: parseInt(data.weight) || 70,
-            activityLevel: data.activityLevel || 'moderate',
-            wakeTime: data.sleepHours ? `${(parseInt(data.sleepHours.split('-')[1]) || 7)}:00` : '07:00',
-            sleepTime: data.sleepHours ? `${(parseInt(data.sleepHours.split('-')[0]) || 23)}:00`: '23:00'
-        }));
+    } catch (error) {
+      console.log('Notifications not supported on this device');
+      setNotificationsEnabled(false);
     }
   }, []);
 
-   const generateSmartSchedule = useCallback(() => {
+  useEffect(() => {
+    setIsClient(true);
+    setupNotifications();
+    
+    // Load profile data from memory instead of localStorage
+    // In a real app, this would come from your backend/database
+    const defaultProfile = {
+      weight: 70,
+      activityLevel: 'moderate',
+      wakeTime: '07:00',
+      sleepTime: '23:00'
+    };
+    setProfile(defaultProfile);
+  }, [setupNotifications]);
+
+  const generateSmartSchedule = useCallback(() => {
     const wakeHour = parseInt(profile.wakeTime.split(':')[0]);
     const sleepHour = parseInt(profile.sleepTime.split(':')[0]);
     let awakeHours = sleepHour - wakeHour;
@@ -109,7 +115,7 @@ const SmartWaterTracker = () => {
       schedule.push({
         time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
         amount: finalAmount,
-        originalAmount: finalAmount, // Store original amount
+        originalAmount: finalAmount,
         completed: false,
         skipped: false,
         smart: true,
@@ -121,45 +127,32 @@ const SmartWaterTracker = () => {
     const totalScheduled = schedule.reduce((sum, item) => sum + item.amount, 0);
     let diff = adjustedGoal - totalScheduled;
     let i = 0;
-    while(diff !== 0) {
+    while(diff !== 0 && i < 100) {
       const adjustment = diff > 0 ? 10 : -10;
       if (schedule[i % numSlots].amount + adjustment > 0) {
         schedule[i % numSlots].amount += adjustment;
-        schedule[i % numSlots].originalAmount = schedule[i % numSlots].amount; // Update original amount too
+        schedule[i % numSlots].originalAmount = schedule[i % numSlots].amount;
         diff -= adjustment;
       }
       i++;
-      if (i > 100) break;
     }
 
     return schedule;
   }, [profile.wakeTime, profile.sleepTime, dailyGoal, smartMode, weatherTemp, activityBoost]);
 
-
   useEffect(() => {
     if (isClient) {
-        try {
-            const savedSchedule = localStorage.getItem('hydrationSchedule');
-            if (savedSchedule) {
-                setScheduleItems(JSON.parse(savedSchedule));
-            } else {
-                const newSchedule = generateSmartSchedule();
-                setScheduleItems(newSchedule);
-                saveScheduleToLocalStorage(newSchedule);
-            }
-        } catch (e) {
-            console.error("Failed to load hydration schedule from localStorage", e);
-            const newSchedule = generateSmartSchedule();
-            setScheduleItems(newSchedule);
-        }
+      const newSchedule = generateSmartSchedule();
+      setScheduleItems(newSchedule);
     }
   }, [isClient, generateSmartSchedule]);
 
+  // Safe notification scheduling for mobile
   useEffect(() => {
     notificationTimeouts.current.forEach(clearTimeout);
     notificationTimeouts.current = [];
 
-    if (isClient && Notification.permission === 'granted') {
+    if (isClient && notificationsEnabled && scheduleItems.length > 0) {
       scheduleItems.forEach(item => {
         if (!item.completed && !item.skipped) {
           const now = new Date();
@@ -174,32 +167,29 @@ const SmartWaterTracker = () => {
 
           const itemDate = new Date();
           itemDate.setHours(hour, parseInt(minutes, 10), 0, 0);
-
           const notificationTime = new Date(itemDate.getTime() - 5 * 60 * 1000);
 
           if (notificationTime > now) {
             const timeout = setTimeout(() => {
-              new Notification('Hydration Reminder', {
-                body: `Time for your next glass of water at ${item.time}!`,
-                icon: '/logo.png' 
-              });
-              const audio = new Audio(notificationSoundUrl);
-              audio.play().catch(error => console.error("Audio playback failed:", error));
+              try {
+                new Notification('Hydration Reminder', {
+                  body: `Time for your next glass of water at ${item.time}!`,
+                  icon: '💧'
+                });
+              } catch (error) {
+                console.log('Notification failed:', error);
+              }
             }, notificationTime.getTime() - now.getTime());
             notificationTimeouts.current.push(timeout);
           }
         }
       });
     }
-    
-    if (isClient) {
-      saveScheduleToLocalStorage(scheduleItems);
-    }
 
     return () => {
       notificationTimeouts.current.forEach(clearTimeout);
     };
-  }, [scheduleItems, isClient]);
+  }, [scheduleItems, isClient, notificationsEnabled]);
 
   const redistributeWaterSlots = useCallback((skippedItemId: number) => {
     setRedistributing(true);
@@ -295,10 +285,10 @@ const SmartWaterTracker = () => {
       }
       if (completionRate < 50 && currentTime.getHours() > 14) {
         const skippedCount = scheduleItems.filter(i => i.skipped).length;
-        insights.push({ icon: <AlertCircle className="w-4 h-4 text-destructive" />, text: skippedCount > 0 ? `Behind schedule with ${skippedCount} missed slots. Plan redistributed!` : 'Behind schedule. Consider larger portions.' });
+        insights.push({ icon: <AlertCircle className="w-4 h-4 text-red-500" />, text: skippedCount > 0 ? `Behind schedule with ${skippedCount} missed slots. Plan redistributed!` : 'Behind schedule. Consider larger portions.' });
       }
-       if (completionRate > 100) {
-        insights.push({ icon: <Brain className="w-4 h-4 text-primary" />, text: 'Excellent hydration! Your body is optimally fueled.' });
+      if (completionRate > 100) {
+        insights.push({ icon: <Brain className="w-4 h-4 text-blue-500" />, text: 'Excellent hydration! Your body is optimally fueled.' });
       }
     }
     return insights;
@@ -320,186 +310,251 @@ const SmartWaterTracker = () => {
 
   if (!isClient || scheduleItems.length === 0) {
     return (
-        <div className="flex h-96 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
     );
   }
 
   return (
-    <div className="bg-background rounded-3xl shadow-xl overflow-hidden border">
-      <div className="bg-gradient-to-r from-primary to-cyan-500 p-6 text-white">
-        <div className="flex items-center justify-between">
+    <div className="bg-white rounded-3xl shadow-xl overflow-hidden border max-w-4xl mx-auto">
+      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-4 sm:p-6 text-white">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-white/20 rounded-full"><Droplets className="w-8 h-8" /></div>
+            <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+              <Droplets className="w-6 h-6 sm:w-8 sm:h-8" />
+            </div>
             <div>
-              <h1 className="text-3xl font-bold font-headline text-primary-foreground">Smart Hydration Assistant</h1>
-              <p className="text-blue-100 mt-1">Azai-powered personalized water tracking</p>
+              <h1 className="text-xl sm:text-3xl font-bold">Smart Hydration Assistant</h1>
+              <p className="text-blue-100 mt-1 text-sm sm:text-base">AI-powered personalized water tracking</p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold text-primary-foreground">{completionRate}%</div>
-            <div className="text-blue-100">Daily Progress</div>
+          <div className="text-center sm:text-right">
+            <div className="text-3xl sm:text-4xl font-bold">{completionRate}%</div>
+            <div className="text-blue-100 text-sm">Daily Progress</div>
             {remainingWaterNeeded > 0 && (
-              <div className="text-blue-100 text-sm mt-1">{remainingWaterNeeded}ml remaining</div>
+              <div className="text-blue-100 text-xs sm:text-sm mt-1">{remainingWaterNeeded}ml remaining</div>
             )}
           </div>
         </div>
-        <div className="mt-6 flex items-center gap-3">
-          <button onClick={() => setSmartMode(!smartMode)} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${smartMode ? 'bg-yellow-400 text-blue-900' : 'bg-white/20 text-white'}`}>
+        <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-2 sm:gap-3">
+          <button 
+            onClick={() => setSmartMode(!smartMode)} 
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full transition-all text-sm ${smartMode ? 'bg-yellow-400 text-blue-900' : 'bg-white/20 text-white'}`}
+          >
             <Zap className="w-4 h-4" /> Smart Mode {smartMode ? 'ON' : 'OFF'}
           </button>
-          {smartMode && <div className="flex items-center gap-2 text-sm text-blue-100"><Brain className="w-4 h-4" /> Azai automatically adjusting your plan</div>}
+          {smartMode && (
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-100">
+              <Brain className="w-4 h-4" /> AI automatically adjusting your plan
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="p-6">
-          <div className="text-center mb-8">
-            <div className="relative inline-block">
-              <svg className="w-80 h-80 transform -rotate-90" viewBox="0 0 200 200">
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="80"
-                  stroke="hsl(var(--muted))"
-                  strokeWidth="12"
-                  fill="transparent"
-                />
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="80"
-                  stroke="url(#gradient)"
-                  strokeWidth="12"
-                  fill="transparent"
-                  strokeDasharray={`${completionRate * 5.03} 503`}
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out"
-                />
-                <defs>
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" />
-                    <stop offset="100%" stopColor="hsl(var(--accent))" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center flex-col px-4">
-                <div className="text-5xl font-bold text-foreground leading-tight">{completedWater}</div>
-                <div className="text-muted-foreground text-lg mt-1">of {adjustedGoal} ml</div>
-                {nextDrink && (
-                  <div className="mt-3 text-center">
-                    <div className="text-sm text-primary font-medium">Next:</div>
-                    <div className="text-base text-primary font-semibold">
-                      {nextDrink.amount}ml at {nextDrink.time}
-                      {nextDrink.originalAmount && nextDrink.amount !== nextDrink.originalAmount && (
-                        <span className="text-orange-600 text-sm ml-1">(+{nextDrink.amount - nextDrink.originalAmount}ml)</span>
-                      )}
-                    </div>
+      <div className="p-4 sm:p-6">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="relative inline-block">
+            <svg className="w-64 h-64 sm:w-80 sm:h-80 transform -rotate-90" viewBox="0 0 200 200">
+              <circle
+                cx="100"
+                cy="100"
+                r="80"
+                stroke="#e5e7eb"
+                strokeWidth="12"
+                fill="transparent"
+              />
+              <circle
+                cx="100"
+                cy="100"
+                r="80"
+                stroke="url(#gradient)"
+                strokeWidth="12"
+                fill="transparent"
+                strokeDasharray={`${completionRate * 5.03} 503`}
+                strokeLinecap="round"
+                className="transition-all duration-1000 ease-out"
+              />
+              <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#06b6d4" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center flex-col px-4">
+              <div className="text-3xl sm:text-5xl font-bold text-gray-900 leading-tight">{completedWater}</div>
+              <div className="text-gray-600 text-sm sm:text-lg mt-1">of {adjustedGoal} ml</div>
+              {nextDrink && (
+                <div className="mt-2 sm:mt-3 text-center">
+                  <div className="text-xs sm:text-sm text-blue-600 font-medium">Next:</div>
+                  <div className="text-sm sm:text-base text-blue-600 font-semibold">
+                    {nextDrink.amount}ml at {nextDrink.time}
+                    {nextDrink.originalAmount && nextDrink.amount !== nextDrink.originalAmount && (
+                      <span className="text-orange-600 text-xs sm:text-sm ml-1">(+{nextDrink.amount - nextDrink.originalAmount}ml)</span>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-        <div className="flex justify-center gap-4 mb-8">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-6 sm:mb-8">
           {[100, 250, 500].map(amount => (
-            <button key={amount} onClick={() => addWater(amount)} className="bg-gradient-to-r from-primary to-cyan-500 text-primary-foreground px-8 py-4 rounded-xl hover:from-primary/90 hover:to-cyan-400 transition-all transform hover:scale-105 shadow-lg">
+            <button 
+              key={amount} 
+              onClick={() => addWater(amount)} 
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 sm:px-8 py-3 sm:py-4 rounded-xl hover:from-blue-700 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg text-sm sm:text-base"
+            >
               +{amount}ml
             </button>
           ))}
         </div>
 
         {redistributing && (
-          <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
+          <div className="mb-6 sm:mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
             <div className="animate-spin"><Zap className="w-5 h-5 text-yellow-600" /></div>
-            <div className="text-yellow-800"><div className="font-semibold">Redistributing Schedule...</div><div className="text-sm">Recalculating remaining hydration slots</div></div>
+            <div className="text-yellow-800">
+              <div className="font-semibold text-sm sm:text-base">Redistributing Schedule...</div>
+              <div className="text-xs sm:text-sm">Recalculating remaining hydration slots</div>
+            </div>
           </div>
         )}
 
         {smartMode && insights.length > 0 && (
-          <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
-            <h3 className="font-semibold text-purple-900 mb-4 flex items-center gap-2"><Brain className="w-5 h-5" /> Azai Insights</h3>
-            <div className="space-y-3">
-              {insights.map((insight, index) => <div key={index} className="flex items-center gap-3 text-sm">{insight.icon}<span className="text-gray-700">{insight.text}</span></div>)}
+          <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100">
+            <h3 className="font-semibold text-purple-900 mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
+              <Brain className="w-4 sm:w-5 h-4 sm:h-5" /> AI Insights
+            </h3>
+            <div className="space-y-2 sm:space-y-3">
+              {insights.map((insight, index) => (
+                <div key={index} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                  {insight.icon}
+                  <span className="text-gray-700">{insight.text}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Daily Summary Card */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-200">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-6">
+        <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+            <div className="flex items-center gap-4 sm:gap-6">
               <div className="text-center">
-                <div className="font-bold text-2xl text-blue-700">{completedWater}</div>
-                <div className="text-blue-600">Consumed</div>
+                <div className="font-bold text-xl sm:text-2xl text-blue-700">{completedWater}</div>
+                <div className="text-blue-600 text-xs sm:text-sm">Consumed</div>
               </div>
               <div className="text-center">
-                <div className="font-bold text-2xl text-cyan-700">{adjustedGoal}</div>
-                <div className="text-cyan-600">Target</div>
+                <div className="font-bold text-xl sm:text-2xl text-cyan-700">{adjustedGoal}</div>
+                <div className="text-cyan-600 text-xs sm:text-sm">Target</div>
               </div>
               <div className="text-center">
-                <div className="font-bold text-2xl text-green-700">{remainingWaterNeeded}</div>
-                <div className="text-green-600">Remaining</div>
+                <div className="font-bold text-xl sm:text-2xl text-green-700">{remainingWaterNeeded}</div>
+                <div className="text-green-600 text-xs sm:text-sm">Remaining</div>
               </div>
             </div>
-            <div className="w-32 bg-gray-200 rounded-full h-3">
+            <div className="w-full sm:w-32 bg-gray-200 rounded-full h-3">
               <div 
-                className="bg-gradient-to-r from-primary to-cyan-500 h-3 rounded-full transition-all duration-500" 
+                className="bg-gradient-to-r from-blue-600 to-cyan-500 h-3 rounded-full transition-all duration-500" 
                 style={{ width: `${Math.min(completionRate, 100)}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        <div className="mb-8 p-6 bg-muted/50 rounded-2xl">
-          <h3 className="font-semibold text-foreground mb-4 font-headline">Smart Adjustments (Demo)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-gray-50 rounded-2xl">
+          <h3 className="font-semibold text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Smart Adjustments (Demo)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-muted-foreground mb-2">Weather Temperature</label>
+              <label className="block text-xs sm:text-sm text-gray-600 mb-2">Weather Temperature</label>
               <div className="flex gap-2">
-                {[20, 25, 30, 35].map(temp => <button key={temp} onClick={() => setWeatherTemp(temp)} className={`px-3 py-2 rounded-lg text-sm ${weatherTemp === temp ? 'bg-orange-500 text-white' : 'bg-background text-foreground border'}`}>{temp}°C</button>)}
+                {[20, 25, 30, 35].map(temp => (
+                  <button 
+                    key={temp} 
+                    onClick={() => setWeatherTemp(temp)} 
+                    className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm ${weatherTemp === temp ? 'bg-orange-500 text-white' : 'bg-white text-gray-900 border'}`}
+                  >
+                    {temp}°C
+                  </button>
+                ))}
               </div>
             </div>
             <div>
-              <label className="block text-sm text-muted-foreground mb-2">Activity Level</label>
+              <label className="block text-xs sm:text-sm text-gray-600 mb-2">Activity Level</label>
               <div className="flex gap-2">
-                {[0, 300, 600, 900].map((boost, index) => <button key={boost} onClick={() => setActivityBoost(boost)} className={`px-3 py-2 rounded-lg text-sm ${activityBoost === boost ? 'bg-green-500 text-white' : 'bg-background text-foreground border'}`}>{['Low', 'Moderate', 'High', 'Intense'][index]}</button>)}
+                {[0, 300, 600, 900].map((boost, index) => (
+                  <button 
+                    key={boost} 
+                    onClick={() => setActivityBoost(boost)} 
+                    className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm ${activityBoost === boost ? 'bg-green-500 text-white' : 'bg-white text-gray-900 border'}`}
+                  >
+                    {['Low', 'Moderate', 'High', 'Intense'][index]}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-background rounded-2xl border overflow-hidden">
-          <div className="bg-gradient-to-r from-gray-800 to-gray-700 p-4 text-white">
-            <h3 className="font-semibold flex items-center gap-2 font-headline"><Clock className="w-5 h-5" />{smartMode ? 'Azai-Optimized Hydration Plan' : 'Standard Schedule'}</h3>
-            {smartMode && <p className="text-gray-300 text-sm mt-1">Automatically adjusted for weather, activity, and your personal patterns</p>}
+        <div className="bg-white rounded-2xl border overflow-hidden">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-700 p-3 sm:p-4 text-white">
+            <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
+              <Clock className="w-4 sm:w-5 h-4 sm:h-5" />
+              {smartMode ? 'AI-Optimized Hydration Plan' : 'Standard Schedule'}
+            </h3>
+            {smartMode && (
+              <p className="text-gray-300 text-xs sm:text-sm mt-1">
+                Automatically adjusted for weather, activity, and your personal patterns
+              </p>
+            )}
           </div>
-          <div className="divide-y">
+          <div className="divide-y max-h-96 overflow-y-auto">
             {scheduleItems.map((item) => (
-              <div key={item.id} className={`p-4 ${item.completed ? 'bg-green-50' : item.skipped ? 'bg-red-50' : 'bg-background'}`}>
+              <div key={item.id} className={`p-3 sm:p-4 ${item.completed ? 'bg-green-50' : item.skipped ? 'bg-red-50' : 'bg-white'}`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-center gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={item.completed} onChange={(e) => toggleCompletion(item.id, e.target.checked)} className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2" />
-                        <span className="text-sm text-muted-foreground">Goal</span>
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="flex flex-col items-center gap-1 sm:gap-2">
+                      <label className="flex items-center gap-1 sm:gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={item.completed} 
+                          onChange={(e) => toggleCompletion(item.id, e.target.checked)} 
+                          className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2" 
+                        />
+                        <span className="text-xs sm:text-sm text-gray-600">Goal</span>
                       </label>
                       {!item.completed && !item.skipped && (
-                        <button onClick={() => skipSlot(item.id)} className="text-xs text-destructive hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors">Missed</button>
+                        <button 
+                          onClick={() => skipSlot(item.id)} 
+                          className="text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                        >
+                          Missed
+                        </button>
                       )}
-                      {item.skipped && <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Missed</div>}
+                      {item.skipped && (
+                        <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">Missed</div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      {item.completed ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : item.skipped ? <AlertCircle className="w-5 h-5 text-red-500" /> : <Clock className="w-5 h-5 text-muted-foreground" />}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      {item.completed ? (
+                        <CheckCircle2 className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                      ) : item.skipped ? (
+                        <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-red-500" />
+                      ) : (
+                        <Clock className="w-4 sm:w-5 h-4 sm:h-5 text-gray-400" />
+                      )}
                       <div>
-                        <div className="font-medium text-foreground flex items-center gap-2">
+                        <div className="font-medium text-gray-900 flex items-center gap-2 text-sm sm:text-base">
                           {item.time}
                           {item.originalAmount && item.amount !== item.originalAmount && (
-                            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">Adjusted</span>
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                              Adjusted
+                            </span>
                           )}
                         </div>
                         {smartMode && (
-                          <div className={`text-sm ${item.reason.includes('Redistributed') ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
+                          <div className={`text-xs sm:text-sm ${item.reason.includes('Redistributed') ? 'text-orange-600 font-medium' : 'text-gray-600'}`}>
                             {item.reason}
                           </div>
                         )}
@@ -507,10 +562,10 @@ const SmartWaterTracker = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`font-semibold ${item.completed ? 'text-green-600' : item.skipped ? 'text-destructive' : 'text-primary'}`}>
+                    <div className={`font-semibold text-sm sm:text-base ${item.completed ? 'text-green-600' : item.skipped ? 'text-red-600' : 'text-blue-600'}`}>
                       {item.amount} ml
                       {item.originalAmount && item.amount !== item.originalAmount && (
-                        <span className="text-muted-foreground text-sm ml-1">(was {item.originalAmount}ml)</span>
+                        <span className="text-gray-500 text-xs sm:text-sm ml-1">(was {item.originalAmount}ml)</span>
                       )}
                     </div>
                     {item.reason.includes('Redistributed') && !item.completed && (
@@ -523,14 +578,24 @@ const SmartWaterTracker = () => {
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center p-4 bg-blue-50 rounded-xl"><Target className="w-8 h-8 text-primary mx-auto mb-2" /><div className="font-semibold text-foreground">Today's Goal</div><div className="text-2xl font-bold text-primary">{adjustedGoal} ml</div></div>
-          <div className="text-center p-4 bg-green-50 rounded-xl"><TrendingUp className="w-8 h-8 text-green-500 mx-auto mb-2" /><div className="font-semibold text-foreground">Completion Rate</div><div className="text-2xl font-bold text-green-600">{completionRate}%</div></div>
-          <div className="text-center p-4 bg-purple-50 rounded-xl"><Bell className="w-8 h-8 text-purple-500 mx-auto mb-2" /><div className="font-semibold text-foreground">Smart Alerts</div><div className="text-2xl font-bold text-purple-600">{smartMode ? 'Active' : 'Disabled'}</div></div>
+        <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="text-center p-4 bg-blue-50 rounded-xl">
+            <Target className="w-6 sm:w-8 h-6 sm:h-8 text-blue-600 mx-auto mb-2" />
+            <div className="font-semibold text-gray-900 text-sm sm:text-base">Today's Goal</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{adjustedGoal} ml</div>
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-xl">
+            <TrendingUp className="w-6 sm:w-8 h-6 sm:h-8 text-green-500 mx-auto mb-2" />
+            <div className="font-semibold text-gray-900 text-sm sm:text-base">Completion Rate</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{completionRate}%</div>
+          </div>
+          <div className="text-center p-4 bg-purple-50 rounded-xl">
+            <Bell className="w-6 sm:w-8 h-6 sm:h-8 text-purple-500 mx-auto mb-2" />
+            <div className="font-semibold text-gray-900 text-sm sm:text-base">Smart Alerts</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">{notificationsEnabled ? 'Active' : 'Disabled'}</div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
-
-export default SmartWaterTracker;
