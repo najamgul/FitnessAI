@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,12 +14,71 @@ type ScheduleItem = {
 };
 
 const SmartWaterTracker = () => {
-  const [dailyGoal] = useState(2500);
+  const [dailyGoal, setDailyGoal] = useState(2500);
   const [smartMode, setSmartMode] = useState(true);
   const [weatherTemp, setWeatherTemp] = useState(24);
   const [activityBoost, setActivityBoost] = useState(300);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Set initial daily goal based on user's onboarding data
+  useEffect(() => {
+    try {
+        const onboardingDataString = localStorage.getItem('onboardingData');
+        if (onboardingDataString) {
+            const data = JSON.parse(onboardingDataString);
+            const weight = parseFloat(data.weight);
+            const activityLevel = data.activityLevel;
+
+            if (!isNaN(weight)) {
+                // Base goal: 35ml per kg of body weight
+                let calculatedGoal = Math.round((weight * 35) / 50) * 50;
+                
+                // Adjust for activity level
+                switch (activityLevel) {
+                    case 'light':
+                        calculatedGoal += 300;
+                        break;
+                    case 'moderate':
+                        calculatedGoal += 500;
+                        break;
+                    case 'very':
+                        calculatedGoal += 750;
+                        break;
+                }
+                setDailyGoal(calculatedGoal);
+            }
+        }
+    } catch (error) {
+        console.error("Could not read onboarding data for hydration goal.", error);
+    }
+  }, []);
+
+
+  // Play notification sound that works on mobile
+  const playNotificationSound = () => {
+    try {
+      // Create a simple beep sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.log('Sound not supported on this device');
+    }
+  };
 
   // Simple schedule generation without complex time calculations
   const generateSimpleSchedule = useCallback(() => {
@@ -38,7 +98,7 @@ const SmartWaterTracker = () => {
     
     return times.map((time, index) => ({
       time,
-      amount: baseAmount + (index < 3 ? 50 : index > 7 ? -30 : 0),
+      amount: Math.round((baseAmount + (index < 3 ? 50 : index > 7 ? -30 : 0))/10)*10,
       completed: false,
       skipped: false,
       id: index,
@@ -49,6 +109,12 @@ const SmartWaterTracker = () => {
   // Simple mount effect
   useEffect(() => {
     setMounted(true);
+    // Update current time every minute
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return () => clearInterval(timer);
   }, []);
 
   // Generate schedule after mount
@@ -59,6 +125,43 @@ const SmartWaterTracker = () => {
     }
   }, [mounted, generateSimpleSchedule]);
 
+  // Check for upcoming hydration times and play sound
+  useEffect(() => {
+    if (!mounted || scheduleItems.length === 0) return;
+
+    const checkUpcomingHydration = () => {
+      const now = new Date();
+      
+      scheduleItems.forEach(item => {
+        if (item.completed || item.skipped) return;
+        
+        // Parse the item time
+        const [time, period] = item.time.split(' ');
+        const [hours, minutes] = time.split(':').map(Number);
+        let hour24 = hours;
+        
+        if (period === 'PM' && hours !== 12) hour24 += 12;
+        if (period === 'AM' && hours === 12) hour24 = 0;
+        
+        const itemTime = new Date();
+        itemTime.setHours(hour24, minutes, 0, 0);
+        
+        // Check if it's 5 minutes before the scheduled time
+        const fiveMinutesBefore = new Date(itemTime.getTime() - 5 * 60 * 1000);
+        const oneMinuteAfter = new Date(fiveMinutesBefore.getTime() + 60 * 1000);
+        
+        if (now >= fiveMinutesBefore && now <= oneMinuteAfter) {
+          playNotificationSound();
+        }
+      });
+    };
+
+    const interval = setInterval(checkUpcomingHydration, 60000); // Check every minute
+    checkUpcomingHydration(); // Check immediately
+
+    return () => clearInterval(interval);
+  }, [mounted, scheduleItems, currentTime]);
+
   const toggleCompletion = (id: number) => {
     setScheduleItems(prev =>
       prev.map(item =>
@@ -68,11 +171,46 @@ const SmartWaterTracker = () => {
   };
 
   const skipSlot = (id: number) => {
-    setScheduleItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, skipped: true, completed: false } : item
-      )
-    );
+    setScheduleItems(prev => {
+      const updatedItems = [...prev];
+      const skippedItem = updatedItems.find(item => item.id === id);
+      
+      if (!skippedItem) return prev;
+      
+      // Mark the item as skipped
+      skippedItem.skipped = true;
+      skippedItem.completed = false;
+      
+      // Find remaining incomplete slots (after the current one)
+      const remainingSlots = updatedItems.filter(item => 
+        item.id > id && !item.completed && !item.skipped
+      );
+      
+      if (remainingSlots.length === 0) {
+        // No remaining slots to redistribute to
+        return updatedItems;
+      }
+      
+      // Calculate how much water to redistribute
+      const skippedAmount = skippedItem.amount;
+      const extraPerSlot = Math.floor(skippedAmount / remainingSlots.length);
+      const remainder = skippedAmount % remainingSlots.length;
+      
+      // Redistribute the water among remaining slots
+      remainingSlots.forEach((slot, index) => {
+        const originalItem = updatedItems.find(item => item.id === slot.id);
+        if (originalItem) {
+          originalItem.amount += extraPerSlot;
+          // Add remainder to first few slots
+          if (index < remainder) {
+            originalItem.amount += 1;
+          }
+          originalItem.reason = `Adjusted (+${extraPerSlot + (index < remainder ? 1 : 0)}ml from skipped ${skippedItem.time})`;
+        }
+      });
+      
+      return updatedItems;
+    });
   };
 
   // Don't render until mounted to avoid hydration issues
@@ -113,14 +251,69 @@ const SmartWaterTracker = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">Smart Hydration</h1>
-                <p className="text-blue-100">AI-powered water tracking</p>
+                <p className="text-blue-100">Azai-powered water tracking</p>
               </div>
             </div>
             <div className="text-right">
               <div className="text-4xl font-bold">{completionRate}%</div>
               <div className="text-blue-100 text-sm">Progress</div>
+              <div className="text-blue-100 text-xs mt-1">Target: {adjustedGoal}ml</div>
             </div>
           </div>
+          
+          {/* Next Goal - Prominent Display */}
+          {scheduleItems.find(item => !item.completed && !item.skipped) && (
+            <div className="mt-4 p-4 bg-white/15 rounded-xl border border-white/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-400 rounded-full">
+                    <Clock className="w-5 h-5 text-blue-900" />
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-100 font-medium">NEXT HYDRATION</div>
+                    <div className="text-xl font-bold text-white">
+                      {scheduleItems.find(item => !item.completed && !item.skipped)?.amount}ml
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-yellow-200">
+                    {scheduleItems.find(item => !item.completed && !item.skipped)?.time}
+                  </div>
+                  <div className="text-xs text-blue-200">
+                    {(() => {
+                      const nextItem = scheduleItems.find(item => !item.completed && !item.skipped);
+                      if (!nextItem) return '';
+                      
+                      const [time, period] = nextItem.time.split(' ');
+                      const [hours, minutes] = time.split(':').map(Number);
+                      let hour24 = hours;
+                      
+                      if (period === 'PM' && hours !== 12) hour24 += 12;
+                      if (period === 'AM' && hours === 12) hour24 = 0;
+                      
+                      const itemTime = new Date();
+                      itemTime.setHours(hour24, minutes, 0, 0);
+                      const now = new Date();
+                      
+                      const diffMs = itemTime.getTime() - now.getTime();
+                      const diffMins = Math.round(diffMs / (1000 * 60));
+                      
+                      if (diffMins > 0) {
+                        const hours = Math.floor(diffMins / 60);
+                        const mins = diffMins % 60;
+                        return hours > 0 ? `in ${hours}h ${mins}m` : `in ${mins}m`;
+                      } else if (diffMins > -30) {
+                        return 'now';
+                      } else {
+                        return 'overdue';
+                      }
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           <button 
             onClick={() => setSmartMode(!smartMode)} 
@@ -166,24 +359,6 @@ const SmartWaterTracker = () => {
             </div>
           </div>
 
-          {/* Quick Add Buttons */}
-          <div className="flex justify-center gap-4 mb-8">
-            {[100, 250, 500].map(amount => (
-              <button 
-                key={amount}
-                onClick={() => {
-                  const nextSlot = scheduleItems.find(item => !item.completed && !item.skipped);
-                  if (nextSlot) {
-                    toggleCompletion(nextSlot.id);
-                  }
-                }}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl transition-colors"
-              >
-                +{amount}ml
-              </button>
-            ))}
-          </div>
-
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="text-center p-4 bg-blue-50 rounded-xl">
@@ -203,9 +378,9 @@ const SmartWaterTracker = () => {
             </div>
           </div>
 
-          {/* Demo Controls */}
+          {/* Environment Controls */}
           <div className="mb-8 p-4 bg-gray-50 rounded-xl">
-            <h3 className="font-semibold mb-4">Demo Controls</h3>
+            <h3 className="font-semibold mb-4">Environment Settings</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-2">Temperature</label>
@@ -251,7 +426,7 @@ const SmartWaterTracker = () => {
             <div className="bg-gray-800 p-4 text-white">
               <h3 className="font-semibold flex items-center gap-2">
                 <Clock className="w-5 h-5" />
-                {smartMode ? 'AI-Optimized Schedule' : 'Basic Schedule'}
+                {smartMode ? 'Azai-Optimized Schedule' : 'Basic Schedule'}
               </h3>
             </div>
             
@@ -281,8 +456,13 @@ const SmartWaterTracker = () => {
                             onClick={() => skipSlot(item.id)}
                             className="text-xs text-red-600 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
                           >
-                            Skip
+                            Miss
                           </button>
+                        )}
+                        {item.skipped && (
+                          <div className="text-xs text-red-600 font-medium px-2 py-1 bg-red-100 rounded">
+                            Missed
+                          </div>
                         )}
                       </div>
                       
@@ -295,9 +475,22 @@ const SmartWaterTracker = () => {
                           <Clock className="w-5 h-5 text-gray-400" />
                         )}
                         <div>
-                          <div className="font-medium">{item.time}</div>
+                          <div className="font-medium flex items-center gap-2">
+                            {item.time}
+                            {item.reason.includes('Adjusted') && (
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                                Redistributed
+                              </span>
+                            )}
+                          </div>
                           {smartMode && (
-                            <div className="text-sm text-gray-600">{item.reason}</div>
+                            <div className={`text-sm ${
+                              item.reason.includes('Adjusted') 
+                                ? 'text-orange-600 font-medium' 
+                                : 'text-gray-600'
+                            }`}>
+                              {item.reason}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -321,3 +514,5 @@ const SmartWaterTracker = () => {
 };
 
 export default SmartWaterTracker;
+
+    
