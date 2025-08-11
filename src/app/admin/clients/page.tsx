@@ -44,6 +44,9 @@ type DietPlanDay = {
 const parseTime = (timeStr: string): Date => {
     // Use a fixed date to avoid hydration errors, only the time matters for sorting.
     const referenceDate = new Date(0); 
+    if (typeof timeStr !== 'string' || !timeStr.includes(' ')) {
+        return referenceDate; // Return a default time if format is invalid
+    }
     const [time, modifier] = timeStr.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
 
@@ -53,7 +56,7 @@ const parseTime = (timeStr: string): Date => {
         hours += 12;
     }
 
-    referenceDate.setHours(hours, minutes, 0, 0);
+    referenceDate.setHours(hours || 0, minutes || 0, 0, 0);
     return referenceDate;
 };
 
@@ -405,5 +408,3 @@ export default function AdminClientsPage() {
         </Card>
     );
 }
-
-    
