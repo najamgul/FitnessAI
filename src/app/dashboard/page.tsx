@@ -43,7 +43,9 @@ const DashboardPage = () => {
             const onboardingDataString = localStorage.getItem('onboardingData');
             if (onboardingDataString) {
                 const onboardingData = JSON.parse(onboardingDataString);
-                setUserName(onboardingData.name.split(' ')[0] || 'User');
+                if (onboardingData && onboardingData.name) {
+                    setUserName(onboardingData.name.split(' ')[0] || 'User');
+                }
             } else {
                  const loggedInEmail = localStorage.getItem('loggedInEmail');
                  if(loggedInEmail) {
