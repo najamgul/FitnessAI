@@ -85,7 +85,7 @@ export default function AwaitingApprovalPage() {
                         <span>Listening for approval...</span>
                     </div>
                    <p className="text-sm text-muted-foreground pt-4 mt-4 border-t">
-                        If you have any questions, you can contact our support team at <span className="font-semibold text-foreground">+91 60065 24788</span>.
+                        If you have any questions, you can contact our support team at <span className="font-semibold text-foreground">+91 95961 22125</span>.
                    </p>
                 </CardContent>
             </Card>

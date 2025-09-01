@@ -127,7 +127,7 @@ export default function AdminTeamPage() {
                                     <FormItem>
                                     <FormLabel>Phone Number</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="+91 12345 67890" {...field} />
+                                        <Input placeholder="+91 95961 22125" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                     </FormItem>

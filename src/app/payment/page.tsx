@@ -159,7 +159,7 @@ export default function PaymentPage() {
                                         />
                                     </div>
                                     <Button asChild variant="outline" className="w-full sm:w-auto">
-                                        <a href="https://wa.me/916006524788?text=Here%20is%20my%20payment%20screenshot%20for%20the%20Aziaf%20diet%20plan." target="_blank" rel="noopener noreferrer">
+                                        <a href="https://wa.me/919596122125?text=Here%20is%20my%20payment%20screenshot%20for%20the%20Aziaf%20diet%20plan." target="_blank" rel="noopener noreferrer">
                                             <WhatsAppIcon className="text-green-500" />
                                             WhatsApp Screenshot
                                         </a>
