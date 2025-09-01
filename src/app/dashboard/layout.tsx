@@ -95,6 +95,11 @@ export default function DashboardLayout({
                         } else if (paymentStatus !== 'approved') {
                             router.push('/payment');
                         }
+                    } else {
+                        // If user is admin and on a non-admin page, redirect them.
+                        if (!pathname.startsWith('/admin')) {
+                            router.push('/admin/users');
+                        }
                     }
 
                 } else {
@@ -129,7 +134,7 @@ export default function DashboardLayout({
   }
 
   const getCurrentPageTitle = () => {
-    const matchingItem = navItems
+    const matchingItem = allNavItems
       .slice()
       .reverse()
       .find(item => pathname.startsWith(item.href));
