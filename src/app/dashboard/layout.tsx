@@ -88,17 +88,18 @@ export default function DashboardLayout({
                     const userIsAdmin = userData.role === 'admin';
                     setIsAdmin(userIsAdmin);
 
-                    if (!userIsAdmin) {
-                        const paymentStatus = userData.paymentStatus;
-                        if (paymentStatus === 'pending') {
-                            router.push('/awaiting-approval');
-                        } else if (paymentStatus !== 'approved') {
-                            router.push('/payment');
-                        }
-                    } else {
-                        // If user is admin and on a non-admin page, redirect them.
+                    if (userIsAdmin) {
+                        // If user is admin and not on an admin page, redirect them.
                         if (!pathname.startsWith('/admin')) {
                             router.push('/admin/users');
+                        }
+                    } else {
+                        // Logic for regular users
+                        const paymentStatus = userData.paymentStatus;
+                        if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
+                            router.push('/awaiting-approval');
+                        } else if (paymentStatus !== 'approved' && pathname !== '/payment') {
+                             router.push('/payment');
                         }
                     }
 
