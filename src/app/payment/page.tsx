@@ -152,7 +152,7 @@ export default function PaymentPage() {
                                 <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
                                     <div className="p-2 border rounded-lg bg-white">
                                         <Image
-                                            src="/qr-code.png"
+                                            src="/new-qr-code.png"
                                             alt="Payment QR Code"
                                             width={150}
                                             height={150}
