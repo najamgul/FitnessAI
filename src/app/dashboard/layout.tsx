@@ -89,22 +89,18 @@ export default function DashboardLayout({
                     setIsAdmin(userIsAdmin);
 
                     if (userIsAdmin) {
-                        // If user is admin and not on an admin page, redirect them.
                         if (!pathname.startsWith('/admin')) {
                             router.push('/admin/users');
                         }
                     } else {
-                        // Logic for regular users
                         const paymentStatus = userData.paymentStatus;
                         if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
                             router.push('/awaiting-approval');
-                        } else if (paymentStatus !== 'approved' && pathname !== '/payment') {
-                             router.push('/payment');
+                        } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && pathname !== '/payment' && pathname !== '/onboarding') {
+                             router.push('/onboarding'); // Start with onboarding if unpaid
                         }
                     }
-
                 } else {
-                     // Handle case where user exists in Auth but not Firestore
                     router.push('/login');
                 }
             } catch (error) {
@@ -126,8 +122,9 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
         await signOut(auth);
-        // Clear sensitive session data if any
         sessionStorage.removeItem('chatHistory');
+        localStorage.removeItem('progressHistory');
+        localStorage.removeItem('onboardingData');
         router.push('/login');
     } catch (error) {
         toast({ title: 'Logout Failed', description: 'Could not log you out. Please try again.', variant: 'destructive' });
