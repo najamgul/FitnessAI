@@ -236,7 +236,7 @@ export default function AdminClientsPage() {
         if (isEditing) {
             return (
                 <div className="flex flex-col gap-2 p-1">
-                     {isTextArea ? (
+                     {isTextArea || isImage ? (
                         <Textarea
                             value={tempValue as string}
                             onChange={(e) => setTempValue(e.target.value)}

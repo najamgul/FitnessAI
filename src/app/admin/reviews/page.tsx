@@ -47,7 +47,7 @@ type DietPlanDay = {
 
 const parseTime = (timeStr: string): Date => {
     // Use a fixed date to avoid hydration errors, only the time matters for sorting.
-    const referenceDate = new Date(0);
+    const referenceDate = new Date(0); 
     if (typeof timeStr !== 'string' || !timeStr.includes(' ')) {
         return referenceDate; // Return a default time if format is invalid
     }
@@ -393,7 +393,7 @@ export default function AdminReviewsPage() {
         if (isEditing) {
             return (
                 <div className="flex flex-col gap-2 p-1">
-                     {isTextArea ? (
+                     {isTextArea || isImage ? (
                         <Textarea
                             value={tempValue as string}
                             onChange={(e) => setTempValue(e.target.value)}
