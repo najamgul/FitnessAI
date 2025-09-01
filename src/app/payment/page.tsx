@@ -45,9 +45,9 @@ export default function PaymentPage() {
                     const data = JSON.parse(storedOnboardingData);
                     const duration = parseInt(data.planDuration, 10);
                     if (!isNaN(duration)) {
-                        if (duration >= 7 && duration <= 30) setPaymentAmount(1500);
-                        else if (duration >= 31 && duration <= 60) setPaymentAmount(2800);
-                        else if (duration >= 61 && duration <= 90) setPaymentAmount(4000);
+                        if (duration >= 7 && duration <= 30) setPaymentAmount(999);
+                        else if (duration >= 31 && duration <= 60) setPaymentAmount(1799);
+                        else if (duration >= 61 && duration <= 90) setPaymentAmount(2599);
                     }
                 } else {
                     router.push('/onboarding');

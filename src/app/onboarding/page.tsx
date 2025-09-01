@@ -214,9 +214,9 @@ export default function OnboardingPage() {
     const getPaymentAmount = (durationStr: string): number => {
         const duration = parseInt(durationStr, 10);
         if (isNaN(duration)) return 0;
-        if (duration >= 7 && duration <= 30) return 1500;
-        if (duration >= 31 && duration <= 60) return 2800;
-        if (duration >= 61 && duration <= 90) return 4000;
+        if (duration >= 7 && duration <= 30) return 999;
+        if (duration >= 31 && duration <= 60) return 1799;
+        if (duration >= 61 && duration <= 90) return 2599;
         return 0;
     };
 
@@ -573,9 +573,9 @@ export default function OnboardingPage() {
                                             <p className="text-2xl font-bold flex items-center justify-center gap-1"><IndianRupee size={20}/> {paymentAmount}</p>
                                             <p className="text-xs text-muted-foreground">
                                                 {formData.planDuration} days: {
-                                                    getPaymentAmount(formData.planDuration) === 1500 ? '₹1500 (1-30 days)' :
-                                                    getPaymentAmount(formData.planDuration) === 2800 ? '₹2800 (31-60 days)' :
-                                                    '₹4000 (61-90 days)'
+                                                    getPaymentAmount(formData.planDuration) === 999 ? '₹999 (7-30 days)' :
+                                                    getPaymentAmount(formData.planDuration) === 1799 ? '₹1799 (31-60 days)' :
+                                                    '₹2599 (61-90 days)'
                                                 }
                                             </p>
                                         </div>
