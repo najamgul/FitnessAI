@@ -79,6 +79,7 @@ Please use the following user details and the provided knowledge base context.
 
 ### User Details
 - **Health Information:** ${healthInfo}
+- **Medical History:** ${onboardingData.medicalHistory || 'No specific medical history provided.'}
 - **Dietary Preferences & Tastes:** ${preferences}
 - **Primary Goal:** ${goals}
 - **Geographic Location:** ${onboardingData.geographicLocation}
@@ -274,6 +275,7 @@ export default function AdminReviewsPage() {
             const input: GenerateDietPlanInput = {
                 dietaryPreferences: onboardingData.healthGoals?.join(', ') + '. ' + onboardingData.otherGoal,
                 healthInformation: `Age: ${onboardingData.age}, Gender: ${onboardingData.gender}, Weight: ${onboardingData.weight}kg, Height: ${onboardingData.heightFt}'${onboardingData.heightIn}", Activity: ${onboardingData.activityLevel}, Location: ${onboardingData.geographicLocation}`,
+                medicalHistory: onboardingData.medicalHistory,
                 goals: `Target weight: ${onboardingData.goalWeightKg}kg. Primary goal: ${onboardingData.goalAction}`,
                 geographicLocation: onboardingData.geographicLocation,
                 planDuration: 3, // Hardcoded to 3 days

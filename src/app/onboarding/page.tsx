@@ -76,6 +76,7 @@ export default function OnboardingPage() {
         stressLevel: 'low',
         fastingPreference: 'no_fasting',
         fastingDetails: '',
+        medicalHistory: '',
         
         // Step 4
         goalAction: 'maintain', // 'lose', 'gain', 'maintain'
@@ -433,6 +434,16 @@ export default function OnboardingPage() {
                                             className="mt-2 animate-in fade-in-50"
                                         />
                                     )}
+                                </div>
+                                <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="medicalHistory">Medical History</Label>
+                                    <Textarea
+                                        id="medicalHistory"
+                                        placeholder="Please mention any past or present medical conditions, allergies, or medications..."
+                                        value={formData.medicalHistory}
+                                        onChange={handleChange}
+                                    />
+                                    <p className="text-xs text-muted-foreground">This information is crucial for creating a safe and effective plan.</p>
                                 </div>
                             </CardContent>
                         </>

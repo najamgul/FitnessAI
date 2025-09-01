@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -18,6 +19,7 @@ const GenerateDietPlanInputSchema = z.object({
     .string()
     .describe('Dietary preferences such as vegetarian, vegan, keto, favorite foods, hated foods, spice tolerance etc.'),
   healthInformation: z.string().describe('Health information like age, gender, weight, height, activity level, medical conditions, etc.'),
+  medicalHistory: z.string().optional().describe('The user\'s past and present medical history, including any conditions, allergies, or medications.'),
   goals: z.string().describe('Goals such as weight loss, muscle gain, etc.'),
   geographicLocation: z.string().describe('The geographic location of the user.'),
   planDuration: z.number().describe('The number of days the diet plan should cover.'),
@@ -236,7 +238,7 @@ export async function generateDietPlan(input: GenerateDietPlanInput): Promise<Ge
 
 const defaultPromptTemplate = `You are Azai, a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
 
-Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for exactly 3 days. 
+Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for exactly 3 days. This plan MUST take into account the user's medical history for safety and effectiveness.
 
 CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
 1. Generate exactly 3 complete days - NO MORE, NO LESS.
@@ -261,6 +263,7 @@ Your response must be complete and valid JSON. Generate ALL 3 days completely wi
 
 User Details:
 - Health Information: {{{healthInformation}}}
+- Medical History: {{{medicalHistory}}}
 - Dietary Preferences & Tastes: {{{dietaryPreferences}}}
 - Primary Goal: {{{goals}}}
 - Geographic Location: {{{geographicLocation}}}
