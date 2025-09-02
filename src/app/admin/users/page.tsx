@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { collection, doc, getDocs, onSnapshot, query, updateDoc, where, getDoc, setDoc, addDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2, Eye } from 'lucide-react';
@@ -47,114 +47,62 @@ export default function AdminUsersPage() {
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchUsersAndPayments = useCallback(() => {
+    const fetchUsers = useCallback(async () => {
         setIsLoading(true);
-        const usersQuery = query(collection(db, 'users'));
+        try {
+            const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) {
+                throw new Error("Authentication token not found.");
+            }
 
-        const unsubscribe = onSnapshot(usersQuery, async (usersSnapshot) => {
-            try {
-                const userList: User[] = [];
-
-                for (const userDoc of usersSnapshot.docs) {
-                    const userData = userDoc.data();
-                    let user: User = {
-                        id: userDoc.id,
-                        name: userData.name,
-                        email: userData.email,
-                        paymentStatus: userData.paymentStatus || 'unpaid',
-                        planStatus: userData.planStatus || 'not_started',
-                        assignedTo: userData.assignedTo || '',
-                        role: userData.role || 'user',
-                        createdAt: userData.createdAt,
-                    };
-
-                    if (user.paymentStatus === 'pending') {
-                         try {
-                            const paymentDocRef = doc(db, 'payments', user.id);
-                            const paymentDoc = await getDoc(paymentDocRef);
-                            if (paymentDoc.exists()) {
-                                user.screenshotUrl = paymentDoc.data().screenshotUrl;
-                            }
-                        } catch (e) {
-                            console.error(`Failed to fetch payment for user ${user.id}`, e);
-                        }
-                    }
-                    
-                    try {
-                        const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
-                        const onboardingDoc = await getDoc(onboardingDocRef);
-                        if (onboardingDoc.exists()) {
-                            const onboardingData = onboardingDoc.data();
-                            user.planDuration = onboardingData.planDuration;
-                            user.onboardingData = onboardingData;
-                        }
-                    } catch(e) {
-                        console.error(`Failed to fetch onboarding for user ${user.id}`, e);
-                    }
-                    
-                    userList.push(user);
+            const response = await fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${idToken}`
                 }
+            });
 
-                // Sort users by creation date descending
-                userList.sort((a, b) => {
-                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-                    return dateB.getTime() - dateA.getTime();
-                });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch users');
+            }
+            
+            const fetchedUsers = await response.json();
+            setUsers(fetchedUsers);
 
-                setUsers(userList);
-            } catch (error: any) {
-                 console.error("Error processing user data:", error);
-                 if (error.code !== 'permission-denied') {
-                    toast({ title: "Error", description: "Could not process user data.", variant: "destructive" });
-                 }
-            } finally {
-                setIsLoading(false);
-            }
-        }, (error) => {
-            console.error("Error fetching users snapshot:", error);
-            if (error.code !== 'permission-denied') {
-                toast({ title: "Error", description: "Could not fetch user data.", variant: "destructive" });
-            }
+        } catch (error: any) {
+            console.error("Error fetching users:", error);
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        } finally {
             setIsLoading(false);
-        });
-        
-        return unsubscribe;
+        }
     }, [toast]);
 
-
     useEffect(() => {
-        let teamUnsubscribe: (() => void) | undefined;
-        let usersUnsubscribe: (() => void) | undefined;
-
-        const authUnsubscribe = onAuthStateChanged(auth, user => {
+        const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const userDocRef = doc(db, 'users', user.uid);
-                getDoc(userDocRef).then(userDoc => {
-                    if(userDoc.exists() && userDoc.data().role === 'admin') {
-                        teamUnsubscribe = onSnapshot(collection(db, 'team'), (snapshot) => {
-                            setTeamMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamMember)));
-                        });
-                        usersUnsubscribe = fetchUsersAndPayments();
+                try {
+                    // Fetch Team Members
+                    const teamResponse = await fetch('/api/admin/team');
+                    if(teamResponse.ok) {
+                        const teamData = await teamResponse.json();
+                        setTeamMembers(teamData);
                     } else {
-                        setIsLoading(false);
-                        setUsers([]);
-                        setTeamMembers([]);
+                        toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
                     }
-                })
+                    
+                    // Fetch Users
+                    await fetchUsers();
+
+                } catch (error) {
+                    console.error("Error during initial data fetch:", error);
+                }
             } else {
-                 setIsLoading(false);
-                 setUsers([]);
-                 setTeamMembers([]);
+                setIsLoading(false);
             }
         });
 
-        return () => {
-            authUnsubscribe();
-            teamUnsubscribe && teamUnsubscribe();
-            usersUnsubscribe && usersUnsubscribe();
-        };
-    }, [fetchUsersAndPayments]);
+        return () => authUnsubscribe();
+    }, [fetchUsers, toast]);
 
     const handleApprove = async (userId: string, userEmail: string, userName: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
@@ -171,41 +119,45 @@ export default function AdminUsersPage() {
         }
 
         try {
-            const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + days);
+             const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) throw new Error("Not authenticated");
 
-            const userDocRef = doc(db, 'users', userId);
-            await updateDoc(userDocRef, {
-                paymentStatus: 'approved',
-                planStatus: 'pending_review',
-                assignedTo: assignedToMember.name,
-                paymentExpiryDate: expiryDate.toISOString(),
+            const response = await fetch('/api/admin/approve-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    userId,
+                    userEmail,
+                    userName,
+                    days,
+                    assignedTo: {
+                        name: assignedToMember.name,
+                        id: assignedToMember.id,
+                    },
+                }),
             });
 
-            await addDoc(collection(db, 'reviews'), {
-                userId: userId,
-                userName: userName,
-                userEmail: userEmail,
-                assignedTo: assignedToMember.name,
-                assignedToId: assignedToMember.id,
-                status: 'pending_generation',
-                createdAt: new Date().toISOString(),
-            });
-
-            const paymentDocRef = doc(db, 'payments', userId);
-            await updateDoc(paymentDocRef, {
-                status: 'verified',
-            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to approve user.");
+            }
 
             toast({
                 title: 'User Approved & Assigned',
                 description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
-        } catch (error) {
+            
+            // Refresh the user list
+            fetchUsers();
+
+        } catch (error: any) {
             console.error("Approval Error: ", error);
              toast({
                 title: 'Approval Failed',
-                description: 'Could not update user status in the database.',
+                description: error.message || 'Could not update user status.',
                 variant: 'destructive'
             });
         }
@@ -329,5 +281,3 @@ export default function AdminUsersPage() {
         </div>
     );
 }
-
-    
