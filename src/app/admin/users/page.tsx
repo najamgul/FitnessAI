@@ -50,7 +50,6 @@ export default function AdminUsersPage() {
     const fetchUsersAndPayments = useCallback(() => {
         setIsLoading(true);
         const usersQuery = query(collection(db, 'users'));
-        const paymentsCollection = collection(db, 'payments');
 
         const unsubscribe = onSnapshot(usersQuery, async (usersSnapshot) => {
             try {
@@ -70,19 +69,27 @@ export default function AdminUsersPage() {
                     };
 
                     if (user.paymentStatus === 'pending') {
-                        const paymentDocRef = doc(paymentsCollection, user.id);
-                        const paymentDoc = await getDoc(paymentDocRef);
-                        if (paymentDoc.exists()) {
-                            user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                         try {
+                            const paymentDocRef = doc(db, 'payments', user.id);
+                            const paymentDoc = await getDoc(paymentDocRef);
+                            if (paymentDoc.exists()) {
+                                user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                            }
+                        } catch (e) {
+                            console.error(`Failed to fetch payment for user ${user.id}`, e);
                         }
                     }
                     
-                    const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
-                    const onboardingDoc = await getDoc(onboardingDocRef);
-                    if (onboardingDoc.exists()) {
-                        const onboardingData = onboardingDoc.data();
-                        user.planDuration = onboardingData.planDuration;
-                        user.onboardingData = onboardingData;
+                    try {
+                        const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
+                        const onboardingDoc = await getDoc(onboardingDocRef);
+                        if (onboardingDoc.exists()) {
+                            const onboardingData = onboardingDoc.data();
+                            user.planDuration = onboardingData.planDuration;
+                            user.onboardingData = onboardingData;
+                        }
+                    } catch(e) {
+                        console.error(`Failed to fetch onboarding for user ${user.id}`, e);
                     }
                     
                     userList.push(user);
@@ -250,7 +257,7 @@ export default function AdminUsersPage() {
                                                 ) : <span className="text-xs text-muted-foreground">N/A</span>}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={user.paymentStatus === 'approved' ? 'default' : 'secondary'}>
+                                                <Badge variant={user.paymentStatus === 'approved' ? 'default' : user.paymentStatus === 'pending' ? 'secondary' : 'destructive'}>
                                                     {user.paymentStatus.charAt(0).toUpperCase() + user.paymentStatus.slice(1)}
                                                 </Badge>
                                                 {user.assignedTo && <div className="text-xs text-muted-foreground mt-1">Assigned: {user.assignedTo}</div>}
@@ -322,3 +329,5 @@ export default function AdminUsersPage() {
         </div>
     );
 }
+
+    
