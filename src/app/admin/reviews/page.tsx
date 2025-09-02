@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw, BookOpen, Trash2 } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, User, Edit3, Save, X, Copy, Image as ImageIcon, RefreshCcw, BookOpen, Trash2, ChevronDown } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { generateDietPlan, GenerateDietPlanInput, GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import NextImage from 'next/image';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type ReviewTask = {
     id: string; // review document ID
@@ -481,19 +482,25 @@ export default function AdminReviewsPage() {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 bg-muted/50 rounded-b-lg">
-                                    <div className="flex flex-col lg:flex-row gap-6">
-                                        {/* User Onboarding Data */}
-                                        <div className="lg:w-1/3 xl:w-1/4">
-                                            <h4 className="font-semibold mb-2">User Onboarding Data</h4>
-                                            <ScrollArea className="max-h-[600px] overflow-auto">
-                                                <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap">
-                                                    {JSON.stringify(task.onboardingData, null, 2)}
-                                                </pre>
-                                            </ScrollArea>
-                                        </div>
+                                    <div className="space-y-6">
                                         
-                                        {/* Diet Plan Table or Generate Button */}
-                                        <div className="flex-1">
+                                        <Collapsible>
+                                            <CollapsibleTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between">
+                                                   <span>View User Onboarding Data</span>
+                                                   <ChevronDown className="h-4 w-4" />
+                                                </Button>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2">
+                                                 <ScrollArea className="max-h-[300px] overflow-auto">
+                                                    <pre className="p-4 bg-background rounded-md text-xs whitespace-pre-wrap">
+                                                        {JSON.stringify(task.onboardingData, null, 2)}
+                                                    </pre>
+                                                </ScrollArea>
+                                            </CollapsibleContent>
+                                        </Collapsible>
+                                        
+                                        <div>
                                             <h4 className="font-semibold mb-2">Generation Controls</h4>
                                             <div className='space-y-4 p-4 border rounded-lg bg-background'>
                                                  <div>
@@ -618,3 +625,5 @@ export default function AdminReviewsPage() {
         </Card>
     );
 }
+
+    
