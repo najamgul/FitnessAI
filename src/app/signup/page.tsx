@@ -54,6 +54,23 @@ export default function SignupPage() {
                 planStatus: 'not_started',
             });
 
+            if (isAdmin) {
+                try {
+                    const token = await user.getIdToken();
+                    await fetch('/api/set-admin-claim', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ uid: user.uid }),
+                    });
+                } catch (claimError) {
+                    console.error("Failed to set admin claim:", claimError);
+                    // Decide if this should be a fatal error for the user
+                }
+            }
+            
             toast({
                 title: 'Account Created',
                 description: "Welcome! Let's get you set up.",
