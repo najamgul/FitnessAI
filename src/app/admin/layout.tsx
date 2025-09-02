@@ -45,24 +45,15 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-const userNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/plan', label: 'Diet Plan', icon: UtensilsCrossed },
-  { href: '/dashboard/hydration', label: 'Hydration', icon: Droplets },
-  { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart },
-  { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare },
-];
-
 const adminNavItems = [
-  { href: '/admin/users', label: 'User Management', icon: Users, admin: true },
-  { href: '/admin/reviews', label: 'Plan Reviews', icon: ClipboardCheck, admin: true },
-  { href: '/admin/clients', label: 'Client Plans', icon: FileHeart, admin: true },
-  { href: '/admin/team', label: 'Team Members', icon: UserPlus, admin: true },
-  { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText, admin: true },
+  { href: '/admin/users', label: 'User Management', icon: Users },
+  { href: '/admin/reviews', label: 'Plan Reviews', icon: ClipboardCheck },
+  { href: '/admin/clients', label: 'Client Plans', icon: FileHeart },
+  { href: '/admin/team', label: 'Team Members', icon: UserPlus },
+  { href: '/admin/knowledge-base', label: 'Knowledge Base', icon: BookText },
 ];
 
-
-export default function DashboardLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -72,12 +63,9 @@ export default function DashboardLayout({
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState({ name: '', email: '' });
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsClient(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
@@ -89,25 +77,9 @@ export default function DashboardLayout({
                     const capitalizedUsername = (userData.name || currentUser.email?.split('@')[0] || 'User').replace(/^\w/, (c: string) => c.toUpperCase());
                     setUserDetails({ name: capitalizedUsername, email: currentUser.email || '' });
                     
-                    const userIsAdmin = userData.role === 'admin';
-                    setIsAdmin(userIsAdmin);
-
-                    // Redirect admin users to the admin section immediately
-                    if (userIsAdmin) {
-                        if (!pathname.startsWith('/admin')) {
-                           router.push('/admin/users');
-                        }
-                        // For admin, we don't need to do payment checks
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    // For regular users, perform payment and onboarding checks
-                    const paymentStatus = userData.paymentStatus;
-                    if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
-                        router.push('/awaiting-approval');
-                    } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && pathname !== '/payment' && pathname !== '/onboarding') {
-                         router.push('/onboarding'); // Start with onboarding if unpaid
+                    if (userData.role !== 'admin') {
+                        toast({ title: 'Access Denied', description: 'You do not have permission to access this area.', variant: 'destructive'});
+                        router.push('/dashboard');
                     }
                 } else {
                     router.push('/login');
@@ -138,46 +110,38 @@ export default function DashboardLayout({
   }
 
   const getCurrentPageTitle = () => {
-    const allNavItems = [...userNavItems, ...adminNavItems];
-    const matchingItem = allNavItems
+    const matchingItem = adminNavItems
       .slice()
       .reverse()
       .find(item => pathname.startsWith(item.href));
-    return matchingItem ? matchingItem.label : 'Dashboard';
+    return matchingItem ? matchingItem.label : 'Admin Dashboard';
   };
 
-  // If user is admin, this layout will redirect. We can show a loader or nothing.
-  if (isLoading || isAdmin) {
+  if (isLoading) {
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin" />
+        <div className="flex min-h-screen">
+            <div className="w-16 md:w-64 bg-muted/40 animate-pulse"></div>
+            <div className="flex-1 p-8 animate-pulse">
+                <div className="h-10 w-1/3 bg-muted/40 rounded"></div>
+            </div>
         </div>
     );
   }
-
-  if (!isClient) {
-     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin" />
-        </div>
-    );
-  }
-
 
   return (
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
-            <Link href={'/dashboard'}>
+            <Link href={'/admin/users'}>
                 <Image src="/logo.png" alt="AZIAF Logo" width={80} height={80} />
             </Link>
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {userNavItems.map((item) => {
-              const isActive = (item.href === '/dashboard' && pathname === item.href) || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            {adminNavItems.map((item) => {
+              const isActive = pathname.startsWith(item.href);
               return (
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
@@ -204,6 +168,14 @@ export default function DashboardLayout({
             </div>
           </div>
           <SidebarMenu>
+             <SidebarMenuItem>
+                <Link href="/dashboard">
+                  <SidebarMenuButton tooltip="Switch to User View">
+                    <LayoutDashboard />
+                    <span>User Dashboard</span>
+                  </SidebarMenuButton>
+                </Link>
+             </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton onClick={handleLogout}>
                     <LogOut />
@@ -229,6 +201,10 @@ export default function DashboardLayout({
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{userDetails.name}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                 <DropdownMenuItem onClick={() => router.push('/dashboard')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>User Dashboard</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
