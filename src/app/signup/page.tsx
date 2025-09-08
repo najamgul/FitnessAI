@@ -44,20 +44,22 @@ export default function SignupPage() {
 
             const isAdmin = email.toLowerCase() === 'care@aziaf.com';
 
+            // Set the user document in Firestore
             await setDoc(doc(db, 'users', user.uid), {
                 name,
                 email,
                 phone,
                 createdAt: serverTimestamp(),
-                role: isAdmin ? 'admin' : 'user', // Set role based on email
+                role: isAdmin ? 'admin' : 'user',
                 paymentStatus: 'unpaid',
                 planStatus: 'not_started',
             });
 
+            // If the user is an admin, call the API to set the custom claim
             if (isAdmin) {
                 try {
                     const token = await user.getIdToken();
-                    await fetch('/api/set-admin-claim', {
+                    const response = await fetch('/api/set-admin-claim', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -65,9 +67,18 @@ export default function SignupPage() {
                         },
                         body: JSON.stringify({ uid: user.uid }),
                     });
+                    if (!response.ok) {
+                       throw new Error('Failed to set admin claim');
+                    }
+                    // Force refresh the token on the client to get the new claim immediately
+                    await user.getIdToken(true);
                 } catch (claimError) {
                     console.error("Failed to set admin claim:", claimError);
-                    // Decide if this should be a fatal error for the user
+                    toast({
+                        title: 'Admin Setup Incomplete',
+                        description: 'Could not set admin privileges. Please contact support.',
+                        variant: 'destructive'
+                    });
                 }
             }
             
@@ -76,10 +87,11 @@ export default function SignupPage() {
                 description: "Welcome! Let's get you set up.",
             });
             
+            // Redirect based on role
             if (isAdmin) {
-                router.push('/dashboard'); // Admins go to dashboard
+                router.push('/admin/users'); 
             } else {
-                router.push('/onboarding'); // Other users go to onboarding
+                router.push('/onboarding');
             }
 
         } catch (error: any) {

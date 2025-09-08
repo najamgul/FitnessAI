@@ -16,15 +16,20 @@ if (!getApps().length) {
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
+    // In a production environment, you might want to throw an error here.
     adminApp = initializeApp();
   }
 } else {
   adminApp = getApps()[0];
 }
 
-const auth = getAuth(adminApp);
+const authAdmin = getAuth(adminApp);
 
 export async function POST(req: NextRequest) {
+  if (!serviceAccount) {
+    return NextResponse.json({ error: 'Admin SDK not configured on the server.' }, { status: 500 });
+  }
+
   try {
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -32,23 +37,27 @@ export async function POST(req: NextRequest) {
     }
     const token = authHeader.split('Bearer ')[1];
     
-    // The user calling this should be the user who just signed up.
-    // We verify their token to get their UID.
-    const decodedToken = await auth.verifyIdToken(token);
+    // Verify the token to ensure the request is from a legitimate, newly created user.
+    const decodedToken = await authAdmin.verifyIdToken(token);
     const { uid } = await req.json();
 
-    // Security check: Only the user themselves can trigger this for their own account.
+    // Security check: Only allow a user to trigger this for their own account.
     if (decodedToken.uid !== uid) {
         return NextResponse.json({ error: 'Forbidden: You can only set claims for your own account.' }, { status: 403 });
     }
-
-    // A more robust check might ensure this can only be called once,
-    // or only for specific emails, but for this context, we set the claim.
-    await auth.setCustomUserClaims(uid, { role: 'admin' });
     
-    return NextResponse.json({ message: `Admin claim set for user ${uid}` });
-  } catch (error) {
+    // Security check: Ensure this user's email is the designated admin email.
+    if (decodedToken.email?.toLowerCase() !== 'care@aziaf.com') {
+        return NextResponse.json({ error: 'Forbidden: Not an admin email.' }, { status: 403 });
+    }
+
+    // Set the custom claim.
+    await authAdmin.setCustomUserClaims(uid, { role: 'admin' });
+    
+    return NextResponse.json({ message: `Admin claim set successfully for user ${uid}` });
+
+  } catch (error: any) {
     console.error('Error setting admin claim:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
   }
 }
