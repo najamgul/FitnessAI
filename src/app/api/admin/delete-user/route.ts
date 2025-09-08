@@ -9,7 +9,8 @@ config();
 
 // Standardized function to initialize Firebase Admin SDK
 function initializeAdminApp(): App {
-    const adminApps = getApps().filter(app => app.name === 'admin');
+    const appName = 'admin-delete-user';
+    const adminApps = getApps().filter(app => app.name === appName);
     if (adminApps.length > 0) {
         return adminApps[0]!;
     }
@@ -20,14 +21,11 @@ function initializeAdminApp(): App {
     }
     
     try {
-        // Handle both stringified JSON and plain objects
-        const serviceAccount = typeof serviceAccountString === 'string'
-            ? JSON.parse(serviceAccountString)
-            : serviceAccountString;
+        const serviceAccount = JSON.parse(serviceAccountString);
             
         return initializeApp({
             credential: cert(serviceAccount)
-        }, 'admin');
+        }, appName);
     } catch (e: any) {
         console.error('Failed to parse or initialize Firebase Admin SDK:', e.message);
         throw new Error('Firebase service account key is not valid.');
@@ -48,7 +46,6 @@ async function verifyAdmin(request: NextRequest, app: App): Promise<string | nul
 
     try {
         const decodedToken = await getAuth(app).verifyIdToken(token);
-        // Correctly check for the custom claim
         if (decodedToken.role === 'admin') {
             return decodedToken.uid;
         }
@@ -59,36 +56,38 @@ async function verifyAdmin(request: NextRequest, app: App): Promise<string | nul
     }
 }
 
-// Recursively delete a collection
-async function deleteCollection(db: FirebaseFirestore.Firestore, collectionPath: string, batchSize: number, batch: WriteBatch) {
+// Recursively delete a collection in batches
+async function deleteCollection(db: FirebaseFirestore.Firestore, collectionPath: string, batchSize: number) {
     const collectionRef = db.collection(collectionPath);
     const query = collectionRef.orderBy('__name__').limit(batchSize);
 
     return new Promise<void>((resolve, reject) => {
-        deleteQueryBatch(db, query, batch, resolve).catch(reject);
+        deleteQueryBatch(db, query, resolve, reject);
     });
 }
 
-async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: FirebaseFirestore.Query, batch: WriteBatch, resolve: () => void) {
-    const snapshot = await query.get();
+async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: FirebaseFirestore.Query, resolve: () => void, reject: (err: any) => void) {
+    try {
+        const snapshot = await query.get();
 
-    const batchSize = snapshot.size;
-    if (batchSize === 0) {
-        // When there are no documents left, we are done
-        resolve();
-        return;
+        const batchSize = snapshot.size;
+        if (batchSize === 0) {
+            resolve();
+            return;
+        }
+
+        const batch = db.batch();
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        process.nextTick(() => {
+            deleteQueryBatch(db, query, resolve, reject);
+        });
+    } catch(err) {
+        reject(err);
     }
-
-    // Delete documents in a batch
-    snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-    });
-
-    // Recurse on the next process tick, to avoid
-    // exploding the stack.
-    process.nextTick(() => {
-        deleteQueryBatch(db, query, batch, resolve);
-    });
 }
 
 
@@ -115,11 +114,12 @@ export async function POST(req: NextRequest) {
         
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const batch = db.batch();
 
         // Delete subcollections first
-        await deleteCollection(db, `users/${userId}/onboarding`, 50, batch);
-        await deleteCollection(db, `users/${userId}/dietPlan`, 50, batch);
+        await deleteCollection(db, `users/${userId}/onboarding`, 50);
+        await deleteCollection(db, `users/${userId}/dietPlan`, 50);
+        
+        const batch = db.batch();
 
         // Delete the main user document
         const userDocRef = db.collection('users').doc(userId);
@@ -145,7 +145,6 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('Error deleting user:', error);
         if (error.code === 'auth/user-not-found') {
-            // If user doesn't exist in auth, it's not a fatal error, just log and continue
             return NextResponse.json({ message: `User with ID ${error.uid} not found in Auth, but Firestore data deleted.` });
         }
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
