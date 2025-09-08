@@ -55,7 +55,7 @@ export default function SignupPage() {
                 planStatus: 'not_started',
             });
 
-            // If the user is an admin, call the API to set the custom claim
+            // If the user is an admin, set the custom claim and wait for it to propagate
             if (isAdmin) {
                 try {
                     const token = await user.getIdToken();
@@ -67,11 +67,27 @@ export default function SignupPage() {
                         },
                         body: JSON.stringify({ uid: user.uid }),
                     });
+                    
                     if (!response.ok) {
-                       throw new Error('Failed to set admin claim');
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to set admin claim');
                     }
-                    // Force refresh the token on the client to get the new claim immediately
+                    
+                    // Force refresh the token multiple times to ensure claims are available
                     await user.getIdToken(true);
+                    
+                    // Wait a bit more for claims to propagate
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Verify the claims are actually set
+                    const freshToken = await user.getIdToken(true);
+                    const tokenPayload = JSON.parse(atob(freshToken.split('.')[1]));
+                    
+                    if (!tokenPayload.role || tokenPayload.role !== 'admin') {
+                        console.warn('Admin claims not yet available in token');
+                        // You might want to retry or show a different message
+                    }
+                    
                 } catch (claimError) {
                     console.error("Failed to set admin claim:", claimError);
                     toast({
@@ -79,17 +95,22 @@ export default function SignupPage() {
                         description: 'Could not set admin privileges. Please contact support.',
                         variant: 'destructive'
                     });
+                    // Don't return here - still allow the signup to complete
                 }
             }
             
             toast({
                 title: 'Account Created',
-                description: "Welcome! Let's get you set up.",
+                description: isAdmin 
+                    ? "Welcome Admin! Setting up your privileges..." 
+                    : "Welcome! Let's get you set up.",
             });
             
-            // Redirect based on role
+            // For admin users, add a small delay to ensure claims are ready
             if (isAdmin) {
-                router.push('/admin/users'); 
+                setTimeout(() => {
+                    router.push('/admin/users');
+                }, 1500);
             } else {
                 router.push('/onboarding');
             }
