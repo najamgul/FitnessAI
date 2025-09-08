@@ -11,8 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { collection, doc, updateDoc, addDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
@@ -47,34 +46,42 @@ export default function AdminUsersPage() {
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchUsers = useCallback(async () => {
+    const fetchUsersAndTeam = useCallback(async () => {
         setIsLoading(true);
         try {
-            const idToken = await auth.currentUser?.getIdToken(true); // Force refresh
+            const idToken = await auth.currentUser?.getIdToken(true);
             if (!idToken) {
                 throw new Error("Authentication token not found.");
             }
 
-            const response = await fetch('/api/admin/users', {
-                headers: {
-                    'Authorization': `Bearer ${idToken}`
-                }
-            });
+            // Fetch both users and team members from their respective secure APIs
+            const [usersResponse, teamResponse] = await Promise.all([
+                fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
+                }),
+                fetch('/api/admin/team', {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
+                })
+            ]);
 
-            if (!response.ok) {
-                const errorData = await response.json();
+            if (!usersResponse.ok) {
+                const errorData = await usersResponse.json();
                 throw new Error(errorData.error || 'Failed to fetch users');
             }
+             if (!teamResponse.ok) {
+                const errorData = await teamResponse.json();
+                throw new Error(errorData.error || 'Failed to fetch team members');
+            }
             
-            const fetchedUsers = await response.json();
+            const fetchedUsers = await usersResponse.json();
+            const fetchedTeam = await teamResponse.json();
+
             setUsers(fetchedUsers);
+            setTeamMembers(fetchedTeam);
 
         } catch (error: any) {
-            console.error("Error fetching users:", error);
-            if (error.message.includes('Token has been revoked')) {
-                toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
-                auth.signOut();
-            } else {
+            console.error("Error fetching admin data:", error);
+            if (!error.message.includes('Token has been revoked')) {
                  toast({ title: "Error", description: error.message, variant: "destructive" });
             }
         } finally {
@@ -82,33 +89,19 @@ export default function AdminUsersPage() {
         }
     }, [toast]);
 
-    const fetchTeamMembers = useCallback(async () => {
-         try {
-            const teamResponse = await fetch('/api/admin/team');
-            if(teamResponse.ok) {
-                const teamData = await teamResponse.json();
-                setTeamMembers(teamData);
-            } else {
-                toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
-            }
-        } catch (error) {
-            console.error("Error fetching team members:", error);
-            toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
-        }
-    }, [toast])
-
     useEffect(() => {
         const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                await fetchTeamMembers();
-                await fetchUsers();
+                // Now that we're sure the user is logged in, fetch the data
+                await fetchUsersAndTeam();
             } else {
+                // If no user, stop loading and rely on the layout to redirect
                 setIsLoading(false);
             }
         });
 
         return () => authUnsubscribe();
-    }, [fetchUsers, fetchTeamMembers]);
+    }, [fetchUsersAndTeam]);
 
     const handleApprove = async (userId: string, userEmail: string, userName: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
@@ -156,8 +149,8 @@ export default function AdminUsersPage() {
                 description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
             
-            // Refresh the user list
-            fetchUsers();
+            // Refresh the user list after approval
+            fetchUsersAndTeam();
 
         } catch (error: any) {
             console.error("Approval Error: ", error);
@@ -287,3 +280,5 @@ export default function AdminUsersPage() {
         </div>
     );
 }
+
+    

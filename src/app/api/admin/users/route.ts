@@ -27,26 +27,36 @@ if (!getApps().length) {
 const db = getFirestore(adminApp);
 const authAdmin = getAuth(adminApp);
 
-async function verifyAdmin(req: NextRequest) {
+async function verifyAdmin(req: NextRequest): Promise<boolean> {
     const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error("verifyAdmin: No authorization header found.");
+      return false;
+    }
+
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+       console.error("verifyAdmin: No token found in header.");
+       return false;
+    }
+
     try {
         if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
         const decodedToken = await authAdmin.verifyIdToken(token);
         if (decodedToken.role === 'admin') {
-            return decodedToken;
+            return true;
         }
-        return null;
+        console.warn(`verifyAdmin: User ${decodedToken.uid} is not an admin.`);
+        return false;
     } catch (error) {
         console.error('Error verifying admin token:', error);
-        return null;
+        return false;
     }
 }
 
 export async function GET(req: NextRequest) {
-    const decodedToken = await verifyAdmin(req);
-    if (!decodedToken) {
+    const isAdmin = await verifyAdmin(req);
+    if (!isAdmin) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -67,18 +77,19 @@ export async function GET(req: NextRequest) {
                 createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate().toISOString() : null,
             };
             
+            // Only fetch payment and onboarding for pending users
             if (user.paymentStatus === 'pending') {
                 const paymentDoc = await db.collection('payments').doc(user.id).get();
                 if (paymentDoc.exists()) {
                     user.screenshotUrl = paymentDoc.data()?.screenshotUrl;
                 }
-            }
 
-            const onboardingDoc = await db.collection('users').doc(user.id).collection('onboarding').doc('profile').get();
-            if (onboardingDoc.exists()) {
-                const onboardingData = onboardingDoc.data();
-                user.planDuration = onboardingData?.planDuration;
-                user.onboardingData = onboardingData;
+                const onboardingDoc = await db.collection('users').doc(user.id).collection('onboarding').doc('profile').get();
+                if (onboardingDoc.exists()) {
+                    const onboardingData = onboardingDoc.data();
+                    user.planDuration = onboardingData?.planDuration;
+                    user.onboardingData = onboardingData;
+                }
             }
             
             users.push(user);
@@ -91,3 +102,5 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    

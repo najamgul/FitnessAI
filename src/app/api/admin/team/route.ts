@@ -25,8 +25,29 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(adminApp);
+const authAdmin = getAuth(adminApp);
+
+async function verifyAdmin(req: NextRequest): Promise<boolean> {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) return false;
+    const token = authHeader.split('Bearer ')[1];
+    try {
+        if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
+        const decodedToken = await authAdmin.verifyIdToken(token);
+        return decodedToken.role === 'admin';
+    } catch (error) {
+        console.error('Error verifying admin token:', error);
+        return false;
+    }
+}
+
 
 export async function GET(req: NextRequest) {
+    const isAdmin = await verifyAdmin(req);
+    if (!isAdmin) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     try {
         const teamSnapshot = await db.collection('team').get();
         const teamMembers = teamSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -36,3 +57,5 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    
