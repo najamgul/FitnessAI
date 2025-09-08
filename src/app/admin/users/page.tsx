@@ -16,6 +16,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Loader2, Eye, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 
 type User = {
@@ -216,33 +217,20 @@ export default function AdminUsersPage() {
     const handleDeleteUser = async (userId: string) => {
         setIsDeleting(userId);
         try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) throw new Error("Authentication token not found.");
-
-            const response = await fetch('/api/admin/delete-user', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ userId }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to delete user.');
-            }
+            const functions = getFunctions();
+            const deleteUserCallable = httpsCallable(functions, 'deleteUser');
+            await deleteUserCallable({ userId });
 
             toast({
                 title: 'User Deleted',
-                description: 'The user has been successfully deleted from the system.',
+                description: 'The user and all their data have been successfully deleted.',
             });
             
         } catch (error: any) {
             console.error("Delete user error:", error);
             toast({
                 title: 'Deletion Failed',
-                description: error.message,
+                description: error.message || 'An unexpected error occurred.',
                 variant: 'destructive'
             });
         } finally {
@@ -388,9 +376,11 @@ export default function AdminUsersPage() {
                                                             <DialogClose asChild>
                                                                 <Button variant="outline">Cancel</Button>
                                                             </DialogClose>
-                                                            <Button variant="destructive" onClick={() => handleDeleteUser(user.id)}>
-                                                                Yes, delete user
-                                                            </Button>
+                                                            <DialogClose asChild>
+                                                                <Button variant="destructive" onClick={() => handleDeleteUser(user.id)}>
+                                                                    Yes, delete user
+                                                                </Button>
+                                                            </DialogClose>
                                                         </DialogFooter>
                                                     </DialogContent>
                                                 </Dialog>
@@ -411,3 +401,5 @@ export default function AdminUsersPage() {
         </div>
     );
 }
+
+    
