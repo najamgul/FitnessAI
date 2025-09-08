@@ -4,7 +4,8 @@ import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Standardized function to initialize Firebase Admin SDK
+// A function to initialize and get the Firebase Admin app.
+// It ensures the app is initialized only once.
 function initializeAdminApp(): App {
     const appName = 'firebase-admin-app-delete-user';
     const existingApp = getApps().find(app => app.name === appName);
@@ -29,7 +30,7 @@ function initializeAdminApp(): App {
 }
 
 
-// Standardized function to verify admin user from a request
+// A function to verify that the request is from an admin user.
 async function verifyAdmin(request: NextRequest, app: App): Promise<string | null> {
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -90,6 +91,7 @@ async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: Firebase
 export async function POST(req: NextRequest) {
     let app: App;
     try {
+        // Initialize the app inside the request handler
         app = initializeAdminApp();
     } catch (e: any) {
         return NextResponse.json({ error: 'Failed to initialize server resources.', details: e.message }, { status: 500 });
@@ -141,7 +143,9 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('Error deleting user:', error);
         if (error.code === 'auth/user-not-found') {
-            return NextResponse.json({ message: `User with ID ${error.uid} not found in Auth, but Firestore data deleted.` });
+             // If user doesn't exist in auth, it's not a critical error, but we should report it.
+             // The Firestore data would have been deleted already.
+            return NextResponse.json({ message: `User with ID ${error.uid} not found in Auth, but associated Firestore data was deleted.` });
         }
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
