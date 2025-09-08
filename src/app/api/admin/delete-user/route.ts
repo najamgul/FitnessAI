@@ -1,26 +1,22 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
     try {
-        console.log('=== DELETE USER API CALLED ===');
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
         const { getAuth } = await import('firebase-admin/auth');
         const { getFirestore } = await import('firebase-admin/firestore');
-        console.log('Firebase admin modules imported successfully');
-
+        
         function initializeAdminApp() {
             const appName = 'firebase-admin-app-delete-user';
             const existingApp = getApps().find(app => app.name === appName);
             if (existingApp) {
-                console.log('Using existing app:', appName);
                 return existingApp;
             }
 
-            console.log('Initializing new admin app:', appName);
             const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
             
             if (!serviceAccountString) {
-                console.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
                 throw new Error('Firebase configuration error: The service account key is missing from the server environment. Please ensure the FIREBASE_SERVICE_ACCOUNT_KEY is set in your deployment settings.');
             }
             
@@ -54,8 +50,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid user ID provided.' }, { status: 400 });
         }
         
-        console.log(`Attempting to delete user ${userId} and associated data...`);
-
         async function deleteCollection(collectionPath: string, batchSize: number) {
             const collectionRef = db.collection(collectionPath);
             const query = collectionRef.orderBy('__name__').limit(batchSize);
@@ -93,8 +87,6 @@ export async function POST(req: NextRequest) {
 
         await batch.commit();
         await auth.deleteUser(userId);
-
-        console.log(`Successfully deleted user ${userId}`);
         
         return NextResponse.json({ message: `Successfully deleted user ${userId} and all associated data.` });
 

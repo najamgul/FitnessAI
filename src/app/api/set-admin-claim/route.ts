@@ -1,25 +1,21 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
     try {
-        console.log('=== SET ADMIN CLAIM API CALLED ===');
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
         const { getAuth } = await import('firebase-admin/auth');
-        console.log('Firebase admin modules imported successfully');
-
+        
         function initializeAdminApp() {
             const appName = 'firebase-admin-app-set-claim';
             const existingApp = getApps().find(app => app.name === appName);
             if (existingApp) {
-                console.log('Using existing app:', appName);
                 return existingApp;
             }
 
-            console.log('Initializing new admin app:', appName);
             const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
             
             if (!serviceAccountString) {
-                console.error('CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
                 throw new Error('Firebase configuration error: The service account key is missing from the server environment. Please ensure the FIREBASE_SERVICE_ACCOUNT_KEY is set in your deployment settings.');
             }
             
@@ -54,8 +50,6 @@ export async function POST(req: NextRequest) {
         }
         
         await authAdmin.setCustomUserClaims(uid, { role: 'admin' });
-        
-        console.log('Admin claim set successfully for user:', uid);
         
         return NextResponse.json({ message: `Admin claim set successfully for user ${uid}` });
 
