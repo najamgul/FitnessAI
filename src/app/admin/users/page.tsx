@@ -16,8 +16,6 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Loader2, Eye, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user';
-
 
 type User = {
     id: string; // Firestore document ID
@@ -223,8 +221,21 @@ export default function AdminUsersPage() {
         }
         setIsDeleting(userId);
         try {
-            const adminUid = currentUser.uid;
-            await deleteUserFlow({ userIdToDelete: userId, adminUid });
+            const token = await currentUser.getIdToken();
+            const response = await fetch('/api/admin/delete-user', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userIdToDelete: userId }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete user.');
+            }
+
             toast({
                 title: 'User Deleted',
                 description: 'The user and their data have been successfully deleted.',
