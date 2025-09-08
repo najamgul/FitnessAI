@@ -71,7 +71,7 @@ export default function AdminLayout({
         if (currentUser) {
             setUser(currentUser);
             try {
-                // Force refresh the token to get the latest custom claims. This is critical.
+                // It's good practice to force a token refresh to get latest claims
                 await currentUser.getIdToken(true); 
                 
                 const userDocRef = doc(db, 'users', currentUser.uid);
@@ -83,14 +83,15 @@ export default function AdminLayout({
                     setUserDetails({ name: capitalizedUsername, email: currentUser.email || '' });
                     
                     if (userData.role !== 'admin') {
+                        // This user is not an admin, send them away.
                         toast({ title: 'Access Denied', description: 'You do not have permission to access this area.', variant: 'destructive'});
                         router.push('/dashboard');
                     } else {
-                        // User is an admin, stop loading and render the page
+                        // User is an admin, stop loading.
                         setIsLoading(false);
                     }
                 } else {
-                    // User doc doesn't exist, something is wrong
+                    // User exists in auth but not firestore.
                     toast({ title: "Error", description: "User record not found. Logging out.", variant: "destructive" });
                     await signOut(auth);
                     router.push('/login');
@@ -102,7 +103,7 @@ export default function AdminLayout({
                 router.push('/login');
             }
         } else {
-            // No user logged in
+            // No user is logged in.
             setUser(null);
             router.push('/login');
         }

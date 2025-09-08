@@ -74,11 +74,9 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState({ name: '', email: '' });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsClient(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
@@ -93,24 +91,23 @@ export default function DashboardLayout({
                     const userIsAdmin = userData.role === 'admin';
                     setIsAdmin(userIsAdmin);
 
-                    // Redirect admin users to the admin section immediately
                     if (userIsAdmin) {
                         if (!pathname.startsWith('/admin')) {
                            router.push('/admin/users');
+                           // We don't set loading to false here because the admin layout will take over.
+                           return; 
                         }
-                        // For admin, we don't need to do payment checks
-                        setIsLoading(false);
-                        return;
-                    }
-
-                    // For regular users, perform payment and onboarding checks
-                    const paymentStatus = userData.paymentStatus;
-                    if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
-                        router.push('/awaiting-approval');
-                    } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && pathname !== '/payment' && pathname !== '/onboarding') {
-                         router.push('/onboarding'); // Start with onboarding if unpaid
+                    } else {
+                        // For regular users, perform payment and onboarding checks
+                        const paymentStatus = userData.paymentStatus;
+                        if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
+                            router.push('/awaiting-approval');
+                        } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && pathname !== '/payment' && pathname !== '/onboarding') {
+                             router.push('/onboarding');
+                        }
                     }
                 } else {
+                    // User exists in Auth but not in Firestore, redirect to login to be safe
                     router.push('/login');
                 }
             } catch (error) {
@@ -118,9 +115,13 @@ export default function DashboardLayout({
                 router.push('/login');
             }
         } else {
+            // No user is logged in.
             setUser(null);
-            router.push('/login');
+            if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
+                 router.push('/login');
+            }
         }
+        // Only stop loading once auth state is determined
         setIsLoading(false);
     });
 
@@ -147,8 +148,7 @@ export default function DashboardLayout({
     return matchingItem ? matchingItem.label : 'Dashboard';
   };
 
-  // If user is admin, this layout will redirect. We can show a loader or nothing.
-  if (isLoading || isAdmin) {
+  if (isLoading || (isAdmin && !pathname.startsWith('/admin'))) {
     return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin" />
@@ -156,7 +156,8 @@ export default function DashboardLayout({
     );
   }
 
-  if (!isClient) {
+  // If user is not authenticated and we are on a dashboard path, don't render children
+  if (!user && pathname.startsWith('/dashboard')) {
      return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin" />
