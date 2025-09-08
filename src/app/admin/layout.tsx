@@ -71,7 +71,7 @@ export default function AdminLayout({
         if (currentUser) {
             setUser(currentUser);
             try {
-                // Force refresh the token to get the latest custom claims
+                // Force refresh the token to get the latest custom claims. This is critical.
                 await currentUser.getIdToken(true); 
                 
                 const userDocRef = doc(db, 'users', currentUser.uid);
@@ -85,20 +85,27 @@ export default function AdminLayout({
                     if (userData.role !== 'admin') {
                         toast({ title: 'Access Denied', description: 'You do not have permission to access this area.', variant: 'destructive'});
                         router.push('/dashboard');
+                    } else {
+                        // User is an admin, stop loading and render the page
+                        setIsLoading(false);
                     }
                 } else {
+                    // User doc doesn't exist, something is wrong
+                    toast({ title: "Error", description: "User record not found. Logging out.", variant: "destructive" });
+                    await signOut(auth);
                     router.push('/login');
                 }
             } catch (error) {
                 console.error("Auth check error:", error);
                 toast({ title: "Error", description: "Could not verify your access. Please log in again.", variant: "destructive" });
+                await signOut(auth);
                 router.push('/login');
             }
         } else {
+            // No user logged in
             setUser(null);
             router.push('/login');
         }
-        setIsLoading(false);
     });
 
     return () => unsubscribe();
