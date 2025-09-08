@@ -3,27 +3,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
-// Initialize Firebase Admin SDK
-const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-if (!serviceAccountString) {
-  throw new Error('Firebase service account key is not set in environment variables.');
-}
-
-const serviceAccount = JSON.parse(serviceAccountString);
-
 let adminApp: App;
-if (!getApps().length) {
-  adminApp = initializeApp({
-    credential: cert(serviceAccount),
-  });
-} else {
-  adminApp = getApps()[0];
-}
 
-const authAdmin = getAuth(adminApp);
+function initializeAdminApp() {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
+
+  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccountString) {
+    throw new Error('Firebase service account key is not set in environment variables.');
+  }
+
+  try {
+    const serviceAccount = JSON.parse(serviceAccountString);
+    return initializeApp({
+      credential: cert(serviceAccount),
+    });
+  } catch (e) {
+    console.error('Failed to parse Firebase service account key.');
+    throw new Error('Firebase service account key is not valid JSON.');
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
+    adminApp = initializeAdminApp();
+    const authAdmin = getAuth(adminApp);
+    
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
