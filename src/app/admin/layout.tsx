@@ -64,7 +64,7 @@ export default function AdminLayout({
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState({ name: '', email: '' });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -86,9 +86,6 @@ export default function AdminLayout({
                         // This user is not an admin, send them away.
                         toast({ title: 'Access Denied', description: 'You do not have permission to access this area.', variant: 'destructive'});
                         router.push('/dashboard');
-                    } else {
-                        // User is an admin, stop loading.
-                        setIsLoading(false);
                     }
                 } else {
                     // User exists in auth but not firestore.
@@ -107,6 +104,7 @@ export default function AdminLayout({
             setUser(null);
             router.push('/login');
         }
+        setIsVerifying(false);
     });
 
     return () => unsubscribe();
@@ -131,7 +129,7 @@ export default function AdminLayout({
     return matchingItem ? matchingItem.label : 'Admin Dashboard';
   };
 
-  if (isLoading) {
+  if (isVerifying) {
     return (
         <div className="flex min-h-screen items-center justify-center">
              <Loader2 className="h-12 w-12 animate-spin" />

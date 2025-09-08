@@ -74,7 +74,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState({ name: '', email: '' });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -94,7 +94,6 @@ export default function DashboardLayout({
                     if (userIsAdmin) {
                         if (!pathname.startsWith('/admin')) {
                            router.push('/admin/users');
-                           // We don't set loading to false here because the admin layout will take over.
                            return; 
                         }
                     } else {
@@ -121,8 +120,8 @@ export default function DashboardLayout({
                  router.push('/login');
             }
         }
-        // Only stop loading once auth state is determined
-        setIsLoading(false);
+        // Verification is complete
+        setIsVerifying(false);
     });
 
     return () => unsubscribe();
@@ -148,7 +147,7 @@ export default function DashboardLayout({
     return matchingItem ? matchingItem.label : 'Dashboard';
   };
 
-  if (isLoading || (isAdmin && !pathname.startsWith('/admin'))) {
+  if (isVerifying) {
     return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin" />
@@ -156,8 +155,8 @@ export default function DashboardLayout({
     );
   }
 
-  // If user is not authenticated and we are on a dashboard path, don't render children
-  if (!user && pathname.startsWith('/dashboard')) {
+  // If verification is done and there's still no user, don't render children (they are being redirected)
+  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/admin'))) {
      return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin" />
