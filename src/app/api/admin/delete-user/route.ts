@@ -3,18 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { config } from 'dotenv';
 
-// Store the initialized app to avoid re-initializing on every request
+config();
+
 let adminApp: App;
 
 function initializeAdminApp() {
-    // Check if the admin app is already initialized
     const adminApps = getApps().filter(app => app.name === 'admin');
     if (adminApps.length > 0) {
-        return adminApps[0];
+        return adminApps[0]!;
     }
 
-    // If not initialized, create it
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccountString) {
         throw new Error('Firebase service account key is not set in environment variables.');
