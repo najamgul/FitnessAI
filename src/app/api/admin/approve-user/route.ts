@@ -41,7 +41,6 @@ async function verifyAdmin(req: NextRequest) {
         
         const decodedToken = await authAdmin.verifyIdToken(token);
         
-        // Correctly check for the admin custom claim
         if (decodedToken.role === 'admin') {
             return decodedToken;
         }
@@ -90,12 +89,15 @@ export async function POST(req: NextRequest) {
             createdAt: FieldValue.serverTimestamp(),
         });
         
-        // Assuming there's a paymentId to find the right document.
-        // If the payment document ID is the same as the user ID:
+        // This assumes the payment document ID is the same as the user ID.
+        // It's safer to check if it exists before trying to update.
         const paymentDocRef = db.collection('payments').doc(userId);
-        batch.update(paymentDocRef, {
-            status: 'verified',
-        });
+        const paymentDoc = await paymentDocRef.get();
+        if (paymentDoc.exists) {
+            batch.update(paymentDocRef, {
+                status: 'verified',
+            });
+        }
 
         await batch.commit();
 
@@ -106,4 +108,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-
