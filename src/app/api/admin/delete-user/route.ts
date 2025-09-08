@@ -8,12 +8,13 @@ import { getFirestore } from 'firebase-admin/firestore';
 let adminApp: App;
 
 function initializeAdminApp() {
-    if (getApps().length > 0) {
-        return getApps().find(app => app.name === 'admin') || initializeApp({
-            credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!))
-        }, 'admin');
+    // Check if the admin app is already initialized
+    const adminApps = getApps().filter(app => app.name === 'admin');
+    if (adminApps.length > 0) {
+        return adminApps[0];
     }
 
+    // If not initialized, create it
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccountString) {
         throw new Error('Firebase service account key is not set in environment variables.');
@@ -21,9 +22,10 @@ function initializeAdminApp() {
     
     try {
         const serviceAccount = JSON.parse(serviceAccountString);
-        return initializeApp({
+        adminApp = initializeApp({
             credential: cert(serviceAccount)
         }, 'admin');
+        return adminApp;
     } catch (e) {
         console.error('Failed to parse Firebase service account key string.', e);
         throw new Error('Firebase service account key is not valid JSON.');
@@ -31,14 +33,14 @@ function initializeAdminApp() {
 }
 
 
-async function verifyAdmin(request: NextRequest): Promise<string | null> {
+async function verifyAdmin(request: NextRequest, app: App): Promise<string | null> {
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
         return null;
     }
     const token = authHeader.split('Bearer ')[1];
     try {
-        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
+        const decodedToken = await getAuth(app).verifyIdToken(token);
         if (decodedToken.role === 'admin') {
             return decodedToken.uid;
         }
@@ -52,8 +54,8 @@ async function verifyAdmin(request: NextRequest): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
     try {
-        adminApp = initializeAdminApp();
-        const adminUid = await verifyAdmin(req);
+        const app = initializeAdminApp();
+        const adminUid = await verifyAdmin(req, app);
 
         if (!adminUid) {
             return NextResponse.json({ error: 'Unauthorized: Admin access required.' }, { status: 403 });
@@ -65,8 +67,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid user ID provided.' }, { status: 400 });
         }
         
-        const auth = getAuth(adminApp);
-        const db = getFirestore(adminApp);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
         // Delete user from Firebase Auth
         await auth.deleteUser(userId);
@@ -87,4 +89,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
 }
-
