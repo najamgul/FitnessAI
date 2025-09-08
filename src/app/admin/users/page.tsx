@@ -13,9 +13,9 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { Loader2, Eye, Trash2 } from 'lucide-react';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { Loader2, Eye } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
 
 type User = {
     id: string; // Firestore document ID
@@ -47,7 +47,6 @@ export default function AdminUsersPage() {
     const [accessDays, setAccessDays] = useState<{ [key: string]: string }>({});
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
-    const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
 
     useEffect(() => {
@@ -213,55 +212,6 @@ export default function AdminUsersPage() {
             });
         }
     };
-    
-    const handleDeleteUser = async (userId: string) => {
-        if (!currentUser) {
-            toast({ title: 'Authentication Error', description: 'You must be logged in as an admin.', variant: 'destructive' });
-            return;
-        }
-        setIsDeleting(userId);
-        try {
-            const token = await currentUser.getIdToken();
-            const response = await fetch('/api/admin/delete-user', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ userIdToDelete: userId }),
-            });
-
-            const responseData = await response.json();
-
-            if (!response.ok) {
-                 if (responseData.error?.includes('Firebase configuration error')) {
-                    toast({
-                        title: 'Configuration Error',
-                        description: 'The FIREBASE_SERVICE_ACCOUNT_KEY is missing from your server environment. Please add it to your deployment settings.',
-                        variant: 'destructive',
-                        duration: 10000,
-                    });
-                } else {
-                    throw new Error(responseData.error || 'Failed to delete user.');
-                }
-            } else {
-                toast({
-                    title: 'User Deleted',
-                    description: 'The user and their data have been successfully deleted.',
-                });
-            }
-        } catch (error: any) {
-            console.error("Delete user error:", error);
-            toast({
-                title: 'Deletion Failed',
-                description: error.message || 'An unexpected error occurred.',
-                variant: 'destructive'
-            });
-        } finally {
-            setIsDeleting(null);
-        }
-    }
-
 
     const handleDaysChange = (userId: string, value: string) => {
         setAccessDays(prev => ({ ...prev, [userId]: value }));
@@ -292,7 +242,6 @@ export default function AdminUsersPage() {
                                     <TableHead>Screenshot</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Actions</TableHead>
-                                    <TableHead className="text-right">Delete</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -381,39 +330,11 @@ export default function AdminUsersPage() {
                                                     </div>
                                                 ) : <span className="text-sm text-muted-foreground">No pending actions.</span>}
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <Button variant="destructive" size="icon" disabled={isDeleting === user.id}>
-                                                            {isDeleting === user.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                        <DialogHeader>
-                                                            <DialogTitle>Are you absolutely sure?</DialogTitle>
-                                                            <DialogDescription>
-                                                                This action cannot be undone. This will permanently delete the user's account,
-                                                                authentication record, and all associated data.
-                                                            </DialogDescription>
-                                                        </DialogHeader>
-                                                        <DialogFooter>
-                                                            <DialogClose asChild>
-                                                                <Button variant="outline">Cancel</Button>
-                                                            </DialogClose>
-                                                            <DialogClose asChild>
-                                                                <Button variant="destructive" onClick={() => handleDeleteUser(user.id)}>
-                                                                    Yes, delete user
-                                                                </Button>
-                                                            </DialogClose>
-                                                        </DialogFooter>
-                                                    </DialogContent>
-                                                </Dialog>
-                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center h-24">No user submissions yet.</TableCell>
+                                        <TableCell colSpan={5} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -425,3 +346,5 @@ export default function AdminUsersPage() {
         </div>
     );
 }
+
+    
