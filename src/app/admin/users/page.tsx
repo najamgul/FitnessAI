@@ -218,7 +218,9 @@ export default function AdminUsersPage() {
         setIsDeleting(userId);
         try {
             const functions = getFunctions();
+            // Ensure you use the correct function name deployed in your Firebase project
             const deleteUserCallable = httpsCallable(functions, 'deleteUser');
+            
             await deleteUserCallable({ userId });
 
             toast({
