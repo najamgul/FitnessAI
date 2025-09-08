@@ -5,18 +5,17 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin SDK
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-  : null;
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 let adminApp: App;
 if (!getApps().length) {
   if (serviceAccount) {
     adminApp = initializeApp({
-      credential: cert(serviceAccount),
+      credential: cert(JSON.parse(serviceAccount)),
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
+    // In a real app, you might want to throw an error here, but for development we can initialize without it.
     adminApp = initializeApp();
   }
 } else {
@@ -35,7 +34,7 @@ async function verifyAdmin(req: NextRequest) {
 
     try {
         if (!serviceAccount) {
-            throw new Error("Firebase Admin SDK not initialized");
+            throw new Error("Firebase Admin SDK not initialized. Service account key is missing.");
         }
         
         const decodedToken = await authAdmin.verifyIdToken(token);
