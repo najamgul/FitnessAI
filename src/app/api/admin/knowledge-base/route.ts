@@ -3,8 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 
 const KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-kashmir.txt');
 const NON_KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-non-kashmir.txt');
@@ -18,11 +17,10 @@ let adminApp: App;
 if (!getApps().length) {
   if (serviceAccount) {
     adminApp = initializeApp({
-      credential: credential.cert(serviceAccount),
+      credential: cert(serviceAccount),
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
-    // Initialize without credentials for environments where it's not needed/available.
     adminApp = initializeApp();
   }
 } else {
@@ -45,7 +43,6 @@ async function verifyAdmin(req: NextRequest) {
         
         const decodedToken = await authAdmin.verifyIdToken(token);
         
-        // Correctly check for the admin custom claim
         if (decodedToken.role === 'admin') {
             return decodedToken;
         }
@@ -58,6 +55,10 @@ async function verifyAdmin(req: NextRequest) {
 
 
 export async function GET(req: NextRequest) {
+    const decodedToken = await verifyAdmin(req);
+    if (!decodedToken) {
+        return NextResponse.json({ error: 'Unauthorized: You must be an admin to perform this action.' }, { status: 403 });
+    }
     try {
         const kashmir = await fs.readFile(KASHMIR_KB_PATH, 'utf-8');
         const nonKashmir = await fs.readFile(NON_KASHMIR_KB_PATH, 'utf-8');

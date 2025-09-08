@@ -1,9 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { credential } from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
@@ -14,7 +13,7 @@ let adminApp: App;
 if (!getApps().length) {
   if (serviceAccount) {
     adminApp = initializeApp({
-      credential: credential.cert(serviceAccount),
+      credential: cert(serviceAccount),
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
@@ -89,8 +88,6 @@ export async function POST(req: NextRequest) {
             createdAt: FieldValue.serverTimestamp(),
         });
         
-        // This assumes the payment document ID is the same as the user ID.
-        // It's safer to check if it exists before trying to update.
         const paymentDocRef = db.collection('payments').doc(userId);
         const paymentDoc = await paymentDocRef.get();
         if (paymentDoc.exists) {

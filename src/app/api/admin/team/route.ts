@@ -1,9 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { credential } from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
@@ -14,7 +13,7 @@ let adminApp: App;
 if (!getApps().length) {
   if (serviceAccount) {
     adminApp = initializeApp({
-      credential: credential.cert(serviceAccount),
+      credential: cert(serviceAccount),
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
@@ -41,7 +40,6 @@ async function verifyAdmin(req: NextRequest) {
         
         const decodedToken = await authAdmin.verifyIdToken(token);
         
-        // Correctly check for the admin custom claim
         if (decodedToken.role === 'admin') {
             return decodedToken;
         }
