@@ -13,9 +13,9 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { Loader2, Eye } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
+import { Loader2, Eye, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 
 
 type User = {
@@ -48,6 +48,7 @@ export default function AdminUsersPage() {
     const [accessDays, setAccessDays] = useState<{ [key: string]: string }>({});
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
     const fetchUsersAndTeam = useCallback(() => {
         setIsLoading(true);
@@ -211,6 +212,44 @@ export default function AdminUsersPage() {
             });
         }
     };
+    
+    const handleDeleteUser = async (userId: string) => {
+        setIsDeleting(userId);
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) throw new Error("Authentication token not found.");
+
+            const response = await fetch('/api/admin/delete-user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ userId }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete user.');
+            }
+
+            toast({
+                title: 'User Deleted',
+                description: 'The user has been successfully deleted from the system.',
+            });
+            
+        } catch (error: any) {
+            console.error("Delete user error:", error);
+            toast({
+                title: 'Deletion Failed',
+                description: error.message,
+                variant: 'destructive'
+            });
+        } finally {
+            setIsDeleting(null);
+        }
+    }
+
 
     const handleDaysChange = (userId: string, value: string) => {
         setAccessDays(prev => ({ ...prev, [userId]: value }));
@@ -241,6 +280,7 @@ export default function AdminUsersPage() {
                                     <TableHead>Screenshot</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Actions</TableHead>
+                                    <TableHead className="text-right">Delete</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -318,11 +358,37 @@ export default function AdminUsersPage() {
                                                     </div>
                                                 ) : <span className="text-sm text-muted-foreground">No pending actions.</span>}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="destructive" size="icon" disabled={isDeleting === user.id}>
+                                                            {isDeleting === user.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Are you absolutely sure?</DialogTitle>
+                                                            <DialogDescription>
+                                                                This action cannot be undone. This will permanently delete the user's account,
+                                                                authentication record, and all associated data.
+                                                            </DialogDescription>
+                                                        </DialogHeader>
+                                                        <DialogFooter>
+                                                            <DialogClose asChild>
+                                                                <Button variant="outline">Cancel</Button>
+                                                            </DialogClose>
+                                                            <Button variant="destructive" onClick={() => handleDeleteUser(user.id)}>
+                                                                Yes, delete user
+                                                            </Button>
+                                                        </DialogFooter>
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24">No user submissions yet.</TableCell>
+                                        <TableCell colSpan={6} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
