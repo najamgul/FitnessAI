@@ -6,8 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // Standardized function to initialize Firebase Admin SDK
 function initializeAdminApp(): App {
-    const appName = 'admin-delete-user';
-    // Check if the app is already initialized
+    const appName = 'firebase-admin-app-delete-user';
     const existingApp = getApps().find(app => app.name === appName);
     if (existingApp) {
         return existingApp;
@@ -19,11 +18,7 @@ function initializeAdminApp(): App {
     }
     
     try {
-        // The service account key can be a stringified JSON or a pre-parsed object.
-        const serviceAccount = typeof serviceAccountString === 'string'
-            ? JSON.parse(serviceAccountString)
-            : serviceAccountString;
-            
+        const serviceAccount = JSON.parse(serviceAccountString);
         return initializeApp({
             credential: cert(serviceAccount)
         }, appName);
@@ -146,7 +141,7 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('Error deleting user:', error);
         if (error.code === 'auth/user-not-found') {
-            return NextResponse.json({ message: `User with ID ${userId} not found in Auth, but Firestore data deleted.` });
+            return NextResponse.json({ message: `User with ID ${error.uid} not found in Auth, but Firestore data deleted.` });
         }
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
