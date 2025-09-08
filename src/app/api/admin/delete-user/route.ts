@@ -12,8 +12,6 @@ async function initializeAdminApp() {
         return existingApp;
     }
 
-    // This is the critical part: parsing the service account key from environment variables
-    // This key should be set in your Vercel/Netlify/etc. deployment settings
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!serviceAccountString) {
         throw new Error('Firebase configuration error: The service account key is missing from the server environment. Please ensure the FIREBASE_SERVICE_ACCOUNT_KEY is set in your deployment settings.');
@@ -53,9 +51,11 @@ async function deleteQueryBatch(db: admin.firestore.Firestore, query: admin.fire
     // Delete documents in a batch
     const batch = db.batch();
     snapshot.docs.forEach((doc) => {
-        // Recursively delete subcollections
-        const subcollections = doc.ref.listCollections().then(collections => {
-            collections.forEach(collection => deleteCollection(db, collection.path, 50));
+        // Recursively delete subcollections by listing them before deleting the doc
+        const subcollectionsPromise = doc.ref.listCollections().then(collections => {
+            return Promise.all(collections.map(collection => {
+                return deleteCollection(db, collection.path, 50);
+            }));
         });
         batch.delete(doc.ref);
     });
@@ -85,20 +85,23 @@ export async function POST(req: NextRequest) {
         }
         const adminToken = authHeader.split('Bearer ')[1];
         const decodedAdminToken = await auth.verifyIdToken(adminToken);
-        if (decodedAdminToken.role !== 'admin') {
-            return NextResponse.json({ error: 'Permission denied: You must be an admin.' }, { status: 403 });
+        
+        const adminUserDoc = await db.collection('users').doc(decodedAdminToken.uid).get();
+        if (!adminUserDoc.exists || adminUserDoc.data()?.role !== 'admin') {
+             return NextResponse.json({ error: 'Permission denied: You must be an admin.' }, { status: 403 });
         }
 
         // --- Start Deletion Process ---
-
-        // 2. Delete user from Firebase Authentication
-        await auth.deleteUser(userIdToDelete);
-
-        // 3. Delete all Firestore data for the user
+        
+        // 2. Delete all Firestore data for the user
         // This includes the main user doc and all subcollections (onboarding, dietPlan, etc.)
-        await deleteCollection(db, `users/${userIdToDelete}`, 50);
+        const userDocRef = db.collection('users').doc(userIdToDelete);
+        const subcollections = await userDocRef.listCollections();
+        await Promise.all(subcollections.map(sub => deleteCollection(db, sub.path, 50)));
+        await userDocRef.delete();
 
-        // 4. Delete associated top-level documents
+
+        // 3. Delete associated top-level documents
         const paymentDocRef = db.doc(`payments/${userIdToDelete}`);
         await paymentDocRef.delete().catch(() => {}); // Ignore if it doesn't exist
 
@@ -109,6 +112,9 @@ export async function POST(req: NextRequest) {
             reviewsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
         }
+        
+        // 4. Delete user from Firebase Authentication (do this last)
+        await auth.deleteUser(userIdToDelete);
 
         return NextResponse.json({ message: `Successfully deleted user ${userIdToDelete}` });
     } catch (error: any) {
