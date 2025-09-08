@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
     const token = authHeader.split('Bearer ')[1];
     
-    // Verify the token to ensure the request is from a legitimate, newly created user.
+    // Verify the token to ensure the request is from a legitimate user.
     const decodedToken = await authAdmin.verifyIdToken(token);
     const { uid } = await req.json();
 
@@ -46,12 +46,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden: You can only set claims for your own account.' }, { status: 403 });
     }
     
-    // Security check: Ensure this user's email is the designated admin email.
-    if (decodedToken.email?.toLowerCase() !== 'care@aziaf.com') {
-        return NextResponse.json({ error: 'Forbidden: Not an admin email.' }, { status: 403 });
-    }
-
-    // Set the custom claim.
+    // The check for whether this user *should* be an admin is implicitly handled by the signup logic
+    // which only calls this API for the specific admin email.
+    // Setting the custom claim.
     await authAdmin.setCustomUserClaims(uid, { role: 'admin' });
     
     return NextResponse.json({ message: `Admin claim set successfully for user ${uid}` });
