@@ -10,9 +10,8 @@ import { Loader2, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-
 
 export default function AdminKnowledgeBasePage() {
     const { toast } = useToast();
@@ -49,13 +48,16 @@ export default function AdminKnowledgeBasePage() {
     const fetchKnowledgeBases = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('/api/admin/knowledge-base');
-            if (!response.ok) {
-                throw new Error('Failed to fetch knowledge bases');
+            const kashmirDoc = await getDoc(doc(db, 'knowledge-base', 'kashmir'));
+            const nonKashmirDoc = await getDoc(doc(db, 'knowledge-base', 'non-kashmir'));
+
+            if (kashmirDoc.exists()) {
+                setKashmirKb(kashmirDoc.data().content);
             }
-            const data = await response.json();
-            setKashmirKb(data.kashmir);
-            setNonKashmirKb(data.nonKashmir);
+            if (nonKashmirDoc.exists()) {
+                setNonKashmirKb(nonKashmirDoc.data().content);
+            }
+
         } catch (error) {
             toast({
                 title: 'Error',
@@ -69,29 +71,12 @@ export default function AdminKnowledgeBasePage() {
 
 
     const handleSave = async () => {
-        if (!user) {
-            toast({ title: "Not authenticated", variant: "destructive" });
-            return;
-        }
-
         setIsSaving(true);
         try {
+            const docId = activeTab === 'kashmir' ? 'kashmir' : 'non-kashmir';
             const contentToSave = activeTab === 'kashmir' ? kashmirKb : nonKashmirKb;
-            const idToken = await user.getIdToken();
 
-            const response = await fetch('/api/admin/knowledge-base', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({ type: activeTab, content: contentToSave }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to save knowledge base');
-            }
+            await setDoc(doc(db, 'knowledge-base', docId), { content: contentToSave });
 
             toast({
                 title: 'Success',
@@ -160,3 +145,5 @@ export default function AdminKnowledgeBasePage() {
         </Card>
     );
 }
+
+    

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Trash2, Users, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { collection, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -33,7 +33,7 @@ export default function AdminTeamPage() {
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
             if (user) {
                 const teamCollectionRef = collection(db, 'team');
                 const unsubscribeTeam = onSnapshot(teamCollectionRef, (snapshot) => {
@@ -51,9 +51,10 @@ export default function AdminTeamPage() {
                 return () => unsubscribeTeam();
             } else {
                 setIsLoading(false);
+                router.push('/login');
             }
         });
-        return () => unsubscribe();
+        return () => unsubscribeAuth();
     }, [toast]);
 
     const form = useForm<z.infer<typeof teamMemberSchema>>({
@@ -87,23 +88,7 @@ export default function AdminTeamPage() {
         if (window.confirm("Are you sure you want to remove this team member?")) {
             setIsDeleting(id);
             try {
-                const idToken = await auth.currentUser?.getIdToken();
-                if (!idToken) throw new Error("Authentication required.");
-
-                const response = await fetch('/api/admin/delete-team-member', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`,
-                    },
-                    body: JSON.stringify({ id }),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || "Failed to delete member.");
-                }
-
+                await deleteDoc(doc(db, 'team', id));
                 toast({ title: 'Team Member Removed', variant: 'destructive'});
             } catch (error: any) {
                 console.error("Error removing team member: ", error);
@@ -235,3 +220,5 @@ export default function AdminTeamPage() {
         </div>
     );
 }
+
+    

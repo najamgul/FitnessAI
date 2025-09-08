@@ -11,10 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Loader2, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
+
 
 type User = {
     id: string; // Firestore document ID
@@ -46,61 +48,102 @@ export default function AdminUsersPage() {
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchUsersAndTeam = useCallback(async () => {
+    const fetchUsersAndTeam = useCallback(() => {
         setIsLoading(true);
-        try {
-            const idToken = await auth.currentUser?.getIdToken(true);
-            if (!idToken) {
-                throw new Error("Authentication token not found.");
-            }
 
-            // Fetch both users and team members from their respective secure APIs
-            const [usersResponse, teamResponse] = await Promise.all([
-                fetch('/api/admin/users', {
-                    headers: { 'Authorization': `Bearer ${idToken}` }
-                }),
-                fetch('/api/admin/team', {
-                    headers: { 'Authorization': `Bearer ${idToken}` }
-                })
-            ]);
-
-            if (!usersResponse.ok) {
-                const errorData = await usersResponse.json();
-                throw new Error(errorData.error || 'Failed to fetch users');
-            }
-             if (!teamResponse.ok) {
-                const errorData = await teamResponse.json();
-                throw new Error(errorData.error || 'Failed to fetch team members');
-            }
-            
-            const fetchedUsers = await usersResponse.json();
-            const fetchedTeam = await teamResponse.json();
-
-            setUsers(fetchedUsers);
+        // Nested listener for team members
+        const teamUnsubscribe = onSnapshot(collection(db, 'team'), (teamSnapshot) => {
+            const fetchedTeam: TeamMember[] = [];
+            teamSnapshot.forEach((doc) => {
+                fetchedTeam.push({ id: doc.id, ...doc.data() } as TeamMember);
+            });
             setTeamMembers(fetchedTeam);
+        }, (error) => {
+            console.error("Error fetching team members: ", error);
+            toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
+        });
 
-        } catch (error: any) {
-            console.error("Error fetching admin data:", error);
-            if (!error.message.includes('Token has been revoked')) {
-                 toast({ title: "Error", description: error.message, variant: "destructive" });
+        // Main listener for users
+        const usersUnsubscribe = onSnapshot(query(collection(db, 'users'), where('role', '!=', 'admin')), async (usersSnapshot) => {
+            const usersList: User[] = [];
+            for (const userDoc of usersSnapshot.docs) {
+                const userData = userDoc.data();
+                const user: User = {
+                    id: userDoc.id,
+                    name: userData.name,
+                    email: userData.email,
+                    paymentStatus: userData.paymentStatus || 'unpaid',
+                    planStatus: userData.planStatus || 'not_started',
+                    assignedTo: userData.assignedTo || '',
+                    role: userData.role || 'user',
+                    createdAt: userData.createdAt,
+                    onboardingData: null,
+                    planDuration: 'N/A'
+                };
+
+                if (user.paymentStatus === 'pending') {
+                    const paymentDocRef = doc(db, 'payments', user.id);
+                    const paymentDoc = await getDoc(paymentDocRef);
+                    if (paymentDoc.exists()) {
+                        user.screenshotUrl = paymentDoc.data().screenshotUrl;
+                    }
+                    
+                    const onboardingDocRef = doc(db, 'users', user.id, 'onboarding', 'profile');
+                    const onboardingDoc = await getDoc(onboardingDocRef);
+                    if (onboardingDoc.exists()) {
+                        const onboardingData = onboardingDoc.data();
+                        user.onboardingData = onboardingData;
+                        user.planDuration = onboardingData?.planDuration;
+                    }
+                }
+
+                usersList.push(user);
             }
-        } finally {
+            setUsers(usersList.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)));
             setIsLoading(false);
-        }
+        }, (error) => {
+            console.error("Error fetching users: ", error);
+             if (error.code !== 'permission-denied') {
+                toast({ title: "Error", description: "Could not fetch users.", variant: "destructive" });
+             }
+            setIsLoading(false);
+        });
+
+
+        return () => {
+            teamUnsubscribe();
+            usersUnsubscribe();
+        };
+
     }, [toast]);
 
     useEffect(() => {
-        const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
+        let unsubscribe: (() => void) | undefined;
+    
+        const authUnsubscribe = onAuthStateChanged(auth, user => {
             if (user) {
-                // Now that we're sure the user is logged in, fetch the data
-                await fetchUsersAndTeam();
+                // Check if user is admin before fetching data
+                const userDocRef = doc(db, 'users', user.uid);
+                getDoc(userDocRef).then(userDoc => {
+                    if(userDoc.exists() && userDoc.data().role === 'admin') {
+                        unsubscribe = fetchUsersAndTeam();
+                    } else {
+                        // Not an admin or user doc doesn't exist
+                        setIsLoading(false);
+                        setUsers([]); // Clear users if not admin
+                    }
+                })
             } else {
-                // If no user, stop loading and rely on the layout to redirect
-                setIsLoading(false);
+                 // No user logged in
+                 setIsLoading(false);
+                 setUsers([]);
             }
         });
-
-        return () => authUnsubscribe();
+    
+        return () => {
+            authUnsubscribe();
+            unsubscribe && unsubscribe();
+        };
     }, [fetchUsersAndTeam]);
 
     const handleApprove = async (userId: string, userEmail: string, userName: string) => {
@@ -118,39 +161,44 @@ export default function AdminUsersPage() {
         }
 
         try {
-             const idToken = await auth.currentUser?.getIdToken();
-            if (!idToken) throw new Error("Not authenticated");
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + days);
 
-            const response = await fetch('/api/admin/approve-user', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`,
-                },
-                body: JSON.stringify({
-                    userId,
-                    userEmail,
-                    userName,
-                    days,
-                    assignedTo: {
-                        name: assignedToMember.name,
-                        id: assignedToMember.id,
-                    },
-                }),
+            const batch = writeBatch(db);
+
+            // Update the user document
+            const userDocRef = doc(db, 'users', userId);
+            batch.update(userDocRef, {
+                paymentStatus: 'approved',
+                planStatus: 'pending_review',
+                assignedTo: assignedToMember.name,
+                paymentExpiryDate: expiryDate.toISOString(),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to approve user.");
-            }
+            // Create a new review document
+            const reviewDocRef = doc(collection(db, 'reviews'));
+            batch.set(reviewDocRef, {
+                userId: userId,
+                userName: userName,
+                userEmail: userEmail,
+                assignedTo: assignedToMember.name,
+                assignedToId: assignedToMember.id,
+                status: 'pending_generation',
+                createdAt: serverTimestamp(),
+            });
+
+            // Update the payment document (if it exists)
+            const paymentDocRef = doc(db, 'payments', userId);
+            batch.update(paymentDocRef, {
+                status: 'verified',
+            });
+            
+            await batch.commit();
 
             toast({
                 title: 'User Approved & Assigned',
                 description: `${userEmail} assigned to ${assignedToMember.name} for ${days} days.`
             });
-            
-            // Refresh the user list after approval
-            fetchUsersAndTeam();
 
         } catch (error: any) {
             console.error("Approval Error: ", error);
