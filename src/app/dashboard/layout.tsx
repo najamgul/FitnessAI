@@ -125,7 +125,7 @@ export default function DashboardLayout({
     });
 
     return () => unsubscribe();
-  }, [router, toast, pathname]);
+  }, [router, toast]);
   
   const handleLogout = async () => {
     try {
