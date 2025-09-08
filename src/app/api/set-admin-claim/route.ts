@@ -4,9 +4,8 @@ import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin SDK
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-  : null;
+const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+const serviceAccount = serviceAccountString ? JSON.parse(serviceAccountString) : undefined;
 
 let adminApp: App;
 if (!getApps().length) {
@@ -16,7 +15,6 @@ if (!getApps().length) {
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
-    // In a production environment, you might want to throw an error here.
     adminApp = initializeApp();
   }
 } else {

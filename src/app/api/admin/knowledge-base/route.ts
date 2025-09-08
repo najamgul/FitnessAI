@@ -9,13 +9,14 @@ const KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-ka
 const NON_KASHMIR_KB_PATH = path.join(process.cwd(), 'src', 'ai', 'knowledge-base-non-kashmir.txt');
 
 // Initialize Firebase Admin SDK
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+const serviceAccount = serviceAccountString ? JSON.parse(serviceAccountString) : undefined;
 
 let adminApp: App;
 if (!getApps().length) {
   if (serviceAccount) {
     adminApp = initializeApp({
-      credential: cert(JSON.parse(serviceAccount)),
+      credential: cert(serviceAccount),
     });
   } else {
     console.warn("Firebase Admin SDK service account not found. API routes requiring auth will fail.");
