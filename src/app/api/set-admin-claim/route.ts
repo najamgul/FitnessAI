@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
-// A function to initialize and get the Firebase Admin app.
-// It ensures the app is initialized only once.
+// This function will be called inside the POST handler to ensure it runs at runtime.
 function initializeAdminApp(): App {
   const appName = 'firebase-admin-app-set-claim';
+  // Avoid re-initializing the app on every call
   const existingApp = getApps().find(app => app.name === appName);
   if (existingApp) {
     return existingApp;
@@ -24,20 +24,14 @@ function initializeAdminApp(): App {
     }, appName);
   } catch (e: any) {
     console.error('Failed to parse or initialize Firebase Admin SDK:', e.message);
-    throw new Error('Firebase service account key is not valid.');
+    throw new Error(`Firebase service account key is not valid. Error: ${e.message}`);
   }
 }
 
 export async function POST(req: NextRequest) {
-  let adminApp: App;
   try {
     // Initialize the app inside the request handler
-    adminApp = initializeAdminApp();
-  } catch (e: any) {
-    return NextResponse.json({ error: 'Failed to initialize server resources.', details: e.message }, { status: 500 });
-  }
-
-  try {
+    const adminApp = initializeAdminApp();
     const authAdmin = getAuth(adminApp);
     
     const authHeader = req.headers.get('authorization');
