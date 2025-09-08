@@ -28,15 +28,38 @@ const db = getFirestore(adminApp);
 const authAdmin = getAuth(adminApp);
 
 async function verifyAdmin(req: NextRequest): Promise<boolean> {
+    console.log('=== ADMIN VERIFICATION DEBUG (team) ===');
     const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return false;
+    console.log('Auth header present:', !!authHeader);
+    
+    if (!authHeader?.startsWith('Bearer ')) {
+        console.log('No valid auth header found');
+        return false;
+    }
+    
     const token = authHeader.split('Bearer ')[1];
+    console.log('Token extracted:', token ? 'Yes' : 'No');
+    
     try {
-        if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
+        if (!serviceAccount) {
+            console.log('Service account not available');
+            throw new Error("Firebase Admin SDK not initialized");
+        }
+        
+        console.log('Verifying token...');
         const decodedToken = await authAdmin.verifyIdToken(token);
-        return decodedToken.role === 'admin';
+        console.log('Token verified successfully for UID:', decodedToken.uid);
+        console.log('Full decoded token:', JSON.stringify(decodedToken, null, 2));
+        
+        const isAdmin = decodedToken.role === 'admin';
+        console.log(`Checking for admin role... found: ${isAdmin}`);
+        
+        console.log('=== END DEBUG ===');
+        
+        return isAdmin;
     } catch (error) {
         console.error('Error verifying admin token:', error);
+        console.log('=== END DEBUG (ERROR) ===');
         return false;
     }
 }
