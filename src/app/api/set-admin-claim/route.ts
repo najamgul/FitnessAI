@@ -15,7 +15,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Loader2, Eye, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { deleteUser as deleteUserFlow } from '@/ai/flows/delete-user';
 
 
 type User = {
@@ -49,11 +49,24 @@ export default function AdminUsersPage() {
     const [assignments, setAssignments] = useState<{ [key: string]: string }>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentUser(user);
+            } else {
+                // Handle user not logged in
+                setIsLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     const fetchUsersAndTeam = useCallback(() => {
+        if (!currentUser) return;
         setIsLoading(true);
 
-        // Nested listener for team members
         const teamUnsubscribe = onSnapshot(collection(db, 'team'), (teamSnapshot) => {
             const fetchedTeam: TeamMember[] = [];
             teamSnapshot.forEach((doc) => {
@@ -65,7 +78,6 @@ export default function AdminUsersPage() {
             toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
         });
 
-        // Main listener for users
         const usersUnsubscribe = onSnapshot(query(collection(db, 'users'), where('role', '!=', 'admin')), async (usersSnapshot) => {
             const usersList: User[] = [];
             for (const userDoc of usersSnapshot.docs) {
@@ -112,42 +124,35 @@ export default function AdminUsersPage() {
             setIsLoading(false);
         });
 
-
         return () => {
             teamUnsubscribe();
             usersUnsubscribe();
         };
 
-    }, [toast]);
+    }, [toast, currentUser]);
 
     useEffect(() => {
         let unsubscribe: (() => void) | undefined;
     
-        const authUnsubscribe = onAuthStateChanged(auth, user => {
-            if (user) {
-                // Check if user is admin before fetching data
-                const userDocRef = doc(db, 'users', user.uid);
-                getDoc(userDocRef).then(userDoc => {
-                    if(userDoc.exists() && userDoc.data().role === 'admin') {
-                        unsubscribe = fetchUsersAndTeam();
-                    } else {
-                        // Not an admin or user doc doesn't exist
-                        setIsLoading(false);
-                        setUsers([]); // Clear users if not admin
-                    }
-                })
-            } else {
-                 // No user logged in
-                 setIsLoading(false);
-                 setUsers([]);
-            }
-        });
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            getDoc(userDocRef).then(userDoc => {
+                if(userDoc.exists() && userDoc.data().role === 'admin') {
+                    unsubscribe = fetchUsersAndTeam();
+                } else {
+                    setIsLoading(false);
+                    setUsers([]);
+                }
+            })
+        } else {
+             setIsLoading(false);
+             setUsers([]);
+        }
     
         return () => {
-            authUnsubscribe();
             unsubscribe && unsubscribe();
         };
-    }, [fetchUsersAndTeam]);
+    }, [currentUser, fetchUsersAndTeam]);
 
     const handleApprove = async (userId: string, userEmail: string, userName: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
@@ -169,7 +174,6 @@ export default function AdminUsersPage() {
 
             const batch = writeBatch(db);
 
-            // Update the user document
             const userDocRef = doc(db, 'users', userId);
             batch.update(userDocRef, {
                 paymentStatus: 'approved',
@@ -178,7 +182,6 @@ export default function AdminUsersPage() {
                 paymentExpiryDate: expiryDate.toISOString(),
             });
 
-            // Create a new review document
             const reviewDocRef = doc(collection(db, 'reviews'));
             batch.set(reviewDocRef, {
                 userId: userId,
@@ -190,7 +193,6 @@ export default function AdminUsersPage() {
                 createdAt: serverTimestamp(),
             });
 
-            // Update the payment document (if it exists)
             const paymentDocRef = doc(db, 'payments', userId);
             batch.update(paymentDocRef, {
                 status: 'verified',
@@ -214,17 +216,18 @@ export default function AdminUsersPage() {
     };
     
     const handleDeleteUser = async (userId: string) => {
+        if (!currentUser) {
+            toast({ title: 'Authentication Error', description: 'You must be logged in as an admin.', variant: 'destructive' });
+            return;
+        }
         setIsDeleting(userId);
         try {
-            const functions = getFunctions();
-            const deleteUserCallable = httpsCallable(functions, 'deleteUser');
-            await deleteUserCallable({ userId });
-
+            const adminUid = currentUser.uid;
+            await deleteUserFlow({ userIdToDelete: userId, adminUid });
             toast({
                 title: 'User Deleted',
-                description: 'The user and all their data have been successfully deleted.',
+                description: 'The user and their data have been successfully deleted.',
             });
-            
         } catch (error: any) {
             console.error("Delete user error:", error);
             toast({
