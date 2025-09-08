@@ -27,16 +27,12 @@ if (!getApps().length) {
 const db = getFirestore(adminApp);
 const authAdmin = getAuth(adminApp);
 
-async function verifyAdmin(req: NextRequest): Promise<boolean> {
+async function verifyAdmin(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return false;
+        return null;
     }
-
     const token = authHeader.split('Bearer ')[1];
-    if (!token) {
-       return false;
-    }
 
     try {
         if (!serviceAccount) {
@@ -46,10 +42,13 @@ async function verifyAdmin(req: NextRequest): Promise<boolean> {
         const decodedToken = await authAdmin.verifyIdToken(token);
         
         // Correctly check for the admin custom claim
-        return decodedToken.role === 'admin';
+        if (decodedToken.role === 'admin') {
+            return decodedToken;
+        }
+        return null;
     } catch (error) {
         console.error('Error verifying admin token:', error);
-        return false;
+        return null;
     }
 }
 
