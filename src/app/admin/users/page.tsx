@@ -292,7 +292,18 @@ export default function AdminUsersPage() {
                                                 <div className="text-sm text-muted-foreground">{user.email}</div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="text-sm">{user.phone || 'N/A'}</div>
+                                                {user.phone ? (
+                                                    <a
+                                                        href={`https://wa.me/${user.phone.replace(/\D/g, '')}?text=${encodeURIComponent("Asalamulaykum this is Aziaf, Thank you for giving us your detail. How are you doing today?")}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-sm text-primary hover:underline"
+                                                    >
+                                                        {user.phone}
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-sm text-muted-foreground">N/A</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {user.screenshotUrl ? (
