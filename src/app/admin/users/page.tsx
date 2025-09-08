@@ -22,6 +22,7 @@ type User = {
     id: string; // Firestore document ID
     name: string;
     email: string;
+    phone?: string;
     screenshotUrl?: string; // from payments collection
     paymentStatus: string;
     planStatus: string;
@@ -72,6 +73,7 @@ export default function AdminUsersPage() {
                     id: userDoc.id,
                     name: userData.name,
                     email: userData.email,
+                    phone: userData.phone,
                     paymentStatus: userData.paymentStatus || 'unpaid',
                     planStatus: userData.planStatus || 'not_started',
                     assignedTo: userData.assignedTo || '',
@@ -235,6 +237,7 @@ export default function AdminUsersPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User</TableHead>
+                                    <TableHead>Phone Number</TableHead>
                                     <TableHead>Screenshot</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Actions</TableHead>
@@ -247,6 +250,9 @@ export default function AdminUsersPage() {
                                             <TableCell>
                                                 <div className="font-medium">{user.name}</div>
                                                 <div className="text-sm text-muted-foreground">{user.email}</div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="text-sm">{user.phone || 'N/A'}</div>
                                             </TableCell>
                                             <TableCell>
                                                 {user.screenshotUrl ? (
@@ -316,7 +322,7 @@ export default function AdminUsersPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">No user submissions yet.</TableCell>
+                                        <TableCell colSpan={5} className="text-center h-24">No user submissions yet.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -328,5 +334,3 @@ export default function AdminUsersPage() {
         </div>
     );
 }
-
-    
