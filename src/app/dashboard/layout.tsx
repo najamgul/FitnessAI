@@ -91,17 +91,18 @@ export default function DashboardLayout({
                     const userIsAdmin = userData.role === 'admin';
                     setIsAdmin(userIsAdmin);
 
+                    const currentPath = window.location.pathname;
+
                     if (userIsAdmin) {
-                        if (!pathname.startsWith('/admin')) {
+                        if (!currentPath.startsWith('/admin')) {
                            router.push('/admin/users');
-                           return; 
                         }
                     } else {
                         // For regular users, perform payment and onboarding checks
                         const paymentStatus = userData.paymentStatus;
-                        if (paymentStatus === 'pending' && pathname !== '/awaiting-approval') {
+                        if (paymentStatus === 'pending' && !currentPath.startsWith('/awaiting-approval')) {
                             router.push('/awaiting-approval');
-                        } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && pathname !== '/payment' && pathname !== '/onboarding') {
+                        } else if (paymentStatus !== 'approved' && paymentStatus !== 'pending' && !currentPath.startsWith('/onboarding') && !currentPath.startsWith('/payment')) {
                              router.push('/onboarding');
                         }
                     }
@@ -116,9 +117,7 @@ export default function DashboardLayout({
         } else {
             // No user is logged in.
             setUser(null);
-            if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
-                 router.push('/login');
-            }
+            router.push('/login');
         }
         // Verification is complete
         setIsVerifying(false);
