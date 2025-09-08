@@ -50,7 +50,7 @@ export default function AdminUsersPage() {
     const fetchUsers = useCallback(async () => {
         setIsLoading(true);
         try {
-            const idToken = await auth.currentUser?.getIdToken();
+            const idToken = await auth.currentUser?.getIdToken(true); // Force refresh
             if (!idToken) {
                 throw new Error("Authentication token not found.");
             }
@@ -71,38 +71,44 @@ export default function AdminUsersPage() {
 
         } catch (error: any) {
             console.error("Error fetching users:", error);
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+            if (error.message.includes('Token has been revoked')) {
+                toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
+                auth.signOut();
+            } else {
+                 toast({ title: "Error", description: error.message, variant: "destructive" });
+            }
         } finally {
             setIsLoading(false);
         }
     }, [toast]);
 
+    const fetchTeamMembers = useCallback(async () => {
+         try {
+            const teamResponse = await fetch('/api/admin/team');
+            if(teamResponse.ok) {
+                const teamData = await teamResponse.json();
+                setTeamMembers(teamData);
+            } else {
+                toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
+            }
+        } catch (error) {
+            console.error("Error fetching team members:", error);
+            toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
+        }
+    }, [toast])
+
     useEffect(() => {
         const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                try {
-                    // Fetch Team Members
-                    const teamResponse = await fetch('/api/admin/team');
-                    if(teamResponse.ok) {
-                        const teamData = await teamResponse.json();
-                        setTeamMembers(teamData);
-                    } else {
-                        toast({ title: "Error", description: "Could not fetch team members.", variant: "destructive" });
-                    }
-                    
-                    // Fetch Users
-                    await fetchUsers();
-
-                } catch (error) {
-                    console.error("Error during initial data fetch:", error);
-                }
+                await fetchTeamMembers();
+                await fetchUsers();
             } else {
                 setIsLoading(false);
             }
         });
 
         return () => authUnsubscribe();
-    }, [fetchUsers, toast]);
+    }, [fetchUsers, fetchTeamMembers]);
 
     const handleApprove = async (userId: string, userEmail: string, userName: string) => {
         const days = parseInt(accessDays[userId] || '30', 10);
