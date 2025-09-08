@@ -29,6 +29,7 @@ import {
   ClipboardCheck,
   UserPlus,
   FileHeart,
+  Loader2,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -70,8 +71,12 @@ export default function AdminLayout({
         if (currentUser) {
             setUser(currentUser);
             try {
+                // Force refresh the token to get the latest custom claims
+                await currentUser.getIdToken(true); 
+                
                 const userDocRef = doc(db, 'users', currentUser.uid);
                 const userDoc = await getDoc(userDocRef);
+                
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     const capitalizedUsername = (userData.name || currentUser.email?.split('@')[0] || 'User').replace(/^\w/, (c: string) => c.toUpperCase());
@@ -85,7 +90,8 @@ export default function AdminLayout({
                     router.push('/login');
                 }
             } catch (error) {
-                toast({ title: "Error", description: "Could not fetch user details.", variant: "destructive" });
+                console.error("Auth check error:", error);
+                toast({ title: "Error", description: "Could not verify your access. Please log in again.", variant: "destructive" });
                 router.push('/login');
             }
         } else {
@@ -96,7 +102,7 @@ export default function AdminLayout({
     });
 
     return () => unsubscribe();
-  }, [router, toast, pathname]);
+  }, [router, toast]);
   
   const handleLogout = async () => {
     try {
@@ -119,11 +125,8 @@ export default function AdminLayout({
 
   if (isLoading) {
     return (
-        <div className="flex min-h-screen">
-            <div className="w-16 md:w-64 bg-muted/40 animate-pulse"></div>
-            <div className="flex-1 p-8 animate-pulse">
-                <div className="h-10 w-1/3 bg-muted/40 rounded"></div>
-            </div>
+        <div className="flex min-h-screen items-center justify-center">
+             <Loader2 className="h-12 w-12 animate-spin" />
         </div>
     );
   }

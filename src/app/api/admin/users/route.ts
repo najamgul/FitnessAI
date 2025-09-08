@@ -25,6 +25,7 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(adminApp);
+const authAdmin = getAuth(adminApp);
 
 async function verifyAdmin(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
@@ -32,9 +33,8 @@ async function verifyAdmin(req: NextRequest) {
     const token = authHeader.split('Bearer ')[1];
     try {
         if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
-        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
-        const userRecord = await getAuth(adminApp).getUser(decodedToken.uid);
-        if (userRecord.customClaims?.role === 'admin') {
+        const decodedToken = await authAdmin.verifyIdToken(token);
+        if (decodedToken.role === 'admin') {
             return decodedToken;
         }
         return null;

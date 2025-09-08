@@ -29,7 +29,9 @@ if (!getApps().length) {
   adminApp = getApps()[0];
 }
 
-async function verifyToken(req: NextRequest) {
+const authAdmin = getAuth(adminApp);
+
+async function verifyAdmin(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
         return null;
@@ -37,8 +39,11 @@ async function verifyToken(req: NextRequest) {
     const token = authHeader.split('Bearer ')[1];
     try {
         if (!serviceAccount) throw new Error("Firebase Admin SDK not initialized");
-        const decodedToken = await getAuth(adminApp).verifyIdToken(token);
-        return decodedToken;
+        const decodedToken = await authAdmin.verifyIdToken(token);
+        if (decodedToken.role === 'admin') {
+            return decodedToken;
+        }
+        return null;
     } catch (error) {
         console.error('Error verifying Firebase ID token:', error);
         return null;
@@ -58,8 +63,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-    const decodedToken = await verifyToken(req);
-    if (!decodedToken || decodedToken.role !== 'admin') {
+    const decodedToken = await verifyAdmin(req);
+    if (!decodedToken) {
          return NextResponse.json({ error: 'Unauthorized: You must be an admin to perform this action.' }, { status: 403 });
     }
 
