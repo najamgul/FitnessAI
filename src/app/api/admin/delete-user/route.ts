@@ -2,17 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, WriteBatch } from 'firebase-admin/firestore';
-import { config } from 'dotenv';
-
-config();
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Standardized function to initialize Firebase Admin SDK
 function initializeAdminApp(): App {
     const appName = 'admin-delete-user';
-    const adminApps = getApps().filter(app => app.name === appName);
-    if (adminApps.length > 0) {
-        return adminApps[0]!;
+    // Check if the app is already initialized
+    const existingApp = getApps().find(app => app.name === appName);
+    if (existingApp) {
+        return existingApp;
     }
 
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -21,7 +19,10 @@ function initializeAdminApp(): App {
     }
     
     try {
-        const serviceAccount = JSON.parse(serviceAccountString);
+        // The service account key can be a stringified JSON or a pre-parsed object.
+        const serviceAccount = typeof serviceAccountString === 'string'
+            ? JSON.parse(serviceAccountString)
+            : serviceAccountString;
             
         return initializeApp({
             credential: cert(serviceAccount)
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error('Error deleting user:', error);
         if (error.code === 'auth/user-not-found') {
-            return NextResponse.json({ message: `User with ID ${error.uid} not found in Auth, but Firestore data deleted.` });
+            return NextResponse.json({ message: `User with ID ${userId} not found in Auth, but Firestore data deleted.` });
         }
         return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
     }
