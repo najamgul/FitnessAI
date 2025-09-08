@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { Loader2, Eye, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { collection, query, where, getDocs, doc, onSnapshot, writeBatch, serverTimestamp, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 
 type User = {
@@ -233,6 +233,9 @@ export default function AdminUsersPage() {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                if (errorData.error?.includes('Firebase configuration error')) {
+                    throw new Error('CONFIG_ERROR');
+                }
                 throw new Error(errorData.error || 'Failed to delete user.');
             }
 
@@ -242,11 +245,20 @@ export default function AdminUsersPage() {
             });
         } catch (error: any) {
             console.error("Delete user error:", error);
-            toast({
-                title: 'Deletion Failed',
-                description: error.message || 'An unexpected error occurred.',
-                variant: 'destructive'
-            });
+            if (error.message === 'CONFIG_ERROR') {
+                 toast({
+                    title: 'Configuration Error',
+                    description: 'The FIREBASE_SERVICE_ACCOUNT_KEY is missing from your server environment. Please add it to your deployment settings.',
+                    variant: 'destructive',
+                    duration: 10000,
+                });
+            } else {
+                 toast({
+                    title: 'Deletion Failed',
+                    description: error.message || 'An unexpected error occurred.',
+                    variant: 'destructive'
+                });
+            }
         } finally {
             setIsDeleting(null);
         }
