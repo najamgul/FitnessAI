@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { AuthLayout } from '@/components/auth-layout';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
@@ -20,6 +20,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -66,6 +67,34 @@ export default function LoginPage() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!email) {
+            toast({
+                title: 'Email Required',
+                description: 'Please enter your email address to reset your password.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setIsResetting(true);
+        try {
+            await sendPasswordResetEmail(auth, email);
+            toast({
+                title: 'Reset Email Sent',
+                description: 'A password reset link has been sent to your email address.',
+            });
+        } catch (error: any) {
+            toast({
+                title: 'Error',
+                description: error.message || 'Could not send reset email.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     return (
         <AuthLayout>
             <Card>
@@ -84,11 +113,22 @@ export default function LoginPage() {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isResetting}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password">Password</Label>
+                                <Button 
+                                    type="button" 
+                                    variant="link" 
+                                    className="px-0 font-normal text-xs text-muted-foreground"
+                                    onClick={handleForgotPassword}
+                                    disabled={isResetting || isLoading}
+                                >
+                                    Forgot password?
+                                </Button>
+                            </div>
                             <Input
                                 id="password"
                                 type="password"
@@ -96,10 +136,10 @@ export default function LoginPage() {
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isResetting}
                             />
                         </div>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
+                        <Button type="submit" className="w-full" disabled={isLoading || isResetting}>
                             {isLoading ? <Loader2 className="animate-spin" /> : 'Log In'}
                         </Button>
                     </form>

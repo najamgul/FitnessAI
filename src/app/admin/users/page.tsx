@@ -54,7 +54,6 @@ export default function AdminUsersPage() {
             if (user) {
                 setCurrentUser(user);
             } else {
-                // Handle user not logged in
                 setIsLoading(false);
             }
         });
