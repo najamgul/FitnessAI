@@ -21,6 +21,9 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useGamification } from '@/hooks/useGamification';
+import { XPReward } from '@/components/xp-reward';
+import { SoundEngine } from '@/components/sound-engine';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { addDays, differenceInDays, format, startOfWeek } from 'date-fns';
 
@@ -51,6 +54,8 @@ const SmartDietPlanner = () => {
     const [user, setUser] = useState<User | null>(null);
     const [userGoals, setUserGoals] = useState('');
     const [adjustmentAdvice, setAdjustmentAdvice] = useState<string | null>(null);
+    const { completeMeal, completeAllMeals } = useGamification();
+    const [xpEvent, setXpEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -177,17 +182,35 @@ const SmartDietPlanner = () => {
         }
     }
 
-    const toggleMealCompletion = (dayIndex: number, mealIndex: number) => {
+    const toggleMealCompletion = async (dayIndex: number, mealIndex: number) => {
+        let wasCompleted = false;
         setPlan(prevPlan => {
             const newPlan = JSON.parse(JSON.stringify(prevPlan));
             const meal = newPlan[dayIndex].meals[mealIndex];
             meal.completed = !meal.completed;
+            wasCompleted = meal.completed;
             if (meal.completed) {
                 meal.skipped = false;
             }
             saveProgress(dayIndex, meal.mealTime, { completed: meal.completed, skipped: meal.skipped });
             return newPlan;
         });
+
+        // Award XP on completion
+        if (wasCompleted) {
+            SoundEngine.mealComplete();
+            const event = await completeMeal();
+            if (event) setXpEvent(event);
+
+            // Check if ALL meals are now completed
+            setTimeout(() => {
+                const allDone = plan[dayIndex]?.meals.every(m => m.completed || m.skipped) &&
+                                plan[dayIndex]?.meals.filter(m => m.completed).length === plan[dayIndex]?.meals.length;
+                if (allDone) {
+                    completeAllMeals().then(e => { if (e) setXpEvent(e); });
+                }
+            }, 500);
+        }
     };
 
     const handleSkipMeal = (dayIndex: number, mealIndex: number) => {
@@ -282,6 +305,7 @@ const SmartDietPlanner = () => {
 
     return (
         <div className="min-h-screen bg-background overflow-x-hidden">
+            <XPReward amount={xpEvent?.amount ?? null} source={xpEvent?.source} multiplied={xpEvent?.multiplied} onComplete={() => setXpEvent(null)} />
             <div className="min-h-screen flex flex-col max-w-full">
                 <div className="bg-card rounded-none shadow-lg overflow-hidden border-0 flex-1 flex flex-col max-w-full">
                     <div className="bg-gradient-to-r from-primary to-emerald-600 p-4 sm:p-6 text-primary-foreground w-full">

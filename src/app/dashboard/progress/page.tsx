@@ -11,6 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useGamification } from '@/hooks/useGamification';
+import { XPReward } from '@/components/xp-reward';
+import { SoundEngine } from '@/components/sound-engine';
 
 type ProgressMetric = {
     weight: number;
@@ -72,6 +75,8 @@ const UltimateProgressTracker = () => {
   const [aiInsights, setAiInsights] = useState<Insight[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const { logProgress: logProgressXP } = useGamification();
+  const [xpEvent, setXpEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
   useEffect(() => {
     try {
@@ -239,7 +244,7 @@ const UltimateProgressTracker = () => {
     }));
   };
 
-  const logProgress = () => {
+  const logProgress = async () => {
     setIsLogging(true);
     const today = new Date().toISOString().split('T')[0];
 
@@ -290,7 +295,12 @@ const UltimateProgressTracker = () => {
         localStorage.setItem('progressHistory', JSON.stringify(updatedHistory));
         setProgressHistory(updatedHistory);
         runFullAnalysis(); // Run analysis with the new data
-        toast({ title: 'Progress Logged!', description: "Your insights and predictions have been updated."});
+        toast({ title: '✅ Progress Logged!', description: "Your insights and predictions have been updated."});
+        
+        // Award XP
+        SoundEngine.xpGain();
+        const event = await logProgressXP();
+        if (event) setXpEvent(event);
     } catch (e) {
         console.error("Failed to save progress:", e);
         toast({ title: 'Error', description: 'Could not save your progress.', variant: 'destructive'});
@@ -313,6 +323,7 @@ const UltimateProgressTracker = () => {
 
   return (
     <div className="bg-background">
+        <XPReward amount={xpEvent?.amount ?? null} source={xpEvent?.source} multiplied={xpEvent?.multiplied} onComplete={() => setXpEvent(null)} />
         <div className="bg-card rounded-3xl shadow-xl overflow-hidden border">
             {/* Header */}
             <div className="bg-gradient-to-r from-primary via-purple-600 to-pink-600 p-8 text-primary-foreground">

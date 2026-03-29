@@ -30,6 +30,7 @@ import {
   UserPlus,
   FileHeart,
   Loader2,
+  Trophy,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -45,6 +46,12 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { useGamification } from '@/hooks/useGamification';
+import { LevelBar } from '@/components/level-bar';
+import { XPReward } from '@/components/xp-reward';
+import { BadgeUnlockModal } from '@/components/badge-unlock-modal';
+import { LevelUpModal } from '@/components/level-up-modal';
+import { getTitleForLevel, LEVEL_TITLES } from '@/lib/gamification';
 
 const userNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -52,6 +59,7 @@ const userNavItems = [
   { href: '/dashboard/hydration', label: 'Hydration', icon: Droplets },
   { href: '/dashboard/progress', label: 'Track Progress', icon: LineChart },
   { href: '/dashboard/ask', label: 'Chat with Azai', icon: MessageSquare },
+  { href: '/dashboard/badges', label: 'Badges', icon: Trophy },
 ];
 
 const adminNavItems = [
@@ -75,6 +83,11 @@ export default function DashboardLayout({
   const [userDetails, setUserDetails] = useState({ name: '', email: '' });
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
+
+  // ALL hooks must be called before any early returns
+  const { profile, levelProgress, multiplier, newBadges, clearNewBadges, leveledUp, newLevel, clearLevelUp } = useGamification();
+  const [activeBadge, setActiveBadge] = useState<typeof newBadges[0] | null>(null);
+  const [lastXPEvent, setLastXPEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -125,6 +138,13 @@ export default function DashboardLayout({
 
     return () => unsubscribe();
   }, [router, toast]);
+
+  // Show badge unlock modal one at a time
+  useEffect(() => {
+    if (newBadges.length > 0 && !activeBadge) {
+      setActiveBadge(newBadges[0]);
+    }
+  }, [newBadges, activeBadge]);
   
   const handleLogout = async () => {
     try {
@@ -163,15 +183,45 @@ export default function DashboardLayout({
     );
   }
 
+  const handleBadgeDismiss = () => {
+    setActiveBadge(null);
+    clearNewBadges();
+  };
+
+  const levelInfo = newLevel ? getTitleForLevel(newLevel) : null;
+  const levelUnlock = newLevel && LEVEL_TITLES[newLevel]?.unlock;
 
   return (
     <SidebarProvider>
+      {/* Global XP Toast */}
+      <XPReward amount={lastXPEvent?.amount ?? null} source={lastXPEvent?.source} multiplied={lastXPEvent?.multiplied} onComplete={() => setLastXPEvent(null)} />
+      
+      {/* Badge Unlock Modal */}
+      <BadgeUnlockModal badge={activeBadge} onClose={handleBadgeDismiss} />
+
+      {/* Level Up Modal */}
+      <LevelUpModal show={leveledUp} level={newLevel ?? 1} emoji={levelInfo?.emoji ?? '🌱'} title={levelInfo?.title ?? ''} unlock={levelUnlock} onClose={clearLevelUp} />
+
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-center">
             <Link href={'/dashboard'}>
                 <Image src="/logo.png" alt="AZIAF Logo" width={80} height={80} />
             </Link>
+          </div>
+          {/* Gamification Level Bar */}
+          <div className="px-2 pb-1 group-data-[collapsible=icon]:hidden">
+            <LevelBar
+              level={levelProgress.level}
+              emoji={levelProgress.emoji}
+              title={levelProgress.title}
+              currentXP={levelProgress.currentLevelXP}
+              xpToNext={levelProgress.xpToNextLevel}
+              progressPercent={levelProgress.progressPercent}
+              streakDays={profile.streakDays}
+              multiplier={multiplier}
+              compact
+            />
           </div>
         </SidebarHeader>
         <SidebarContent>

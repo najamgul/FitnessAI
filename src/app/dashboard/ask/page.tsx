@@ -10,6 +10,8 @@ import { selectExpertForQuestion } from '@/ai/flows/select-expert-for-question';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useGamification } from '@/hooks/useGamification';
+import { XPReward } from '@/components/xp-reward';
 
 type Message = {
     sender: 'user' | 'ai';
@@ -26,6 +28,8 @@ export default function ChatWithAzaiPage() {
     const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase>('general');
     const [userProfile, setUserProfile] = useState('');
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const { askAzai } = useGamification();
+    const [xpEvent, setXpEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
     useEffect(() => {
         try {
@@ -94,6 +98,9 @@ export default function ChatWithAzaiPage() {
             });
             const aiMessage: Message = { sender: 'ai', text: response.answer };
             setMessages(prev => [...prev, aiMessage]);
+            // Award XP for asking
+            const event = await askAzai();
+            if (event) setXpEvent(event);
         } catch (error) {
             toast({
                 title: 'Error',
@@ -107,6 +114,7 @@ export default function ChatWithAzaiPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] bg-card rounded-xl border shadow-lg">
+            <XPReward amount={xpEvent?.amount ?? null} source={xpEvent?.source} multiplied={xpEvent?.multiplied} onComplete={() => setXpEvent(null)} />
              <div className="p-4 border-b flex justify-between items-center">
                 <div>
                     <h2 className="text-xl font-bold font-headline">Chat with Azai</h2>

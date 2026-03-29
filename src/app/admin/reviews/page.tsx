@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -457,12 +458,13 @@ export default function AdminReviewsPage() {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-3xl font-bold font-headline">Diet Plan Review Queue</CardTitle>
-                <CardDescription>Review, modify, and approve Azai-generated diet plans for new users.</CardDescription>
-            </CardHeader>
-            <CardContent>
+        <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📋 Plan Review Queue</h1>
+                <p className="text-sm text-gray-500 mt-1">Review, modify, and approve Azai-generated diet plans for new users.</p>
+            </div>
+            <Card className="rounded-2xl border-gray-100 shadow-sm">
+            <CardContent className="pt-6">
                 {reviewQueue.length > 0 ? (
                     <Accordion type="single" collapsible className="w-full" defaultValue={reviewQueue[0]?.id}>
                         {reviewQueue.map(task => (
@@ -623,6 +625,7 @@ export default function AdminReviewsPage() {
                 )}
             </CardContent>
         </Card>
+        </motion.div>
     );
 }
 

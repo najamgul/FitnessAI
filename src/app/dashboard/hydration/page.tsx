@@ -3,6 +3,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Droplets, Clock, Target, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useGamification } from '@/hooks/useGamification';
+import { XPReward } from '@/components/xp-reward';
+import { SoundEngine } from '@/components/sound-engine';
 
 type ScheduleItem = {
   time: string;
@@ -21,6 +24,8 @@ const SmartWaterTracker = () => {
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { logHydrationSlot, completeHydrationGoal } = useGamification();
+  const [xpEvent, setXpEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
   // Set initial daily goal based on user's onboarding data
   useEffect(() => {
@@ -162,12 +167,31 @@ const SmartWaterTracker = () => {
     return () => clearInterval(interval);
   }, [mounted, scheduleItems, currentTime]);
 
-  const toggleCompletion = (id: number) => {
+  const toggleCompletion = async (id: number) => {
+    const item = scheduleItems.find(i => i.id === id);
+    const wasNotCompleted = item && !item.completed;
+    
     setScheduleItems(prev =>
       prev.map(item =>
         item.id === id ? { ...item, completed: !item.completed, skipped: false } : item
       )
     );
+
+    if (wasNotCompleted) {
+      SoundEngine.waterLog();
+      const event = await logHydrationSlot();
+      if (event) setXpEvent(event);
+
+      // Check if all slots are now completed (100% hydration)
+      setTimeout(async () => {
+        const allDone = scheduleItems.every(i => i.id === id ? true : i.completed || i.skipped);
+        const allCompleted = scheduleItems.filter(i => i.id === id ? true : i.completed).length === scheduleItems.length;
+        if (allCompleted) {
+          const bonusEvent = await completeHydrationGoal();
+          if (bonusEvent) setXpEvent(bonusEvent);
+        }
+      }, 600);
+    }
   };
 
   const skipSlot = (id: number) => {
@@ -241,6 +265,7 @@ const SmartWaterTracker = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <XPReward amount={xpEvent?.amount ?? null} source={xpEvent?.source} multiplied={xpEvent?.multiplied} onComplete={() => setXpEvent(null)} />
       <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 p-6 text-white">

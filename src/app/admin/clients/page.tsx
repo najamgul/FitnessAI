@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -299,12 +300,13 @@ export default function AdminClientsPage() {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-3xl font-bold font-headline">Client Diet Plans</CardTitle>
-                <CardDescription>View and manage all active, approved diet plans for your clients.</CardDescription>
-            </CardHeader>
-            <CardContent>
+        <motion.div className="space-y-6" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">💚 Client Diet Plans</h1>
+                <p className="text-sm text-gray-500 mt-1">View and manage all active, approved diet plans.</p>
+            </div>
+            <Card className="rounded-2xl border-gray-100 shadow-sm">
+            <CardContent className="pt-6">
                 {clients.length > 0 ? (
                     <Accordion type="single" collapsible className="w-full" onValueChange={(value) => value && fetchPlanForClient(value)}>
                         {clients.map(client => (
@@ -406,5 +408,6 @@ export default function AdminClientsPage() {
                 )}
             </CardContent>
         </Card>
+        </motion.div>
     );
 }
