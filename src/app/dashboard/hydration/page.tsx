@@ -122,11 +122,32 @@ const SmartWaterTracker = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Generate schedule after mount
+  // Generate schedule after mount, loading saved progress for today
   useEffect(() => {
     if (mounted) {
+      const today = new Date().toISOString().split('T')[0];
+      const savedKey = `hydrationSchedule_${today}`;
+      
+      try {
+        const savedSchedule = localStorage.getItem(savedKey);
+        if (savedSchedule) {
+          setScheduleItems(JSON.parse(savedSchedule));
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to load hydration schedule:', e);
+      }
+      
+      // No saved schedule for today, generate a new one
       const schedule = generateSimpleSchedule();
       setScheduleItems(schedule);
+      
+      // Save the generated schedule
+      try {
+        localStorage.setItem(savedKey, JSON.stringify(schedule));
+      } catch (e) {
+        console.error('Failed to save hydration schedule:', e);
+      }
     }
   }, [mounted, generateSimpleSchedule]);
 
@@ -171,11 +192,16 @@ const SmartWaterTracker = () => {
     const item = scheduleItems.find(i => i.id === id);
     const wasNotCompleted = item && !item.completed;
     
-    setScheduleItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, completed: !item.completed, skipped: false } : item
-      )
+    const updatedItems = scheduleItems.map(item =>
+      item.id === id ? { ...item, completed: !item.completed, skipped: false } : item
     );
+    setScheduleItems(updatedItems);
+    
+    // Persist to localStorage
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`hydrationSchedule_${today}`, JSON.stringify(updatedItems));
+    } catch (e) { /* silent */ }
 
     if (wasNotCompleted) {
       SoundEngine.waterLog();
@@ -184,8 +210,7 @@ const SmartWaterTracker = () => {
 
       // Check if all slots are now completed (100% hydration)
       setTimeout(async () => {
-        const allDone = scheduleItems.every(i => i.id === id ? true : i.completed || i.skipped);
-        const allCompleted = scheduleItems.filter(i => i.id === id ? true : i.completed).length === scheduleItems.length;
+        const allCompleted = updatedItems.every(i => i.completed);
         if (allCompleted) {
           const bonusEvent = await completeHydrationGoal();
           if (bonusEvent) setXpEvent(bonusEvent);
@@ -232,6 +257,12 @@ const SmartWaterTracker = () => {
           originalItem.reason = `Adjusted (+${extraPerSlot + (index < remainder ? 1 : 0)}ml from skipped ${skippedItem.time})`;
         }
       });
+      
+      // Persist to localStorage
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        localStorage.setItem(`hydrationSchedule_${today}`, JSON.stringify(updatedItems));
+      } catch (e) { /* silent */ }
       
       return updatedItems;
     });

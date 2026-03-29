@@ -31,7 +31,7 @@ async function searchKnowledgeBase(knowledgeBaseId: 'kashmir' | 'general', quest
   const fileName = knowledgeBaseId === 'kashmir' ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
   try {
     const knowledgeBase = await fs.readFile(
-      path.join(process.cwd(), 'src', 'ai', 'knowledge-base-kashmir.txt'),
+      path.join(process.cwd(), 'src', 'ai', fileName),
       'utf-8'
     );
     const paragraphs = knowledgeBase.split('\n\n');

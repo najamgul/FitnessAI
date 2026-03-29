@@ -62,6 +62,27 @@ export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema
 async function getKnowledgeContext(knowledgeBaseId?: 'kashmir' | 'general'): Promise<string> {
   if (!knowledgeBaseId) return 'No specific knowledge base provided.';
   
+  // First, try Firestore (admin-managed knowledge base)
+  try {
+    const { initializeApp, getApps } = await import('firebase-admin/app');
+    const { getFirestore } = await import('firebase-admin/firestore');
+    
+    const app = getApps().length > 0 ? getApps()[0] : initializeApp({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
+    
+    const adminDb = getFirestore(app);
+    const firestoreDocId = knowledgeBaseId === 'kashmir' ? 'kashmir' : 'non-kashmir';
+    const kbDoc = await adminDb.collection('knowledge-base').doc(firestoreDocId).get();
+    
+    if (kbDoc.exists && kbDoc.data()?.content) {
+      return kbDoc.data()!.content;
+    }
+  } catch (firestoreError) {
+    console.warn('Could not read knowledge base from Firestore, falling back to local files:', firestoreError);
+  }
+  
+  // Fallback: try local files
   const fileName = knowledgeBaseId === 'kashmir' ? 'knowledge-base-kashmir.txt' : 'knowledge-base-non-kashmir.txt';
   try {
     const knowledgeBase = await fs.readFile(
@@ -226,8 +247,9 @@ function ensureCompleteDayStructure(
 
 export async function generateDietPlan(input: GenerateDietPlanInput): Promise<GenerateDietPlanOutput> {
   try {
-    // Force plan duration to exactly 3 days
-    const modifiedInput = { ...input, planDuration: 3 };
+    // Cap AI generation at 7 days for quality. Admin can duplicate days for longer plans.
+    const aiDays = Math.min(input.planDuration, 7);
+    const modifiedInput = { ...input, planDuration: aiDays };
     const knowledgeContext = await getKnowledgeContext(modifiedInput.knowledgeBaseId);
     return await generateDietPlanFlow({...modifiedInput, knowledgeContext});
   } catch (error) {
@@ -238,10 +260,10 @@ export async function generateDietPlan(input: GenerateDietPlanInput): Promise<Ge
 
 const defaultPromptTemplate = `You are Azai, a master nutritionist specializing in creating personalized diet plans, with deep knowledge of local cuisines depending on the context.
 
-Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for exactly 3 days. This plan MUST take into account the user's medical history for safety and effectiveness.
+Based on the user's detailed information and the provided knowledge base, generate a personalized diet plan for exactly {{{planDuration}}} days. This plan MUST take into account the user's medical history for safety and effectiveness.
 
 CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
-1. Generate exactly 3 complete days - NO MORE, NO LESS.
+1. Generate exactly {{{planDuration}}} complete days - NO MORE, NO LESS.
 2. Each day MUST have ALL 7 meal slots: "Breakfast", "Morning Snack", "Lunch", "Afternoon Snack", "Dinner", "Evening Snack", "Before Bed"
 3. Every meal must have all required fields: meal, time, quantity, hint, calories, description.
 4. The 'time' field MUST be a string in AM/PM format, e.g., "8:00 AM".
@@ -259,7 +281,7 @@ QUANTITY EXAMPLES (follow this format exactly):
 - "150g grilled salmon fillet, 100g quinoa, 80g steamed asparagus, 1 tbsp lemon juice, 1 tsp olive oil"
 - "200g plain Greek yogurt, 30g blueberries, 20g chopped walnuts, 1 tsp maple syrup"
 
-Your response must be complete and valid JSON. Generate ALL 3 days completely with detailed quantities for every meal.
+Your response must be complete and valid JSON. Generate ALL {{{planDuration}}} days completely with detailed quantities for every meal.
 
 User Details:
 - Health Information: {{{healthInformation}}}
@@ -337,7 +359,8 @@ const generateDietPlanFlow = ai.defineFlow(
   },
   async input => {
     try {
-      console.log(`Generating diet plan for exactly 3 days with detailed quantities...`);
+      const targetDays = input.planDuration;
+      console.log(`Generating diet plan for ${targetDays} days with detailed quantities...`);
       
       // Step 1: Generate the base diet plan without images
       let basePlan: any;
@@ -352,10 +375,10 @@ const generateDietPlanFlow = ai.defineFlow(
         basePlan = { dietPlan: [] };
       }
       
-      // Step 2: Ensure complete structure for exactly 3 days BEFORE validation
-      const completePlan = ensureCompleteDayStructure(basePlan, 3);
+      // Step 2: Ensure complete structure for the target days BEFORE validation
+      const completePlan = ensureCompleteDayStructure(basePlan, targetDays);
       
-      console.log(`Plan structure completed. Days: ${completePlan.dietPlan.length} (fixed to 3 days)`);
+      console.log(`Plan structure completed. Days: ${completePlan.dietPlan.length} (target: ${targetDays} days)`);
       
       // Step 3: Log quantity information for debugging
       completePlan.dietPlan.forEach((day, dayIndex) => {
@@ -375,9 +398,9 @@ const generateDietPlanFlow = ai.defineFlow(
         console.log('Schema validation passed');
       } catch (validationError) {
         console.error('Schema validation failed after completion:', validationError);
-        // If validation still fails, recreate with placeholders for exactly 3 days
-        const fallbackPlan = ensureCompleteDayStructure({ dietPlan: [] }, 3);
-        console.log('Using fallback plan structure for 3 days');
+        // If validation still fails, recreate with placeholders
+        const fallbackPlan = ensureCompleteDayStructure({ dietPlan: [] }, targetDays);
+        console.log(`Using fallback plan structure for ${targetDays} days`);
         return fallbackPlan;
       }
       
@@ -422,9 +445,9 @@ const generateDietPlanFlow = ai.defineFlow(
     } catch (error) {
       console.error('Error in generateDietPlanFlow:', error);
       
-      // Return a complete fallback plan for exactly 3 days rather than throwing
-      const fallbackPlan = ensureCompleteDayStructure({ dietPlan: [] }, 3);
-      console.log('Returning fallback plan for 3 days due to error');
+      // Return a complete fallback plan rather than throwing
+      const fallbackPlan = ensureCompleteDayStructure({ dietPlan: [] }, input.planDuration);
+      console.log(`Returning fallback plan for ${input.planDuration} days due to error`);
       return fallbackPlan;
     }
   }

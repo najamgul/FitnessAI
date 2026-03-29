@@ -106,8 +106,9 @@ export default function PaymentPage() {
                 paymentStatus: 'pending'
             });
 
-            // Remove onboarding data from localStorage after successful submission
-            localStorage.removeItem('onboardingData'); 
+            // Note: We no longer remove onboardingData from localStorage here
+            // because the Dashboard and Chat pages depend on it for user context.
+            // The data is also persisted in Firestore under users/{uid}/onboarding/profile.
 
             toast({
                 title: 'Screenshot Submitted!',

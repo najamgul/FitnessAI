@@ -49,22 +49,49 @@ const DashboardPage = () => {
     const [xpEvent, setXpEvent] = useState<{ amount: number; source: string; multiplied: boolean } | null>(null);
 
     useEffect(() => {
-        try {
-            const onboardingDataString = localStorage.getItem('onboardingData');
-            if (onboardingDataString) {
-                const onboardingData = JSON.parse(onboardingDataString);
-                if (onboardingData?.name) setUserName(onboardingData.name.split(' ')[0] || 'User');
-            } else {
-                const loggedInEmail = localStorage.getItem('loggedInEmail');
-                if (loggedInEmail) setUserName(loggedInEmail.split('@')[0]);
+        const loadUserData = async () => {
+            try {
+                const onboardingDataString = localStorage.getItem('onboardingData');
+                if (onboardingDataString) {
+                    const onboardingData = JSON.parse(onboardingDataString);
+                    if (onboardingData?.name) setUserName(onboardingData.name.split(' ')[0] || 'User');
+                } else {
+                    // Fallback: try to load from Firestore
+                    const { onAuthStateChanged } = await import('firebase/auth');
+                    const { doc, getDoc } = await import('firebase/firestore');
+                    const { auth, db } = await import('@/lib/firebase');
+                    
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            try {
+                                const userDocRef = doc(db, 'users', user.uid);
+                                const userDoc = await getDoc(userDocRef);
+                                if (userDoc.exists()) {
+                                    const userData = userDoc.data();
+                                    setUserName(userData.name?.split(' ')[0] || user.email?.split('@')[0] || 'User');
+                                }
+                                
+                                // Also try to restore onboarding data from Firestore
+                                const onboardingDocRef = doc(db, 'users', user.uid, 'onboarding', 'profile');
+                                const onboardingDoc = await getDoc(onboardingDocRef);
+                                if (onboardingDoc.exists()) {
+                                    localStorage.setItem('onboardingData', JSON.stringify(onboardingDoc.data()));
+                                }
+                            } catch (err) {
+                                console.error('Failed to load from Firestore:', err);
+                            }
+                        }
+                    });
+                }
+                const historyString = localStorage.getItem('progressHistory');
+                if (historyString) setProgressHistory(JSON.parse(historyString));
+            } catch (error) {
+                console.error("Failed to load data", error);
+            } finally {
+                setIsLoading(false);
             }
-            const historyString = localStorage.getItem('progressHistory');
-            if (historyString) setProgressHistory(JSON.parse(historyString));
-        } catch (error) {
-            console.error("Failed to load data", error);
-        } finally {
-            setIsLoading(false);
-        }
+        };
+        loadUserData();
     }, []);
 
     useEffect(() => {

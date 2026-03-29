@@ -2,38 +2,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── Helper Functions ───
+    function isAuthenticated() {
+      return request.auth != null;
+    }
     
-    // TEMPORARY DEBUG RULES - DO NOT USE IN PRODUCTION
-    // This will help identify which specific query is failing
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
     
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ─── User Documents ───
     match /users/{userId} {
-      // Allow all authenticated users to read/write for debugging
-      allow read, write, list: if request.auth != null;
-      
-      // Allow all operations for subcollections temporarily
+      // Users can read their own document; admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      // Users can create their own document during signup
+      allow create: if isOwner(userId);
+      // Users can update their own document; admins can update any
+      allow update: if isOwner(userId) || isAdmin();
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+
+      // Subcollections (onboarding, dietPlan, etc.)
       match /{subcollection}/{docId} {
-        allow read, write, list: if request.auth != null;
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
       }
     }
-    
+
+    // ─── Team Members (admin-only) ───
     match /team/{memberId} {
-      // Allow all authenticated users temporarily
-      allow read, write, list: if request.auth != null;
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    
+
+    // ─── Plan Reviews (admin-only write, user can read their own) ───
     match /reviews/{reviewId} {
-      // Allow all authenticated users temporarily
-      allow read, write, list: if request.auth != null;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
-    
+
+    // ─── Payments ───
     match /payments/{paymentId} {
-      // Allow all authenticated users temporarily
-      allow read, write, list: if request.auth != null;
+      // Users can create/read their own payment; admins can do everything
+      allow read: if isAuthenticated() && (request.auth.uid == paymentId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == paymentId;
+      allow update, delete: if isAdmin();
     }
-    
-    // Catch-all rule for debugging - remove after identifying the issue
-    match /{document=**} {
-      allow read, write, list: if request.auth != null;
+
+    // ─── Knowledge Base (admin-only write, server reads) ───
+    match /knowledge-base/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 }

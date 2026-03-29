@@ -26,6 +26,7 @@ import { XPReward } from '@/components/xp-reward';
 import { SoundEngine } from '@/components/sound-engine';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { addDays, differenceInDays, format, startOfWeek } from 'date-fns';
+import { parseTime, cleanupOldLocalStorageEntries } from '@/lib/utils/helpers';
 
 type Meal = GenerateDietPlanOutput['dietPlan'][0]['meals']['Breakfast'] & {
     mealTime: string;
@@ -68,24 +69,10 @@ const SmartDietPlanner = () => {
         return () => unsubscribeAuth();
     }, [router]);
     
-    const parseTime = (timeStr: string): Date => {
-        // Use a fixed date to avoid hydration errors, only the time matters for sorting.
-        const referenceDate = new Date(0);
-        if (typeof timeStr !== 'string' || !timeStr.includes(' ')) {
-            return referenceDate; // Return a default time if format is invalid
-        }
-        const [time, modifier] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-    
-        if (hours === 12) {
-            hours = modifier?.toUpperCase() === 'AM' ? 0 : 12;
-        } else if (modifier?.toUpperCase() === 'PM') {
-            hours += 12;
-        }
-    
-        referenceDate.setHours(hours || 0, minutes || 0, 0, 0);
-        return referenceDate;
-    };
+    // Clean up old meal progress entries on mount
+    useEffect(() => {
+        cleanupOldLocalStorageEntries('mealProgress_', 7);
+    }, []);
 
     useEffect(() => {
         if (!user) return;

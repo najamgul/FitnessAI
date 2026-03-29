@@ -47,24 +47,8 @@ type DietPlanDay = {
     meals: { [key: string]: Meal };
 };
 
-const parseTime = (timeStr: string): Date => {
-    // Use a fixed date to avoid hydration errors, only the time matters for sorting.
-    const referenceDate = new Date(0); 
-    if (typeof timeStr !== 'string' || !timeStr.includes(' ')) {
-        return referenceDate; // Return a default time if format is invalid
-    }
-    const [time, modifier] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
+import { parseTime } from '@/lib/utils/helpers';
 
-    if (hours === 12) {
-        hours = modifier?.toUpperCase() === 'AM' ? 0 : 12;
-    } else if (modifier?.toUpperCase() === 'PM') {
-        hours += 12;
-    }
-
-    referenceDate.setHours(hours || 0, minutes || 0, 0, 0);
-    return referenceDate;
-};
 
 
 const constructDefaultPrompt = (onboardingData: any) => {

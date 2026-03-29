@@ -44,35 +44,33 @@ export default function SignupPage() {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            const isAdmin = email.toLowerCase() === 'care@aziaf.com';
 
+            // Always create user with 'user' role — admin is set server-side only
             await setDoc(doc(db, 'users', user.uid), {
                 name, email, phone,
                 createdAt: serverTimestamp(),
-                role: isAdmin ? 'admin' : 'user',
+                role: 'user',
                 paymentStatus: 'unpaid',
                 planStatus: 'not_started',
             });
 
-            if (isAdmin) {
-                try {
-                    const token = await user.getIdToken();
-                    const response = await fetch('/api/set-admin-claim', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ uid: user.uid }),
-                    });
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to set admin claim');
-                    }
-                    await user.getIdToken(true);
+            // Attempt to set admin claim server-side (will only succeed for authorized emails)
+            let isAdmin = false;
+            try {
+                const token = await user.getIdToken();
+                const response = await fetch('/api/set-admin-claim', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid: user.uid }),
+                });
+                if (response.ok) {
+                    isAdmin = true;
+                    await user.getIdToken(true); // Refresh token to pick up new claims
                     await new Promise(resolve => setTimeout(resolve, 1000));
-                    await user.getIdToken(true);
-                } catch (claimError) {
-                    console.error("Failed to set admin claim:", claimError);
-                    toast({ title: 'Admin Setup Incomplete', description: 'Could not set admin privileges.', variant: 'destructive' });
                 }
+            } catch (claimError) {
+                // Not an admin email — this is expected for regular users
+                console.log('Admin claim not set (expected for regular users)');
             }
 
             toast({ title: '🎉 Account Created!', description: isAdmin ? "Setting up admin privileges..." : "Let's personalize your plan!" });
